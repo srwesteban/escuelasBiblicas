@@ -1,0 +1,128 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Desmatricular Estudiante{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Desmatricular Estudiante</h1>
+                    <p class="mt-2 text-gray-600">Confirma la desmatriculación de este estudiante</p>
+                </div>
+                <a href="{% url 'hechos:matriculas_list' %}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Volver a Matrículas
+                </a>
+            </div>
+        </div>
+
+        <!-- Warning Card -->
+        <div class="bg-orange-50 border border-orange-200 rounded-lg p-6 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-orange-400 text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-orange-800">Advertencia</h3>
+                    <div class="mt-2 text-sm text-orange-700">
+                        <p>Esta acción desmatriculará al estudiante del curso. El estudiante perderá acceso a las clases y evaluaciones de este curso.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Matricula Information -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Información de la Matrícula</h3>
+            </div>
+            
+            <div class="px-6 py-4">
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Estudiante</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ matricula.estudiante.user.get_full_name }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Código Estudiante</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ matricula.estudiante.codigo_estudiante }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Curso</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ matricula.curso.nombre }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Ruta de Estudio</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ matricula.curso.ruta_estudio.nombre|default:"Sin ruta asignada" }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Profesor</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ matricula.curso.profesor.user.get_full_name|default:"Sin profesor asignado" }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Fecha de Matrícula</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ matricula.fecha_matricula|date:"d/m/Y" }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Estado</dt>
+                        <dd class="mt-1">
+                            {% if matricula.is_active %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    Activa
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    <i class="fas fa-times-circle mr-1"></i>
+                                    Inactiva
+                                </span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Confirmation Form -->
+        <div class="bg-white shadow rounded-lg mt-6">
+            <div class="px-6 py-4">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="confirm_desmatricular" name="confirm_desmatricular" required
+                                   class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
+                            <label for="confirm_desmatricular" class="ml-2 text-sm text-gray-700">
+                                Confirmo que quiero desmatricular a este estudiante
+                            </label>
+                        </div>
+                        
+                        <div class="flex space-x-3">
+                            <a href="{% url 'hechos:matriculas_list' %}" 
+                               class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                Cancelar
+                            </a>
+                            <button type="submit" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
+                                <i class="fas fa-user-times mr-2"></i>
+                                Desmatricular Estudiante
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

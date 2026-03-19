@@ -1,0 +1,123 @@
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+
+class User(AbstractUser):
+    """
+    Modelo de usuario extendido para HechosHub
+    """
+    ROLES = [
+        ('super_admin', 'Super Admin'),
+        ('app_admin', 'Admin de Aplicación'),
+        ('user', 'Usuario'),
+    ]
+    
+    email = models.EmailField(_('email address'), unique=True)
+    role = models.CharField(
+        max_length=20,
+        choices=ROLES,
+        default='user',
+        help_text='Rol global del usuario en el sistema'
+    )
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    is_verified = models.BooleanField(default=False)
+    sede = models.ForeignKey('Sede', on_delete=models.SET_NULL, null=True, blank=True, related_name='usuarios')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
+    
+    class Meta:
+        verbose_name = 'Usuario'
+        verbose_name_plural = 'Usuarios'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.get_full_name()} ({self.email})"
+    
+    def get_full_name(self):
+        return f"{self.first_name} {self.last_name}".strip() or self.username
+    
+    def is_super_admin(self):
+        return self.role == 'super_admin'
+    
+    def is_app_admin(self):
+        return self.role == 'app_admin'
+    
+    def can_manage_app(self, app_name):
+        """Verifica si el usuario puede gestionar una aplicación específica"""
+        if self.is_super_admin():
+            return True
+        if self.is_app_admin():
+            # Aquí se puede implementar lógica específica por aplicación
+            return True
+        return False
+
+
+class AppModule(models.Model):
+    """
+    Modelo para registrar módulos/aplicaciones disponibles en el sistema
+    """
+    name = models.CharField(max_length=100, unique=True)
+    display_name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    url_name = models.CharField(max_length=100, help_text='Nombre de la URL del módulo')
+    icon = models.CharField(max_length=50, default='fas fa-cube')
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'Módulo de Aplicación'
+        verbose_name_plural = 'Módulos de Aplicación'
+        ordering = ['order', 'display_name']
+    
+    def __str__(self):
+        return self.display_name
+
+
+class Sede(models.Model):
+    """
+    Modelo para manejar las diferentes sedes de la iglesia
+    """
+    nombre = models.CharField(max_length=200, unique=True)
+    direccion = models.TextField()
+    telefono = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
+    pastor_responsable = models.CharField(max_length=200, blank=True)
+    descripcion = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Sede'
+        verbose_name_plural = 'Sedes'
+        ordering = ['nombre']
+    
+    def __str__(self):
+        return self.nombre
+
+
+class UserAppPermission(models.Model):
+    """
+    Permisos específicos de usuario por aplicación
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='app_permissions')
+    app_module = models.ForeignKey(AppModule, on_delete=models.CASCADE)
+    can_view = models.BooleanField(default=True)
+    can_edit = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
+    can_manage = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'Permiso de Usuario por App'
+        verbose_name_plural = 'Permisos de Usuario por App'
+        unique_together = ['user', 'app_module']
+    
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.app_module.display_name}"

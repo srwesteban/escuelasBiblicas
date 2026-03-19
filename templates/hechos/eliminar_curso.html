@@ -1,0 +1,134 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Eliminar Curso{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Eliminar Curso</h1>
+                    <p class="mt-2 text-gray-600">Confirma la eliminación de este curso</p>
+                </div>
+                <a href="{% url 'hechos:cursos_list' %}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Volver a Cursos
+                </a>
+            </div>
+        </div>
+
+        <!-- Warning Card -->
+        <div class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-red-400 text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Advertencia</h3>
+                    <div class="mt-2 text-sm text-red-700">
+                        <p>Esta acción desactivará el curso y todas las clases asociadas. Los datos se mantendrán pero no estará disponible para nuevas matrículas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Information -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Información del Curso</h3>
+            </div>
+            
+            <div class="px-6 py-4">
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Nombre</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ curso.nombre }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Ruta de Estudio</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ curso.ruta_estudio.nombre|default:"Sin ruta asignada" }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Profesor</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ curso.profesor.user.get_full_name|default:"Sin profesor asignado" }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Orden en Ruta</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ curso.orden|default:"No especificado" }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Fecha de Inicio</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ curso.fecha_inicio|date:"d/m/Y"|default:"No especificada" }}</dd>
+                    </div>
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Fecha de Fin</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ curso.fecha_fin|date:"d/m/Y"|default:"No especificada" }}</dd>
+                    </div>
+                    
+                    
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Estado</dt>
+                        <dd class="mt-1">
+                            {% if curso.is_active %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    Activo
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    <i class="fas fa-times-circle mr-1"></i>
+                                    Inactivo
+                                </span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    
+                    <div class="sm:col-span-2">
+                        <dt class="text-sm font-medium text-gray-500">Descripción</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ curso.descripcion|default:"Sin descripción" }}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Confirmation Form -->
+        <div class="bg-white shadow rounded-lg mt-6">
+            <div class="px-6 py-4">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="confirm_delete" name="confirm_delete" required
+                                   class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                            <label for="confirm_delete" class="ml-2 text-sm text-gray-700">
+                                Confirmo que quiero desactivar este curso
+                            </label>
+                        </div>
+                        
+                        <div class="flex space-x-3">
+                            <a href="{% url 'hechos:cursos_list' %}" 
+                               class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                Cancelar
+                            </a>
+                            <button type="submit" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                <i class="fas fa-trash mr-2"></i>
+                                Desactivar Curso
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

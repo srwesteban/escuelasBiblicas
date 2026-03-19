@@ -1,0 +1,76 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Editar Ruta de Estudio{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Editar Ruta de Estudio</h1>
+                    <p class="mt-2 text-gray-600">Modifica la información de la ruta de estudio</p>
+                </div>
+                <a href="{% url 'hechos:rutas_estudio_list' %}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Volver a Rutas
+                </a>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <div class="bg-white shadow rounded-lg">
+            <form method="post" class="p-6">
+                {% csrf_token %}
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="md:col-span-2">
+                        <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre de la Ruta</label>
+                        <input type="text" name="nombre" id="nombre" value="{{ ruta.nombre }}" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label for="nivel" class="block text-sm font-medium text-gray-700">Nivel</label>
+                        <select name="nivel" id="nivel" required
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            <option value="basico" {% if ruta.nivel == 'basico' %}selected{% endif %}>Básico</option>
+                            <option value="intermedio" {% if ruta.nivel == 'intermedio' %}selected{% endif %}>Intermedio</option>
+                            <option value="avanzado" {% if ruta.nivel == 'avanzado' %}selected{% endif %}>Avanzado</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="duracion_semanas" class="block text-sm font-medium text-gray-700">Duración (semanas)</label>
+                        <input type="number" name="duracion_semanas" id="duracion_semanas" value="{{ ruta.duracion_semanas }}" min="1" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción</label>
+                        <textarea name="descripcion" id="descripcion" rows="4"
+                                  placeholder="Describe los objetivos y contenido de esta ruta de estudio..."
+                                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">{{ ruta.descripcion }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="mt-8 flex justify-end space-x-3">
+                    <a href="{% url 'hechos:rutas_estudio_list' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Cancelar
+                    </a>
+                    <button type="submit" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-save mr-2"></i>
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Editar Curso{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Editar Curso</h1>
+                    <p class="mt-2 text-gray-600">Modifica la información del curso</p>
+                </div>
+                <a href="{% url 'hechos:cursos_list' %}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Volver a Cursos
+                </a>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <div class="bg-white shadow rounded-lg">
+            <form method="post" class="p-6">
+                {% csrf_token %}
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="md:col-span-2">
+                        <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre del Curso</label>
+                        <input type="text" name="nombre" id="nombre" value="{{ curso.nombre }}" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label for="ruta_estudio" class="block text-sm font-medium text-gray-700">Ruta de Estudio</label>
+                        <select name="ruta_estudio" id="ruta_estudio" required
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Selecciona una ruta</option>
+                            {% for ruta in rutas %}
+                            <option value="{{ ruta.id }}" {% if curso.ruta_estudio.id == ruta.id %}selected{% endif %}>
+                                {{ ruta.nombre }} ({{ ruta.get_nivel_display }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="profesor" class="block text-sm font-medium text-gray-700">Profesor</label>
+                        <select name="profesor" id="profesor" required
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Selecciona un profesor</option>
+                            {% for profesor in profesores %}
+                            <option value="{{ profesor.id }}" {% if curso.profesor.id == profesor.id %}selected{% endif %}>
+                                {{ profesor.user.get_full_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="orden" class="block text-sm font-medium text-gray-700">Orden en la Ruta</label>
+                        <input type="number" name="orden" id="orden" value="{{ curso.orden|default:1 }}" min="1" required
+                               placeholder="Ej: 1, 2, 3..."
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        <p class="mt-1 text-sm text-gray-500">Número de secuencia en la ruta de estudio</p>
+                    </div>
+
+
+                    <div>
+                        <label for="fecha_inicio" class="block text-sm font-medium text-gray-700">Fecha de Inicio</label>
+                        <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ curso.fecha_inicio|date:'Y-m-d' }}" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label for="fecha_fin" class="block text-sm font-medium text-gray-700">Fecha de Fin</label>
+                        <input type="date" name="fecha_fin" id="fecha_fin" value="{{ curso.fecha_fin|date:'Y-m-d' }}" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción</label>
+                        <textarea name="descripcion" id="descripcion" rows="3"
+                                  placeholder="Describe el contenido y objetivos del curso..."
+                                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">{{ curso.descripcion }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="mt-8 flex justify-end space-x-3">
+                    <a href="{% url 'hechos:cursos_list' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Cancelar
+                    </a>
+                    <button type="submit" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-save mr-2"></i>
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Crear Estudiante - HechosHub{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Crear Estudiante</h1>
+                    <p class="mt-2 text-gray-600">Registrar un nuevo estudiante en la sede</p>
+                </div>
+                <a href="{% url 'hechos:estudiantes_list' %}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Volver a Estudiantes
+                </a>
+            </div>
+            
+            {% if user_sede %}
+            <div class="mt-4">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    <i class="fas fa-building mr-2"></i>{{ user_sede.nombre }}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Form -->
+        <div class="bg-white shadow rounded-lg">
+            <form method="post" class="p-6 space-y-6">
+                {% csrf_token %}
+                
+                <!-- Información Personal -->
+                <div class="border-b border-gray-200 pb-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Información Personal</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="first_name" class="block text-sm font-medium text-gray-700">Nombre</label>
+                            <input type="text" name="first_name" id="first_name" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="last_name" class="block text-sm font-medium text-gray-700">Apellidos</label>
+                            <input type="text" name="last_name" id="last_name" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                            <input type="email" name="email" id="email" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="username" class="block text-sm font-medium text-gray-700">Usuario</label>
+                            <input type="text" name="username" id="username" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                            <input type="password" name="password" id="password" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="telefono_emergencia" class="block text-sm font-medium text-gray-700">Teléfono de Emergencia</label>
+                            <input type="tel" name="telefono_emergencia" id="telefono_emergencia"
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="contacto_emergencia" class="block text-sm font-medium text-gray-700">Contacto de Emergencia</label>
+                            <input type="text" name="contacto_emergencia" id="contacto_emergencia"
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información Adicional -->
+                <div class="border-b border-gray-200 pb-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Información Adicional</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="fecha_nacimiento" class="block text-sm font-medium text-gray-700">Fecha de Nacimiento</label>
+                            <input type="date" name="fecha_nacimiento" id="fecha_nacimiento"
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="direccion" class="block text-sm font-medium text-gray-700">Dirección</label>
+                            <textarea name="direccion" id="direccion" rows="3"
+                                      class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        </div>
+                        <div>
+                            <label for="iglesia" class="block text-sm font-medium text-gray-700">Iglesia</label>
+                            <input type="text" name="iglesia" id="iglesia"
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="notas_medicas" class="block text-sm font-medium text-gray-700">Notas Médicas</label>
+                            <textarea name="notas_medicas" id="notas_medicas" rows="3"
+                                      class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                      placeholder="Información médica relevante del estudiante..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="flex justify-end space-x-3">
+                    <a href="{% url 'hechos:estudiantes_list' %}" 
+                       class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                        Cancelar
+                    </a>
+                    <button type="submit" 
+                            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-user-plus mr-2"></i>
+                        Crear Estudiante
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

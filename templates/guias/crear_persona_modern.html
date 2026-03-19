@@ -1,0 +1,221 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Nueva Persona - Guias{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Registrar Nueva Persona</h1>
+            <p class="text-gray-600 mt-1">Registrar una nueva persona en el sistema</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'guias:personas_list' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                <i class="fas fa-arrow-left mr-2"></i>Volver
+            </a>
+        </div>
+    </div>
+
+    <form method="post" class="card p-6">
+        {% csrf_token %}
+        
+        <!-- Información Personal -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-user text-blue-600"></i>
+                </div>
+                Información Personal
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Nombre <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="nombre" required 
+                           class="input w-full" placeholder="Nombre de la persona">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Apellido <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="apellido" required 
+                           class="input w-full" placeholder="Apellido de la persona">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" name="email" 
+                           class="input w-full" placeholder="correo@ejemplo.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
+                    <input type="tel" name="telefono" 
+                           class="input w-full" placeholder="+1 234 567 8900">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de Nacimiento</label>
+                    <input type="date" name="fecha_nacimiento" class="input w-full">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Género</label>
+                    <select name="genero" class="input w-full">
+                        <option value="">Seleccionar...</option>
+                        {% for value, label in generos %}
+                            <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+                    <select name="estado" class="input w-full">
+                        {% for value, label in estados %}
+                            <option value="{{ value }}" {% if value == 'nuevo' %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Información de Contacto -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-map-marker-alt text-green-600"></i>
+                </div>
+                Información de Contacto
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
+                    <textarea name="direccion" rows="2" class="input w-full" 
+                              placeholder="Dirección completa"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ciudad</label>
+                    <input type="text" name="ciudad" class="input w-full" placeholder="Ciudad">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Código Postal</label>
+                    <input type="text" name="codigo_postal" class="input w-full" placeholder="12345">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Información de la Iglesia -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-church text-purple-600"></i>
+                </div>
+                Información de la Iglesia
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Sede</label>
+                    <select name="sede" class="input w-full">
+                        <option value="">Seleccionar sede...</option>
+                        {% for sede in sedes %}
+                            <option value="{{ sede.id }}">{{ sede.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de Primera Visita</label>
+                    <input type="date" name="fecha_primera_visita" class="input w-full">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">¿Cómo conoció la iglesia?</label>
+                    <input type="text" name="como_conocio" class="input w-full" 
+                           placeholder="Redes sociales, amigo, publicidad...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Referido por</label>
+                    <input type="text" name="referido_por" class="input w-full" 
+                           placeholder="Nombre de la persona que lo refirió">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Información Adicional -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-info-circle text-orange-600"></i>
+                </div>
+                Información Adicional
+            </h2>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Intereses Espirituales</label>
+                    <textarea name="intereses" rows="3" class="input w-full" 
+                              placeholder="¿Qué le interesa de la iglesia? ¿Qué ministerios le llaman la atención?"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Necesidades Especiales</label>
+                    <textarea name="necesidades_especiales" rows="2" class="input w-full" 
+                              placeholder="Alergias, discapacidades, necesidades especiales..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Notas Adicionales</label>
+                    <textarea name="notas" rows="3" class="input w-full" 
+                              placeholder="Cualquier información adicional que considere importante..."></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Responsable de Seguimiento -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-user-tie text-indigo-600"></i>
+                </div>
+                Responsable de Seguimiento
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Persona Responsable</label>
+                    <select name="responsable_seguimiento" class="input w-full">
+                        <option value="">Seleccionar responsable...</option>
+                        {% for usuario in usuarios %}
+                            <option value="{{ usuario.id }}">{{ usuario.get_full_name }} ({{ usuario.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botones -->
+        <div class="flex justify-end space-x-4">
+            <a href="{% url 'guias:personas_list' %}" class="btn-outline px-6 py-2">
+                <i class="fas fa-times mr-2"></i>Cancelar
+            </a>
+            <button type="submit" class="btn-primary px-6 py-2">
+                <i class="fas fa-save mr-2"></i>Registrar Persona
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Validación del formulario
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const nombre = document.querySelector('input[name="nombre"]').value.trim();
+        const apellido = document.querySelector('input[name="apellido"]').value.trim();
+        
+        if (!nombre || !apellido) {
+            e.preventDefault();
+            alert('Los campos Nombre y Apellido son obligatorios.');
+            return false;
+        }
+    });
+    
+    // Auto-completar fecha de primera visita con fecha actual
+    document.querySelector('input[name="fecha_primera_visita"]').value = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}

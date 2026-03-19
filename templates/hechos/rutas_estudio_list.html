@@ -1,0 +1,211 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Rutas de Estudio - Hechos{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Rutas de Estudio</h1>
+            <p class="text-gray-600 mt-1">Gestión de rutas de estudio del sistema</p>
+            {% if user_sede %}
+                <div class="mt-2">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        <i class="fas fa-building mr-2"></i>{{ user_sede.nombre }}
+                    </span>
+                </div>
+            {% endif %}
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                <i class="fas fa-arrow-left mr-2"></i>Volver
+            </a>
+            <a href="{% url 'hechos:crear_ruta_estudio' %}" class="btn-primary px-4 py-2 text-sm font-medium">
+                <i class="fas fa-plus mr-2"></i>Nueva Ruta
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-route text-blue-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Total Rutas</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ rutas_con_cursos|length }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-book text-green-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Total Cursos</p>
+                    <p class="text-2xl font-semibold text-gray-900">
+                        {% for ruta_data in rutas_con_cursos %}{{ ruta_data.total_cursos }}{% if not forloop.last %}+{% endif %}{% endfor %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-graduation-cap text-purple-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Niveles</p>
+                    <p class="text-2xl font-semibold text-gray-900">3</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-clock text-orange-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Duración Promedio</p>
+                    <p class="text-2xl font-semibold text-gray-900">
+                        {% if rutas_con_cursos %}
+                            {% widthratio rutas_con_cursos.0.duracion_total rutas_con_cursos.0.total_cursos 1 %} sem
+                        {% else %}
+                            0 sem
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rutas List -->
+    <div class="space-y-6">
+        {% if rutas_con_cursos %}
+            {% for ruta_data in rutas_con_cursos %}
+            <div class="card">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex-shrink-0">
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-route text-blue-600 text-xl"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-900">{{ ruta_data.ruta.nombre }}</h3>
+                                <p class="text-sm text-gray-500 mt-1">{{ ruta_data.ruta.descripcion|truncatechars:150 }}</p>
+                                <div class="mt-2 flex items-center space-x-4">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                                        <i class="fas fa-layer-group mr-1"></i>{{ ruta_data.ruta.get_nivel_display }}
+                                    </span>
+                                    <span class="text-sm text-gray-500">
+                                        <i class="fas fa-clock mr-1"></i>{{ ruta_data.ruta.duracion_semanas }} semanas
+                                    </span>
+                                    <span class="text-sm text-gray-500">
+                                        <i class="fas fa-book mr-1"></i>{{ ruta_data.total_cursos }} cursos
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i>Activa
+                                </span>
+                                <div class="flex items-center space-x-1">
+                                    <a href="{% url 'hechos:ruta_estudio_detail' ruta_data.ruta.id %}" 
+                                       class="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Ver Detalle">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'hechos:editar_ruta_estudio' ruta_data.ruta.id %}" 
+                                       class="p-2 text-gray-400 hover:text-green-600 transition-colors" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'hechos:eliminar_ruta_estudio' ruta_data.ruta.id %}" 
+                                       class="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </div>
+                    </div>
+                </div>
+                
+                <!-- Cursos de la Ruta -->
+                <div class="px-6 py-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-lg font-medium text-gray-900">Cursos de la Ruta</h4>
+                        <a href="{% url 'hechos:ruta_estudio_detail' ruta_data.ruta.id %}" 
+                           class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                            <i class="fas fa-eye mr-1"></i>Ver Detalle Completo
+                        </a>
+                    </div>
+                    {% if ruta_data.cursos %}
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {% for curso in ruta_data.cursos %}
+                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-2 mb-2">
+                                            <span class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">
+                                                {{ curso.orden }}
+                                            </span>
+                                            <h5 class="font-medium text-gray-900">{{ curso.nombre }}</h5>
+                                        </div>
+                                        <p class="text-sm text-gray-500 mb-2">{{ curso.descripcion|truncatechars:80 }}</p>
+                                        <div class="flex items-center space-x-3 text-xs text-gray-500">
+                                            <span>
+                                                <i class="fas fa-clock mr-1"></i>{{ curso.duracion_semanas }} sem
+                                            </span>
+                                            <span>
+                                                <i class="fas fa-users mr-1"></i>{{ curso.total_estudiantes_inscritos }} estudiantes
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-8">
+                            <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i class="fas fa-book text-gray-400"></i>
+                            </div>
+                            <p class="text-gray-500 text-sm">Esta ruta no tiene cursos asignados</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="card">
+                <div class="text-center py-12">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-route text-gray-400 text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No hay rutas de estudio</h3>
+                    <p class="text-gray-500 mb-6">Comienza creando tu primera ruta de estudio.</p>
+                    <a href="{% url 'hechos:crear_ruta_estudio' %}" class="btn-primary px-4 py-2 text-sm font-medium">
+                        <i class="fas fa-plus mr-2"></i>Crear Primera Ruta
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

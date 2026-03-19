@@ -1,0 +1,203 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Clases - Hechos{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Clases</h1>
+            <p class="text-gray-600 mt-1">Gestión de clases del sistema</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                <i class="fas fa-arrow-left mr-2"></i>Volver
+            </a>
+            {% if user.profesor_profile or user.is_super_admin or user.admin_escuela_profile %}
+                <a href="{% url 'admin:hechos_clase_add' %}" class="btn-primary px-4 py-2 text-sm font-medium">
+                    <i class="fas fa-plus mr-2"></i>Nueva Clase
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-calendar text-blue-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Clases</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ clases|length }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-check-circle text-green-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Completadas</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ clases_completadas|length }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-clock text-orange-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">En Progreso</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ clases_en_progreso|length }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-users text-purple-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Asistencia</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ promedio_asistencia|default:"0" }}%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Classes List -->
+    <div class="card">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-900">Lista de Clases</h2>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <input type="text" placeholder="Buscar clases..." class="input w-64 pl-10">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                    </div>
+                    <button class="btn-outline px-3 py-2 text-sm">
+                        <i class="fas fa-filter mr-2"></i>Filtrar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Clase
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Curso
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Profesor
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Fecha
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Estado
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Asistencia
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Acciones
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for clase in clases %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-calendar text-blue-600"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">
+                                        {{ clase.tema }}
+                                    </div>
+                                    <div class="text-sm text-gray-500">Sesión {{ clase.numero_sesion }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ clase.curso.nombre }}</div>
+                            <div class="text-sm text-gray-500">{{ clase.curso.ruta_estudio.nombre }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ clase.profesor.user.get_full_name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ clase.fecha_clase|date:"d/m/Y" }}</div>
+                            <div class="text-sm text-gray-500">{{ clase.hora_inicio|time:"H:i" }} - {{ clase.hora_fin|time:"H:i" }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if clase.estado == 'completada' %}
+                                <span class="badge badge-success">Completada</span>
+                            {% elif clase.estado == 'en_progreso' %}
+                                <span class="badge badge-warning">En Progreso</span>
+                            {% else %}
+                                <span class="badge badge-primary">Programada</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ clase.asistencia_set.count }} estudiantes</div>
+                            <div class="text-sm text-gray-500">{{ clase.porcentaje_asistencia|default:"0" }}% asistencia</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex items-center space-x-2">
+                                <a href="{% url 'hechos:asistencia_clase' clase.id %}" class="text-green-600 hover:text-green-900">
+                                    <i class="fas fa-clipboard-check"></i>
+                                </a>
+                                <a href="{% url 'admin:hechos_clase_change' clase.id %}" class="text-blue-600 hover:text-blue-900">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% if user.is_super_admin or user.admin_escuela_profile %}
+                                    <a href="{% url 'admin:hechos_clase_delete' clase.id %}" class="text-red-600 hover:text-red-900">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-12 text-center">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-calendar text-gray-400 text-2xl"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">No hay clases</h3>
+                            <p class="text-gray-600">No se encontraron clases en el sistema.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

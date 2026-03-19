@@ -1,0 +1,174 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Tomar Asistencia - {{ curso.nombre }} - Hechos{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Tomar Asistencia</h1>
+            <p class="text-gray-600 mt-1">{{ curso.nombre }}</p>
+            <p class="text-sm text-gray-500">
+                {{ curso.ruta_estudio.nombre }} - {{ fecha_actual|date:"d/m/Y" }}
+            </p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'hechos:detalle_curso' curso.id %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                <i class="fas fa-arrow-left mr-2"></i>Volver al Curso
+            </a>
+        </div>
+    </div>
+
+    <!-- Información de la fecha -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex items-center">
+            <i class="fas fa-calendar-alt text-blue-600 mr-3"></i>
+            <div>
+                <h3 class="text-lg font-semibold text-blue-900">Asistencia Semanal</h3>
+                <p class="text-blue-700">Fecha: {{ fecha_actual|date:"d/m/Y" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario de Asistencia -->
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        <!-- Lista de Estudiantes -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Estudiantes Matriculados</h3>
+                <p class="text-sm text-gray-600">Selecciona la asistencia para cada estudiante</p>
+            </div>
+            
+            <div class="divide-y divide-gray-200">
+                {% for estudiante_data in estudiantes_con_asistencia %}
+                <div class="px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-indigo-600"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">{{ estudiante_data.estudiante.user.get_full_name }}</h4>
+                            <p class="text-sm text-gray-500">{{ estudiante_data.estudiante.user.email }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <input type="radio" 
+                                   id="presente_{{ estudiante_data.estudiante.id }}" 
+                                   name="estudiante_{{ estudiante_data.estudiante.id }}" 
+                                   value="presente"
+                                   {% if estudiante_data.estado_asistencia == 'presente' %}checked{% endif %}
+                                   class="text-green-600 focus:ring-green-500">
+                            <label for="presente_{{ estudiante_data.estudiante.id }}" class="text-sm font-medium text-green-700">
+                                <i class="fas fa-check-circle mr-1"></i>Presente
+                            </label>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <input type="radio" 
+                                   id="ausente_{{ estudiante_data.estudiante.id }}" 
+                                   name="estudiante_{{ estudiante_data.estudiante.id }}" 
+                                   value="ausente"
+                                   {% if estudiante_data.estado_asistencia == 'ausente' %}checked{% endif %}
+                                   class="text-red-600 focus:ring-red-500">
+                            <label for="ausente_{{ estudiante_data.estudiante.id }}" class="text-sm font-medium text-red-700">
+                                <i class="fas fa-times-circle mr-1"></i>Ausente
+                            </label>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <input type="radio" 
+                                   id="justificado_{{ estudiante_data.estudiante.id }}" 
+                                   name="estudiante_{{ estudiante_data.estudiante.id }}" 
+                                   value="justificado"
+                                   {% if estudiante_data.estado_asistencia == 'justificado' %}checked{% endif %}
+                                   class="text-yellow-600 focus:ring-yellow-500">
+                            <label for="justificado_{{ estudiante_data.estudiante.id }}" class="text-sm font-medium text-yellow-700">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>Justificado
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="px-6 py-8 text-center">
+                    <i class="fas fa-users text-gray-400 text-4xl mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No hay estudiantes matriculados</h3>
+                    <p class="text-gray-500">No se encontraron estudiantes matriculados en este curso.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="flex items-center justify-between">
+            <div class="text-sm text-gray-500">
+                <i class="fas fa-info-circle mr-1"></i>
+                Total de estudiantes: {{ estudiantes_con_asistencia|length }}
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <a href="{% url 'hechos:detalle_curso' curso.id %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                    <i class="fas fa-times mr-2"></i>Cancelar
+                </a>
+                <button type="submit" class="btn-primary px-6 py-2 text-sm font-medium">
+                    <i class="fas fa-save mr-2"></i>Guardar Asistencia
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Historial de Asistencias -->
+    {% if historial_asistencias %}
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Historial de Asistencias</h3>
+            <p class="text-sm text-gray-600">Últimas fechas de asistencia registradas</p>
+        </div>
+        
+        <div class="px-6 py-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for fecha in historial_asistencias %}
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{{ fecha.fecha_clase__date|date:"d/m/Y" }}</p>
+                            <p class="text-xs text-gray-500">{{ fecha.fecha_clase__date|date:"l" }}</p>
+                        </div>
+                        <i class="fas fa-calendar-check text-green-600"></i>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Auto-seleccionar "Presente" por defecto si no hay selección previa
+document.addEventListener('DOMContentLoaded', function() {
+    const estudiantes = document.querySelectorAll('[name^="estudiante_"]');
+    
+    estudiantes.forEach(function(estudiante) {
+        const name = estudiante.name;
+        const radios = document.querySelectorAll(`[name="${name}"]`);
+        const hasSelection = Array.from(radios).some(radio => radio.checked);
+        
+        if (!hasSelection) {
+            // Seleccionar "Presente" por defecto
+            const presenteRadio = document.querySelector(`[name="${name}"][value="presente"]`);
+            if (presenteRadio) {
+                presenteRadio.checked = true;
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

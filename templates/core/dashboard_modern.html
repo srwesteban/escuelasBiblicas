@@ -1,0 +1,191 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Dashboard - HechosHub{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p class="text-gray-600 mt-1">Bienvenido, {{ user.get_full_name|default:user.email }}</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <span class="badge badge-primary">{{ user.get_role_display }}</span>
+            <a href="{% url 'core:profile' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                <i class="fas fa-user mr-2"></i>Ver Perfil
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-users text-blue-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Usuarios</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ total_users|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-graduation-cap text-green-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Módulos Activos</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ available_modules|length }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-chart-line text-purple-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Actividad</p>
+                    <p class="text-2xl font-bold text-gray-900">98%</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-clock text-orange-600"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Última Actividad</p>
+                    <p class="text-2xl font-bold text-gray-900">Ahora</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Available Modules -->
+    <div class="card p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-semibold text-gray-900">Módulos Disponibles</h2>
+            <span class="badge badge-primary">{{ available_modules|length }} módulos</span>
+        </div>
+
+        {% if available_modules %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for module in available_modules %}
+                    <div class="card p-6 hover:shadow-lg transition-shadow duration-200">
+                        <div class="flex items-start space-x-4">
+                            <div class="flex-shrink-0">
+                                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                                    <i class="{{ module.icon|default:'fas fa-cube' }} text-white text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-lg font-semibold text-gray-900">{{ module.display_name }}</h3>
+                                <p class="text-sm text-gray-600 mt-1">{{ module.description }}</p>
+                                <div class="mt-4">
+                                    <a href="{% url module.url_name %}" class="btn-primary px-4 py-2 text-sm font-medium inline-flex items-center">
+                                        <i class="fas fa-arrow-right mr-2"></i>
+                                        Acceder
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-12">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-cube text-gray-400 text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No hay módulos disponibles</h3>
+                <p class="text-gray-600">Contacta al administrador para obtener acceso a los módulos.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Quick Actions -->
+    {% if user.is_super_admin or user.is_app_admin %}
+        <div class="card p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6">Acciones Rápidas</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <a href="{% url 'admin:index' %}" class="btn-outline p-4 text-center hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-cog text-2xl mb-2 text-gray-600"></i>
+                    <div class="font-medium text-gray-900">Administración</div>
+                    <div class="text-sm text-gray-600">Panel de control</div>
+                </a>
+                
+                <a href="{% url 'hechos:dashboard' %}" class="btn-outline p-4 text-center hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-graduation-cap text-2xl mb-2 text-gray-600"></i>
+                    <div class="font-medium text-gray-900">Hechos</div>
+                    <div class="text-sm text-gray-600">Escuelas Bíblicas</div>
+                </a>
+                
+                <a href="{% url 'core:profile' %}" class="btn-outline p-4 text-center hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-user text-2xl mb-2 text-gray-600"></i>
+                    <div class="font-medium text-gray-900">Perfil</div>
+                    <div class="text-sm text-gray-600">Mi información</div>
+                </a>
+                
+                <a href="{% url 'account_logout' %}" class="btn-outline p-4 text-center hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-sign-out-alt text-2xl mb-2 text-gray-600"></i>
+                    <div class="font-medium text-gray-900">Salir</div>
+                    <div class="text-sm text-gray-600">Cerrar sesión</div>
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Recent Activity -->
+    <div class="card p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6">Actividad Reciente</h2>
+        <div class="space-y-4">
+            <div class="flex items-center space-x-4">
+                <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-check text-green-600 text-sm"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-900">Sesión iniciada</p>
+                    <p class="text-sm text-gray-600">Hace unos momentos</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user text-blue-600 text-sm"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-900">Perfil actualizado</p>
+                    <p class="text-sm text-gray-600">Hace 1 hora</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-graduation-cap text-purple-600 text-sm"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-900">Módulo Hechos accedido</p>
+                    <p class="text-sm text-gray-600">Hace 2 horas</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

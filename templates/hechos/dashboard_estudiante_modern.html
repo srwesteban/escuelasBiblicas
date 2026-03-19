@@ -1,0 +1,324 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Mi Dashboard - Hechos{% endblock %}
+
+{% block content %}
+<div class="h-screen flex flex-col">
+    <!-- Header del Estudiante -->
+    <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-4 text-white mb-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold">¡Hola, {{ estudiante.user.get_full_name }}!</h1>
+                <p class="text-blue-100 text-sm">{{ user_sede.nombre }}</p>
+            </div>
+            <div class="text-right">
+                <div class="text-xl font-bold">{{ promedio_general }}</div>
+                <div class="text-blue-200 text-sm">Promedio</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout Principal -->
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Columna Izquierda: Curso Actual -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-3 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Curso Actual</h3>
+            </div>
+            <div class="p-4">
+                {% if curso_actual %}
+                    <div class="space-y-3">
+                        <div>
+                            <h4 class="text-lg font-bold text-gray-900">{{ curso_actual.nombre }}</h4>
+                            <p class="text-sm text-gray-600">{{ curso_actual.ruta_estudio.nombre }}</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-blue-50 p-2 rounded">
+                                <div class="text-xs text-blue-600 font-medium">Duración</div>
+                                <div class="text-sm font-bold text-blue-900">{{ curso_actual.duracion_semanas }} sem</div>
+                            </div>
+                            <div class="bg-green-50 p-2 rounded">
+                                <div class="text-xs text-green-600 font-medium">Estado</div>
+                                <div class="text-sm font-bold text-green-900">Activo</div>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-2">
+                            <a href="{% url 'hechos:detalle_curso' curso_actual.id %}" 
+                               class="inline-flex items-center px-3 py-1.5 border border-transparent rounded text-xs font-medium text-white bg-blue-600 hover:bg-blue-700">
+                                <i class="fas fa-eye mr-1"></i>Ver Detalles
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-book-open text-gray-400 text-2xl mb-2"></i>
+                        <h4 class="text-sm font-medium text-gray-900 mb-1">Sin curso activo</h4>
+                        <p class="text-xs text-gray-500">Contacta al administrador</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Columna Central: Notas Recientes -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-3 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Notas Recientes</h3>
+            </div>
+            <div class="p-4">
+                {% if notas_recientes %}
+                    <div class="space-y-2">
+                        {% for nota in notas_recientes %}
+                            <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-gray-900 truncate">{{ nota.titulo }}</div>
+                                    <div class="text-xs text-gray-500">{{ nota.curso.nombre }}</div>
+                                </div>
+                                <div class="text-right ml-2">
+                                    <div class="text-sm font-bold {% if nota.puntaje_obtenido >= 3.5 %}text-green-600{% elif nota.puntaje_obtenido >= 2.5 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                                        {{ nota.puntaje_obtenido }}/{{ nota.puntaje_maximo }}
+                                    </div>
+                                    <div class="text-xs text-gray-500">{{ nota.fecha_evaluacion|date:"d/m" }}</div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-3">
+                        <a href="{% url 'hechos:notas_estudiante' %}" 
+                           class="inline-flex items-center px-3 py-1.5 border border-transparent rounded text-xs font-medium text-white bg-green-600 hover:bg-green-700">
+                            <i class="fas fa-chart-line mr-1"></i>Ver Todas
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-line text-gray-400 text-2xl mb-2"></i>
+                        <h4 class="text-sm font-medium text-gray-900 mb-1">Sin notas</h4>
+                        <p class="text-xs text-gray-500">Aparecerán cuando sean registradas</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Asistencia Reciente -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-3 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Asistencia Reciente</h3>
+            </div>
+            <div class="p-4">
+                {% if asistencia_reciente %}
+                    <div class="space-y-2">
+                        {% for asistencia in asistencia_reciente %}
+                            <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-gray-900 truncate">{{ asistencia.clase.titulo }}</div>
+                                    <div class="text-xs text-gray-500">{{ asistencia.clase.edicion_curso.curso.nombre }}</div>
+                                </div>
+                                <div class="text-right ml-2">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium 
+                                        {% if asistencia.estado == 'presente' %}bg-green-100 text-green-800
+                                        {% elif asistencia.estado == 'ausente' %}bg-red-100 text-red-800
+                                        {% elif asistencia.estado == 'justificado' %}bg-yellow-100 text-yellow-800
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {% if asistencia.estado == 'presente' %}
+                                            <i class="fas fa-check mr-1"></i>P
+                                        {% elif asistencia.estado == 'ausente' %}
+                                            <i class="fas fa-times mr-1"></i>A
+                                        {% elif asistencia.estado == 'justificado' %}
+                                            <i class="fas fa-exclamation-triangle mr-1"></i>J
+                                        {% else %}
+                                            {{ asistencia.get_estado_display|slice:":1" }}
+                                        {% endif %}
+                                    </span>
+                                    <div class="text-xs text-gray-500 mt-1">{{ asistencia.fecha_registro|date:"d/m" }}</div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-clipboard-check text-gray-400 text-2xl mb-2"></i>
+                        <h4 class="text-sm font-medium text-gray-900 mb-1">Sin asistencia</h4>
+                        <p class="text-xs text-gray-500">Aparecerá cuando sea registrada</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Mi Ruta de Estudio - Sección Inferior -->
+    <div class="mt-4 bg-white shadow rounded-lg">
+        <div class="px-4 py-3 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Mi Ruta de Estudio</h3>
+        </div>
+        <div class="p-4">
+            {% if rutas_con_progreso %}
+                {% for ruta_data in rutas_con_progreso %}
+                    <div class="mb-4 last:mb-0">
+                        <!-- Header de la Ruta -->
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <h4 class="text-lg font-bold text-gray-900">{{ ruta_data.ruta.nombre }}</h4>
+                                <p class="text-sm text-gray-600">{{ ruta_data.ruta.get_nivel_display }} • {{ ruta_data.total_cursos }} cursos</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xl font-bold text-blue-600">{{ ruta_data.progreso_porcentaje }}%</div>
+                                <div class="text-xs text-gray-500">Completado</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Barra de Progreso -->
+                        <div class="mb-3">
+                            <div class="bg-gray-200 rounded-full h-2">
+                                <div class="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300" 
+                                     style="width: {{ ruta_data.progreso_porcentaje }}%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cursos de la Ruta - Grid Compacto -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                            <!-- Cursos Completados -->
+                            {% for curso in ruta_data.cursos_completados %}
+                                <a href="{% url 'hechos:notas_estudiante_ruta' ruta_data.ruta.id %}" class="flex items-center p-2 bg-green-50 border border-green-200 rounded hover:bg-green-100 transition-colors">
+                                    <div class="flex-shrink-0">
+                                        <div class="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-check text-green-600 text-xs"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-2 flex-1 min-w-0">
+                                        <div class="text-sm font-medium text-green-900 truncate">{{ curso.nombre }}</div>
+                                        <div class="text-xs text-green-700">Completado</div>
+                                    </div>
+                                </a>
+                            {% endfor %}
+                            
+                            <!-- Cursos en Progreso -->
+                            {% for curso in ruta_data.cursos_en_progreso %}
+                                <a href="{% url 'hechos:notas_estudiante_ruta' ruta_data.ruta.id %}" class="flex items-center p-2 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors">
+                                    <div class="flex-shrink-0">
+                                        <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-play text-blue-600 text-xs"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-2 flex-1 min-w-0">
+                                        <div class="text-sm font-medium text-blue-900 truncate">{{ curso.nombre }}</div>
+                                        <div class="text-xs text-blue-700">En progreso</div>
+                                    </div>
+                                </a>
+                            {% endfor %}
+                            
+                            <!-- Cursos Pendientes -->
+                            {% for curso in ruta_data.cursos_pendientes %}
+                                <div class="flex items-center p-2 bg-gray-50 border border-gray-200 rounded">
+                                    <div class="flex-shrink-0">
+                                        <div class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-lock text-gray-400 text-xs"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-2 flex-1 min-w-0">
+                                        <div class="text-sm font-medium text-gray-700 truncate">{{ curso.nombre }}</div>
+                                        <div class="text-xs text-gray-500">Pendiente</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Botón para ver notas de la ruta -->
+                        <div class="mt-4 text-center">
+                            <a href="{% url 'hechos:notas_estudiante_ruta' ruta_data.ruta.id %}" 
+                               class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                                <i class="fas fa-chart-line mr-2"></i>Ver Notas de la Ruta
+                            </a>
+                        </div>
+                        
+                        <!-- Estadísticas de la Ruta -->
+                        <div class="mt-3 grid grid-cols-3 gap-2">
+                            <div class="text-center p-2 bg-green-50 rounded">
+                                <div class="text-lg font-bold text-green-600">{{ ruta_data.cursos_completados|length }}</div>
+                                <div class="text-xs text-green-700">Completados</div>
+                            </div>
+                            <div class="text-center p-2 bg-blue-50 rounded">
+                                <div class="text-lg font-bold text-blue-600">{{ ruta_data.cursos_en_progreso|length }}</div>
+                                <div class="text-xs text-blue-700">En Progreso</div>
+                            </div>
+                            <div class="text-center p-2 bg-gray-50 rounded">
+                                <div class="text-lg font-bold text-gray-600">{{ ruta_data.cursos_pendientes|length }}</div>
+                                <div class="text-xs text-gray-700">Pendientes</div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-route text-gray-400 text-2xl mb-2"></i>
+                    <h4 class="text-sm font-medium text-gray-900 mb-1">Sin rutas asignadas</h4>
+                    <p class="text-xs text-gray-500">Contacta al administrador</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Acciones Rápidas - Footer -->
+    <div class="mt-4 bg-white shadow rounded-lg">
+        <div class="px-4 py-3 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Acciones Rápidas</h3>
+        </div>
+        <div class="p-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <a href="{% url 'hechos:notas_estudiante' %}" 
+                   class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-chart-line text-green-600"></i>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-gray-900">Mis Notas</h4>
+                        <p class="text-xs text-gray-500">Ver calificaciones</p>
+                    </div>
+                </a>
+                
+                <a href="{% url 'hechos:cursos_list' %}" 
+                   class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-book text-blue-600"></i>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-gray-900">Mis Cursos</h4>
+                        <p class="text-xs text-gray-500">Cursos matriculados</p>
+                    </div>
+                </a>
+                
+                <a href="{% url 'hechos:clases_list' %}" 
+                   class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 transition-colors">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-calendar text-purple-600"></i>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-gray-900">Mis Clases</h4>
+                        <p class="text-xs text-gray-500">Horarios</p>
+                    </div>
+                </a>
+                
+                <a href="{% url 'hechos:cursos_list' %}" 
+                   class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-orange-50 hover:border-orange-300 transition-colors">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-route text-orange-600"></i>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-gray-900">Progreso</h4>
+                        <p class="text-xs text-gray-500">Ver progreso</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}HechosHub{% endblock %}</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS for shadcn/ui-like design -->
+    <style>
+        :root {
+            --background: 0 0% 100%;
+            --foreground: 222.2 84% 4.9%;
+            --card: 0 0% 100%;
+            --card-foreground: 222.2 84% 4.9%;
+            --popover: 0 0% 100%;
+            --popover-foreground: 222.2 84% 4.9%;
+            --primary: 221.2 83.2% 53.3%;
+            --primary-foreground: 210 40% 98%;
+            --secondary: 210 40% 96%;
+            --secondary-foreground: 222.2 84% 4.9%;
+            --muted: 210 40% 96%;
+            --muted-foreground: 215.4 16.3% 46.9%;
+            --accent: 210 40% 96%;
+            --accent-foreground: 222.2 84% 4.9%;
+            --destructive: 0 84.2% 60.2%;
+            --destructive-foreground: 210 40% 98%;
+            --border: 214.3 31.8% 91.4%;
+            --input: 214.3 31.8% 91.4%;
+            --ring: 221.2 83.2% 53.3%;
+            --radius: 0.5rem;
+        }
+
+        .dark {
+            --background: 222.2 84% 4.9%;
+            --foreground: 210 40% 98%;
+            --card: 222.2 84% 4.9%;
+            --card-foreground: 210 40% 98%;
+            --popover: 222.2 84% 4.9%;
+            --popover-foreground: 210 40% 98%;
+            --primary: 217.2 91.2% 59.8%;
+            --primary-foreground: 222.2 84% 4.9%;
+            --secondary: 217.2 32.6% 17.5%;
+            --secondary-foreground: 210 40% 98%;
+            --muted: 217.2 32.6% 17.5%;
+            --muted-foreground: 215 20.2% 65.1%;
+            --accent: 217.2 32.6% 17.5%;
+            --accent-foreground: 210 40% 98%;
+            --destructive: 0 62.8% 30.6%;
+            --destructive-foreground: 210 40% 98%;
+            --border: 217.2 32.6% 17.5%;
+            --input: 217.2 32.6% 17.5%;
+            --ring: 224.3 76.3% 94.1%;
+        }
+
+        * {
+            border-color: hsl(var(--border));
+        }
+
+        body {
+            background-color: hsl(var(--background));
+            color: hsl(var(--foreground));
+        }
+
+        .card {
+            background-color: hsl(var(--card));
+            color: hsl(var(--card-foreground));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+        }
+
+        .btn-primary {
+            background-color: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+            border-radius: var(--radius);
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: hsl(var(--primary) / 0.9);
+        }
+
+        .btn-secondary {
+            background-color: hsl(var(--secondary));
+            color: hsl(var(--secondary-foreground));
+            border-radius: var(--radius);
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background-color: hsl(var(--secondary) / 0.8);
+        }
+
+        .btn-outline {
+            border: 1px solid hsl(var(--border));
+            background-color: transparent;
+            color: hsl(var(--foreground));
+            border-radius: var(--radius);
+            transition: all 0.2s;
+        }
+
+        .btn-outline:hover {
+            background-color: hsl(var(--accent));
+            color: hsl(var(--accent-foreground));
+        }
+
+        .input {
+            background-color: hsl(var(--background));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+            color: hsl(var(--foreground));
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: hsl(var(--ring));
+            box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+        }
+
+        .sidebar {
+            background-color: hsl(var(--card));
+            border-right: 1px solid hsl(var(--border));
+        }
+
+        .nav-link {
+            color: hsl(var(--muted-foreground));
+            transition: all 0.2s;
+            border-radius: var(--radius);
+        }
+
+        .nav-link:hover {
+            background-color: hsl(var(--accent));
+            color: hsl(var(--accent-foreground));
+        }
+
+        .nav-link.active {
+            background-color: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+        }
+
+        .badge {
+            background-color: hsl(var(--secondary));
+            color: hsl(var(--secondary-foreground));
+            border-radius: calc(var(--radius) - 2px);
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-primary {
+            background-color: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+        }
+
+        .badge-success {
+            background-color: hsl(142.1 76.2% 36.3%);
+            color: hsl(355.7 100% 97.3%);
+        }
+
+        .badge-warning {
+            background-color: hsl(38 92% 50%);
+            color: hsl(48 96% 89%);
+        }
+
+        .badge-danger {
+            background-color: hsl(var(--destructive));
+            color: hsl(var(--destructive-foreground));
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="h-full bg-gray-50">
+    <div class="min-h-full">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <a href="{% url 'core:dashboard' %}" class="flex items-center space-x-2">
+                                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-church text-white text-sm"></i>
+                                </div>
+                                <span class="text-xl font-bold text-gray-900">HechosHub</span>
+                            </a>
+                        </div>
+                        
+                        <!-- Desktop Navigation -->
+                        <div class="hidden md:ml-6 md:flex md:space-x-8">
+                            <a href="{% url 'core:dashboard' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                                <i class="fas fa-tachometer-alt mr-2"></i>
+                                Dashboard
+                            </a>
+                            
+                            {% if user.is_authenticated %}
+                                <!-- Super Admin Menu -->
+                                {% if user.is_super_admin %}
+                                    <a href="{% url 'admin:index' %}" class="nav-link px-3 py-2 text-sm font-medium {% if 'admin' in request.resolver_match.namespace %}active{% endif %}">
+                                        <i class="fas fa-cog mr-2"></i>
+                                        Administración
+                                    </a>
+                                {% endif %}
+                                
+                                <!-- Hechos Module Access -->
+                                {% if user.is_super_admin or user.is_app_admin or user.estudiante_profile or user.profesor_profile or user.admin_escuela_profile %}
+                                    <a href="{% url 'hechos:dashboard' %}" class="nav-link px-3 py-2 text-sm font-medium {% if 'hechos' in request.resolver_match.namespace %}active{% endif %}">
+                                        <i class="fas fa-graduation-cap mr-2"></i>
+                                        Hechos
+                                    </a>
+                                {% endif %}
+                                
+                                <!-- Role-specific Quick Actions -->
+                                {% if user.estudiante_profile %}
+                                    <a href="{% url 'hechos:notas_estudiante' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                        <i class="fas fa-chart-line mr-2"></i>
+                                        Mis Notas
+                                    </a>
+                                {% elif user.profesor_profile %}
+                                    <a href="{% url 'hechos:clases_list' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                        <i class="fas fa-calendar-plus mr-2"></i>
+                                        Mis Clases
+                                    </a>
+                                    <a href="{% url 'hechos:notas_profesor' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                        <i class="fas fa-chart-line mr-2"></i>
+                                        Gestión de Notas
+                                    </a>
+                                {% elif user.admin_escuela_profile %}
+                                    <a href="{% url 'hechos:estudiantes_list' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                        <i class="fas fa-users mr-2"></i>
+                                        Estudiantes
+                                    </a>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- User Menu -->
+                    <div class="flex items-center space-x-4">
+                        {% if user.is_authenticated %}
+                            <div class="relative">
+                                <button type="button" class="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none" id="user-menu-button">
+                                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-user text-blue-600"></i>
+                                    </div>
+                                    <span>{{ user.get_full_name|default:user.email }}</span>
+                                    <i class="fas fa-chevron-down text-xs"></i>
+                                </button>
+                                
+                                <!-- Dropdown menu -->
+                                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden" id="user-menu">
+                                    <a href="{% url 'core:profile' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-user mr-2"></i>Mi Perfil
+                                    </a>
+                                    <a href="{% url 'admin:index' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-cog mr-2"></i>Administración
+                                    </a>
+                                    <div class="border-t border-gray-100"></div>
+                                    <a href="{% url 'account_logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
+                                    </a>
+                                </div>
+                            </div>
+                        {% else %}
+                            <a href="{% url 'account_login' %}" class="btn-primary px-4 py-2 text-sm font-medium">
+                                Iniciar Sesión
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            {% if messages %}
+                <div class="mb-6">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} bg-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border border-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-200 text-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-800 px-4 py-3 rounded-md">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        (function () {
+            const button = document.getElementById('user-menu-button');
+            const menu = document.getElementById('user-menu');
+            if (!button || !menu) return;
+            button.addEventListener('click', function () {
+                menu.classList.toggle('hidden');
+            });
+            document.addEventListener('click', function (event) {
+                if (!button.contains(event.target) && !menu.contains(event.target)) {
+                    menu.classList.add('hidden');
+                }
+            });
+        })();
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
