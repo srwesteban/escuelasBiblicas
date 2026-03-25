@@ -1,0 +1,125 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Escuelas Bíblicas - Hechos Hub{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Escuelas Bíblicas</h1>
+            <p class="text-gray-600 mt-1">Explora las escuelas disponibles y solicita tu matrícula.</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'hechos:mis_solicitudes' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                <i class="fas fa-list-check mr-2"></i>Mis Solicitudes
+            </a>
+            <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                <i class="fas fa-arrow-left mr-2"></i>Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="space-y-6">
+        {% for item in escuelas %}
+            <div class="card p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-school text-stone-700 text-xl"></i>
+                    </div>
+                    <span class="badge">{{ item.niveles|length }} nivel{{ item.niveles|length|pluralize:"es" }}</span>
+                </div>
+
+                <h2 class="text-xl font-semibold text-gray-900">{{ item.escuela.nombre }}</h2>
+                <p class="text-sm text-gray-600 mt-1">{{ item.sede.nombre|default:"Sin sede" }}</p>
+
+                <div class="mt-4 space-y-2 text-sm text-gray-600">
+                    <p>{{ item.escuela.descripcion|default:"Escuela disponible para matrícula." }}</p>
+                </div>
+
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for nivel_item in item.niveles %}
+                        <div class="rounded-xl border border-stone-200 p-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h3 class="text-base font-semibold text-gray-900">Nivel {{ nivel_item.nivel.nombre }}</h3>
+                                    <p class="text-sm text-gray-600 mt-1">{{ nivel_item.curso.nombre }}</p>
+                                </div>
+                                {% if nivel_item.ya_matriculado %}
+                                    <span class="badge badge-success">Activa</span>
+                                {% elif nivel_item.solicitud %}
+                                    {% if nivel_item.solicitud.estado == 'pendiente' %}
+                                        <span class="badge badge-warning">Pendiente</span>
+                                    {% elif nivel_item.solicitud.estado == 'aprobada' %}
+                                        <span class="badge badge-success">Aprobada</span>
+                                    {% else %}
+                                        <span class="badge badge-danger">Rechazada</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge">{{ nivel_item.edicion.cupos_disponibles }} cupos</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="mt-4 space-y-2 text-sm text-gray-600">
+                                <div class="flex items-center justify-between">
+                                    <span>Grupo</span>
+                                    <span class="font-medium text-gray-900">{{ nivel_item.edicion.nombre_edicion }}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span>Profesor</span>
+                                    <span class="font-medium text-gray-900">
+                                        {% if nivel_item.edicion.profesor %}
+                                            {{ nivel_item.edicion.profesor.user.get_full_name }}
+                                        {% else %}
+                                            Por asignar
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span>Fechas</span>
+                                    <span class="font-medium text-gray-900">
+                                        {{ nivel_item.edicion.fecha_inicio|date:"d/m/Y" }} - {{ nivel_item.edicion.fecha_fin|date:"d/m/Y" }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                {% if nivel_item.ya_matriculado %}
+                                    <a href="{% url 'hechos:cursos_list' %}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                        <i class="fas fa-arrow-right mr-2"></i>Ingresar
+                                    </a>
+                                {% elif nivel_item.puede_solicitar %}
+                                    <form method="post" action="{% url 'hechos:solicitar_matricula' nivel_item.edicion.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                            <i class="fas fa-user-plus mr-2"></i>Solicitar matrícula
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <div class="btn-secondary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                        <i class="fas fa-clock mr-2"></i>
+                                        {% if nivel_item.solicitud %}
+                                            {{ nivel_item.solicitud.get_estado_display }}
+                                        {% else %}
+                                            No disponible
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-span-full">
+                <div class="card p-12 text-center">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-school text-gray-400 text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No hay escuelas disponibles</h3>
+                    <p class="text-gray-600">Cuando existan grupos activos aparecerán aquí para solicitar matrícula.</p>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

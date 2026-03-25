@@ -1,0 +1,28 @@
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [".git", ".venv", "build", "dist", "*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "hechoshub.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+
+[tool.coverage.run]
+source = ["core", "hechos", "guias"]
+omit = ["*/migrations/*", "manage.py"]

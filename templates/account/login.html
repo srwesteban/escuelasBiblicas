@@ -1,32 +1,63 @@
 {% extends 'base_modern.html' %}
+{% load static %}
 
 {% block title %}Iniciar Sesión - HechosHub{% endblock %}
+{% block top_navigation %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-shell {
+        background: #ffffff;
+    }
+
+    .login-brand {
+        height: 4.25rem;
+        width: auto;
+        margin: 0 auto;
+    }
+
+    .login-card {
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
+    }
+
+    .login-demo {
+        background: #fafaf9;
+        border: 1px solid #e7e5e4;
+    }
+
+    .login-link {
+        color: #111827;
+    }
+
+    .login-link:hover {
+        color: #57534e;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+<div class="login-shell min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
         <!-- Header -->
         <div class="text-center">
-            <div class="mx-auto h-16 w-16 bg-blue-600 rounded-2xl flex items-center justify-center">
-                <i class="fas fa-church text-white text-2xl"></i>
-            </div>
-            <h2 class="mt-6 text-3xl font-bold text-gray-900">HechosHub</h2>
-            <p class="mt-2 text-sm text-gray-600">Sistema de Gestión de Escuelas Bíblicas</p>
+            <img src="{% static 'img/logos/logohechoshub.svg' %}" alt="HechosHub" class="login-brand">
+            <p class="mt-2 text-sm text-slate-600">Un lugar para todos. Ingresa para continuar.</p>
         </div>
 
         <!-- Login Form -->
-        <div class="card p-8">
+        <div class="card login-card p-8">
             <form class="space-y-6" method="post">
                 {% csrf_token %}
-                
+
                 <div>
-                    <label for="{{ form.login.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    <label for="{{ form.login.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
                         <i class="fas fa-envelope mr-2"></i>Correo Electrónico
                     </label>
-                    <input type="email" 
-                           name="{{ form.login.name }}" 
+                    <input type="email"
+                           name="{{ form.login.name }}"
                            id="{{ form.login.id_for_label }}"
-                           class="input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           class="input w-full px-3 py-3 border rounded-xl focus:outline-none"
                            placeholder="tu@email.com"
                            required>
                     {% if form.login.errors %}
@@ -35,13 +66,13 @@
                 </div>
 
                 <div>
-                    <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
                         <i class="fas fa-lock mr-2"></i>Contraseña
                     </label>
-                    <input type="password" 
-                           name="{{ form.password.name }}" 
+                    <input type="password"
+                           name="{{ form.password.name }}"
                            id="{{ form.password.id_for_label }}"
-                           class="input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           class="input w-full px-3 py-3 border rounded-xl focus:outline-none"
                            placeholder="••••••••"
                            required>
                     {% if form.password.errors %}
@@ -51,17 +82,17 @@
 
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
-                        <input type="checkbox" 
-                               name="{{ form.remember.name }}" 
+                        <input type="checkbox"
+                               name="{{ form.remember.name }}"
                                id="{{ form.remember.id_for_label }}"
-                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                        <label for="{{ form.remember.id_for_label }}" class="ml-2 block text-sm text-gray-700">
+                               class="h-4 w-4 text-stone-800 focus:ring-stone-400 border-slate-300 rounded">
+                        <label for="{{ form.remember.id_for_label }}" class="ml-2 block text-sm text-slate-700">
                             Recordarme
                         </label>
                     </div>
 
                     <div class="text-sm">
-                        <a href="#" class="font-medium text-blue-600 hover:text-blue-500">
+                        <a href="#" class="font-medium login-link">
                             ¿Olvidaste tu contraseña?
                         </a>
                     </div>
@@ -74,7 +105,7 @@
                 {% endif %}
 
                 <div>
-                    <button type="submit" 
+                    <button type="submit"
                             class="btn-primary w-full flex justify-center py-2 px-4 text-sm font-medium">
                         <i class="fas fa-sign-in-alt mr-2"></i>
                         Iniciar Sesión
@@ -83,21 +114,21 @@
             </form>
 
             <!-- Demo Credentials -->
-            <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 class="text-sm font-medium text-blue-900 mb-2">Credenciales de Prueba:</h3>
-                <div class="space-y-1 text-sm text-blue-800">
-                    <div><strong>Super Admin:</strong> admin@hechoshub.com / admin123</div>
-                    <div><strong>Profesor:</strong> profesor1@ejemplo.com / password123</div>
-                    <div><strong>Estudiante:</strong> estudiante1@ejemplo.com / password123</div>
-                    <div><strong>Admin Escuela:</strong> directora@hechoshub.com / admin123</div>
+            <div class="login-demo mt-8 rounded-2xl p-4">
+                <h3 class="text-sm font-semibold text-slate-900 mb-2">Credenciales de prueba</h3>
+                <div class="space-y-1 text-sm text-slate-700">
+                    <div><strong>Director:</strong> super1@local.test / local12345</div>
+                    <div><strong>Coordinador:</strong> hechos.admin1@local.test / local12345</div>
+                    <div><strong>Profesor:</strong> profesor1@local.test / local12345</div>
+                    <div><strong>Estudiante:</strong> estudiante1@local.test / local12345</div>
                 </div>
             </div>
         </div>
 
         <!-- Footer -->
         <div class="text-center">
-            <p class="text-sm text-gray-600">
-                © 2024 HechosHub. Sistema de Gestión de Escuelas Bíblicas.
+            <p class="text-sm text-slate-600">
+                © 2026 HechosHub.
             </p>
         </div>
     </div>

@@ -51,12 +51,23 @@ python3 -m venv venv
 source venv/bin/activate  # En Windows: venv\Scripts\activate
 ```
 
+Si prefieres el flujo estandarizado del proyecto:
+```bash
+make setup
+```
+
 ### 3. Instalar Dependencias
 ```bash
 pip install django django-allauth pillow requests PyJWT cryptography
 ```
 
 ### 4. Configurar Base de Datos
+La app usa SQLite local por defecto, pero ahora puede cambiarse facilmente mediante variables de entorno.
+
+1. Copia `.env.example` a tu entorno preferido o exporta las variables manualmente.
+2. Para desarrollo local no necesitas cambiar nada: se usara `db.sqlite3`.
+3. Si luego quieres PostgreSQL o MySQL, solo cambia `DB_ENGINE` y las variables `DB_*` o define `DATABASE_URL`.
+
 ```bash
 python manage.py makemigrations
 python manage.py migrate
@@ -65,11 +76,19 @@ python manage.py migrate
 ### 5. Inicializar Datos Básicos
 ```bash
 python manage.py init_data
+python manage.py seed_local_data
 ```
 
 ### 6. Ejecutar el Servidor
 ```bash
 python manage.py runserver
+```
+
+O usando comandos estandarizados:
+```bash
+make migrate
+make seed
+make run
 ```
 
 ## 🔐 Acceso al Sistema
@@ -79,6 +98,17 @@ python manage.py runserver
 - **Admin**: http://localhost:8000/admin/
 - **Usuario**: admin@hechoshub.com
 - **Contraseña**: admin123
+
+### Usuarios Locales de Desarrollo
+Despues de ejecutar `python manage.py seed_local_data`, todos los usuarios creados usan la misma clave:
+
+- **Contraseña**: `local12345`
+- **Super Admin**: `super1@local.test`, `super2@local.test`
+- **Admin Hechos**: `hechos.admin1@local.test`, `hechos.admin2@local.test`
+- **Profesores**: `profesor1@local.test`, `profesor2@local.test`
+- **Estudiantes**: `estudiante1@local.test`, `estudiante2@local.test`
+- **Admin Guias**: `guias.admin1@local.test`, `guias.admin2@local.test`
+- **Usuarios Guias**: `guias.user1@local.test`, `guias.user2@local.test`
 
 ### Primer Acceso
 1. Ve a http://localhost:8000
@@ -184,11 +214,20 @@ Para desplegar en producción:
 ## 📝 Comandos Útiles
 
 ```bash
+# Preparar entorno local
+make setup
+
+# Verificar configuración
+make check
+
 # Crear superusuario
 python manage.py createsuperuser
 
 # Inicializar datos básicos
 python manage.py init_data
+
+# Crear usuarios locales por rol
+python manage.py seed_local_data
 
 # Recopilar archivos estáticos
 python manage.py collectstatic

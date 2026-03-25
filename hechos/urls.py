@@ -6,6 +6,9 @@ app_name = 'hechos'
 urlpatterns = [
     path('', views.hechos_dashboard, name='dashboard'),
     path('dashboard/', views.hechos_dashboard, name='dashboard'),
+    path('escuelas/', views.escuelas_disponibles, name='escuelas_disponibles'),
+    path('escuelas/<int:edicion_id>/solicitar-matricula/', views.solicitar_matricula, name='solicitar_matricula'),
+    path('mis-solicitudes/', views.mis_solicitudes, name='mis_solicitudes'),
     
     # Estudiantes
     path('estudiantes/', views.estudiantes_list, name='estudiantes_list'),

@@ -1,0 +1,73 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Mis Solicitudes - Hechos Hub{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Mis Solicitudes</h1>
+            <p class="text-gray-600 mt-1">Consulta el estado de tus solicitudes de matrícula.</p>
+        </div>
+        <a href="{% url 'hechos:escuelas_disponibles' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+            <i class="fas fa-school mr-2"></i>Ver Escuelas
+        </a>
+    </div>
+
+    <div class="space-y-4">
+        {% for solicitud in solicitudes %}
+            <div class="card p-6">
+                <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-900">
+                            {{ solicitud.edicion_curso.curso.escuela.nombre|default:solicitud.edicion_curso.curso.nombre }}
+                        </h2>
+                        <p class="text-sm text-gray-600 mt-1">
+                            {% if solicitud.edicion_curso.curso.nivel %}
+                                Nivel {{ solicitud.edicion_curso.curso.nivel.nombre }} ·
+                            {% endif %}
+                            {{ solicitud.edicion_curso.nombre_edicion }} · {{ solicitud.edicion_curso.curso.sede.nombre|default:"Sin sede" }}
+                        </p>
+                        <p class="text-sm text-gray-500 mt-2">
+                            Solicitada el {{ solicitud.fecha_solicitud|date:"d/m/Y H:i" }}
+                        </p>
+                    </div>
+
+                    <div class="text-left md:text-right">
+                        {% if solicitud.estado == 'pendiente' %}
+                            <span class="badge badge-warning">Pendiente</span>
+                        {% elif solicitud.estado == 'aprobada' %}
+                            <span class="badge badge-success">Aprobada</span>
+                        {% else %}
+                            <span class="badge badge-danger">Rechazada</span>
+                        {% endif %}
+
+                        {% if solicitud.revisado_por %}
+                            <p class="text-sm text-gray-500 mt-2">
+                                Revisado por {{ solicitud.revisado_por.get_full_name|default:solicitud.revisado_por.email }}
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if solicitud.observaciones %}
+                    <div class="mt-4 rounded-xl bg-stone-50 border border-stone-200 px-4 py-3 text-sm text-stone-700">
+                        {{ solicitud.observaciones }}
+                    </div>
+                {% endif %}
+            </div>
+        {% empty %}
+            <div class="card p-12 text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-list-check text-gray-400 text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Aún no tienes solicitudes</h3>
+                <p class="text-gray-600 mb-6">Cuando solicites matrícula a una escuela, el estado aparecerá aquí.</p>
+                <a href="{% url 'hechos:escuelas_disponibles' %}" class="btn-primary inline-flex items-center px-4 py-2 text-sm font-medium">
+                    <i class="fas fa-user-plus mr-2"></i>Solicitar matrícula
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

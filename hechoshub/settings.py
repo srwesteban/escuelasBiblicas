@@ -10,22 +10,43 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from .db_config import get_database_config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_env_file(env_path: Path) -> None:
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+
+        key, value = line.split('=', 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
+
+
+_load_env_file(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-fyeln-_#5#e)7_xwm97phwv2bg-@bqn06nwo1od2vht-t7+2)7'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-fyeln-_#5#e)7_xwm97phwv2bg-@bqn06nwo1od2vht-t7+2)7')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'true').lower() in {'1', 'true', 'yes', 'on'}
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [host.strip() for host in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if host.strip()]
 
 
 # Application definition
@@ -88,11 +109,17 @@ WSGI_APPLICATION = 'hechoshub.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': get_database_config(BASE_DIR)
 }
+
+# Supabase transaction pooler (puerto 6543 en db.<ref>.supabase.co) no admite
+# prepared statements como Django los usa por defecto.
+_default_db = DATABASES['default']
+_db_host = str(_default_db.get('HOST') or '')
+_db_port = str(_default_db.get('PORT') or '')
+if _db_port == '6543' and 'supabase.co' in _db_host:
+    _default_db['CONN_MAX_AGE'] = 0
+    _default_db['DISABLE_SERVER_SIDE_CURSORS'] = True
 
 
 # Password validation
@@ -150,12 +177,16 @@ AUTHENTICATION_BACKENDS = [
 SITE_ID = 1
 
 # Allauth settings
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # Deshabilitado para desarrollo
-ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 5
-ACCOUNT_LOGIN_ATTEMPTS_TIMEOUT = 300
+ACCOUNT_RATE_LIMITS = {
+    'login_failed': '5/5m/key,10/m/ip',
+}
+ACCOUNT_ADAPTER = 'core.adapters.StudentAccountAdapter'
+ACCOUNT_FORMS = {
+    'signup': 'core.forms.StudentSignupForm',
+}
 
 # Email settings para desarrollo
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
@@ -182,7 +213,8 @@ SOCIALACCOUNT_PROVIDERS = {
 # Login/Logout URLs
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
-LOGOUT_REDIRECT_URL = '/accounts/login/'
+LOGOUT_REDIRECT_URL = '/inicio/'
+ACCOUNT_LOGOUT_ON_GET = True
 
 # Custom user model
 AUTH_USER_MODEL = 'core.User'

@@ -6,6 +6,17 @@
 - **Rol**: Super Admin
 - **Acceso**: Todo el sistema + Panel Admin
 
+## 💻 **USUARIOS LOCALES GENERADOS**
+Ejecuta `python manage.py seed_local_data` para crear una base local de pruebas reutilizable.
+
+- **Contraseña compartida**: `local12345`
+- **Super Admin**: `super1@local.test`, `super2@local.test`
+- **Admin Hechos**: `hechos.admin1@local.test`, `hechos.admin2@local.test`
+- **Profesores**: `profesor1@local.test`, `profesor2@local.test`
+- **Estudiantes**: `estudiante1@local.test`, `estudiante2@local.test`
+- **Admin Guias**: `guias.admin1@local.test`, `guias.admin2@local.test`
+- **Usuarios Guias**: `guias.user1@local.test`, `guias.user2@local.test`
+
 ---
 
 ## 🏢 **SISTEMA DE SEDES**

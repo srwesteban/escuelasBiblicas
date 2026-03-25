@@ -7,8 +7,8 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import (
-    Estudiante, Profesor, AdminEscuela, RutaEstudio, Curso, 
-    Matricula, Clase, Asistencia, Nota, EdicionCurso
+    Estudiante, Profesor, AdminEscuela, Escuela, RutaEstudio, Curso,
+    Matricula, Clase, Asistencia, Nota, EdicionCurso, SolicitudMatricula
 )
 from .utils import get_current_period, get_period_from_date, get_period_display, get_period_stats
 from core.models import Sede
@@ -60,12 +60,13 @@ def hechos_dashboard(request):
             estudiante=estudiante,
             sede=user_sede,
             is_active=True
-        ).select_related('edicion_curso__curso__ruta_estudio', 'edicion_curso__profesor__user')
+        ).select_related('edicion_curso__curso__ruta_estudio__escuela', 'edicion_curso__profesor__user')
         
         # Obtener curso actual (el más reciente)
-        curso_actual = None
+        matricula_actual = None
         if matriculas_activas.exists():
-            curso_actual = matriculas_activas.first().edicion_curso.curso
+            matricula_actual = matriculas_activas.first()
+        curso_actual = matricula_actual.edicion_curso.curso if matricula_actual else None
         
         # Importar Nota al inicio
         from hechos.models import Nota
@@ -81,65 +82,24 @@ def hechos_dashboard(request):
         promedio_general = 0
         if todas_las_notas.exists():
             promedio_general = sum(nota.puntaje_obtenido for nota in todas_las_notas) / todas_las_notas.count()
-        
-        # Obtener rutas de estudio disponibles
-        rutas_disponibles = RutaEstudio.objects.filter(
-            sede=user_sede,
-            is_active=True
-        ).order_by('nivel', 'nombre')
-        
-        # Procesar rutas con progreso detallado
-        rutas_con_progreso = []
-        for ruta in rutas_disponibles:
-            # Obtener todos los cursos de esta ruta
-            cursos_ruta = Curso.objects.filter(
-                ruta_estudio=ruta,
-                sede=user_sede,
-                is_active=True
-            ).order_by('orden', 'nombre')
-            
-            # Verificar qué cursos están completados, en progreso o pendientes
-            cursos_completados = []
-            cursos_en_progreso = []
-            cursos_pendientes = []
-            
-            for curso in cursos_ruta:
-                # Verificar si está matriculado
-                matricula_curso = Matricula.objects.filter(
-                    estudiante=estudiante,
-                    edicion_curso__curso=curso,
-                    is_active=True
-                ).first()
-                
-                if matricula_curso:
-                    # Verificar si el curso está completado (tiene nota final)
-                    nota_final = Nota.objects.filter(
-                        estudiante=estudiante,
-                        curso=curso,
-                        tipo='final'
-                    ).first()
-                    
-                    if nota_final and nota_final.puntaje_obtenido >= 70:
-                        cursos_completados.append(curso)
-                    else:
-                        cursos_en_progreso.append(curso)
-                else:
-                    cursos_pendientes.append(curso)
-            
-            # Calcular progreso de la ruta
-            total_cursos = cursos_ruta.count()
-            cursos_completados_count = len(cursos_completados)
-            progreso_porcentaje = (cursos_completados_count / total_cursos * 100) if total_cursos > 0 else 0
-            
-            rutas_con_progreso.append({
-                'ruta': ruta,
-                'cursos_completados': cursos_completados,
-                'cursos_en_progreso': cursos_en_progreso,
-                'cursos_pendientes': cursos_pendientes,
-                'total_cursos': total_cursos,
-                'progreso_porcentaje': round(progreso_porcentaje, 1),
-                'estado': 'completada' if progreso_porcentaje == 100 else 'en_progreso' if cursos_en_progreso else 'pendiente'
-            })
+
+        escuelas_activas = []
+        escuelas_activas_ids = set()
+        for matricula in matriculas_activas:
+            escuela = matricula.edicion_curso.curso.escuela
+            if escuela and escuela.id not in escuelas_activas_ids:
+                escuelas_activas.append({
+                    'escuela': escuela,
+                    'nivel': matricula.edicion_curso.curso.nivel,
+                    'grupo': matricula.edicion_curso,
+                    'curso': matricula.edicion_curso.curso,
+                })
+                escuelas_activas_ids.add(escuela.id)
+
+        solicitudes_estudiante = SolicitudMatricula.objects.filter(estudiante=estudiante).select_related(
+            'edicion_curso__curso__ruta_estudio__escuela'
+        )
+        solicitudes_pendientes = solicitudes_estudiante.filter(estado='pendiente')
         
         # Obtener asistencia reciente
         from hechos.models import Asistencia
@@ -161,10 +121,11 @@ def hechos_dashboard(request):
             'estudiante': estudiante,
             'matriculas_activas': matriculas_activas,
             'curso_actual': curso_actual,
+            'matricula_actual': matricula_actual,
             'notas_recientes': notas_recientes,
             'promedio_general': round(promedio_general, 2),
-            'rutas_disponibles': rutas_disponibles,
-            'rutas_con_progreso': rutas_con_progreso,
+            'escuelas_activas': escuelas_activas,
+            'solicitudes_pendientes_count': solicitudes_pendientes.count(),
             'asistencia_reciente': asistencia_reciente,
             'total_asistencias': total_asistencias,
             'asistencias_presentes': asistencias_presentes,
@@ -351,6 +312,127 @@ def cursos_list(request):
     }
     
     return render(request, 'hechos/cursos_list_modern.html', context)
+
+
+@login_required
+def escuelas_disponibles(request):
+    """
+    Lista pública autenticada de escuelas disponibles para estudiantes.
+    """
+    if not hasattr(request.user, 'estudiante_profile'):
+        messages.error(request, 'Solo los estudiantes pueden ver las escuelas disponibles.')
+        return redirect('core:dashboard')
+
+    estudiante = request.user.estudiante_profile
+    solicitudes = {
+        solicitud.edicion_curso_id: solicitud
+        for solicitud in SolicitudMatricula.objects.filter(estudiante=estudiante).select_related(
+            'edicion_curso__curso__ruta_estudio__escuela', 'edicion_curso__curso__sede', 'edicion_curso__profesor__user'
+        )
+    }
+    matriculas_activas = set(
+        Matricula.objects.filter(estudiante=estudiante, is_active=True).values_list('edicion_curso_id', flat=True)
+    )
+
+    ediciones = EdicionCurso.objects.filter(
+        is_active=True,
+        curso__is_active=True,
+        curso__ruta_estudio__escuela__isnull=False,
+    ).select_related('curso__ruta_estudio__escuela', 'curso__sede', 'profesor__user').order_by(
+        'curso__ruta_estudio__escuela__nombre', 'curso__ruta_estudio__nombre', 'curso__nombre', 'nombre_edicion'
+    )
+
+    escuelas_by_id = {}
+    for edicion in ediciones:
+        solicitud = solicitudes.get(edicion.id)
+        escuela = edicion.curso.escuela
+        if not escuela:
+            continue
+
+        escuela_data = escuelas_by_id.setdefault(
+            escuela.id,
+            {
+                'escuela': escuela,
+                'sede': escuela.sede or edicion.curso.sede,
+                'niveles': [],
+            },
+        )
+        escuela_data['niveles'].append({
+            'nivel': edicion.curso.nivel,
+            'edicion': edicion,
+            'curso': edicion.curso,
+            'ya_matriculado': edicion.id in matriculas_activas,
+            'solicitud': solicitud,
+            'puede_solicitar': edicion.id not in matriculas_activas and solicitud is None,
+        })
+
+    context = {
+        'escuelas': list(escuelas_by_id.values()),
+        'estudiante': estudiante,
+    }
+    return render(request, 'hechos/escuelas_disponibles.html', context)
+
+
+@login_required
+def solicitar_matricula(request, edicion_id):
+    """
+    Crea una solicitud de matrícula para una edición de curso.
+    """
+    if request.method != 'POST':
+        return redirect('hechos:escuelas_disponibles')
+
+    if not hasattr(request.user, 'estudiante_profile'):
+        messages.error(request, 'Solo los estudiantes pueden solicitar matrícula.')
+        return redirect('core:dashboard')
+
+    estudiante = request.user.estudiante_profile
+    edicion = get_object_or_404(
+        EdicionCurso.objects.select_related('curso__sede', 'profesor__user'),
+        id=edicion_id,
+        is_active=True,
+        curso__is_active=True,
+    )
+
+    if Matricula.objects.filter(estudiante=estudiante, edicion_curso=edicion, is_active=True).exists():
+        messages.info(request, 'Ya tienes una matrícula activa en esta escuela.')
+        return redirect('hechos:escuelas_disponibles')
+
+    if SolicitudMatricula.objects.filter(estudiante=estudiante, edicion_curso=edicion).exists():
+        messages.info(request, 'Ya enviaste una solicitud para esta escuela.')
+        return redirect('hechos:escuelas_disponibles')
+
+    if edicion.cupos_disponibles <= 0:
+        messages.warning(request, 'Esta escuela no tiene cupos disponibles por ahora.')
+        return redirect('hechos:escuelas_disponibles')
+
+    SolicitudMatricula.objects.create(
+        sede=edicion.curso.sede,
+        estudiante=estudiante,
+        edicion_curso=edicion,
+    )
+    messages.success(request, f'Solicitud enviada para {edicion.curso.nombre} - {edicion.nombre_edicion}.')
+    return redirect('hechos:mis_solicitudes')
+
+
+@login_required
+def mis_solicitudes(request):
+    """
+    Lista de solicitudes de matrícula del estudiante.
+    """
+    if not hasattr(request.user, 'estudiante_profile'):
+        messages.error(request, 'Solo los estudiantes pueden ver sus solicitudes.')
+        return redirect('core:dashboard')
+
+    estudiante = request.user.estudiante_profile
+    solicitudes = SolicitudMatricula.objects.filter(estudiante=estudiante).select_related(
+        'edicion_curso__curso__ruta_estudio__escuela', 'edicion_curso__curso__sede', 'edicion_curso__profesor__user'
+    )
+
+    context = {
+        'solicitudes': solicitudes,
+        'estudiante': estudiante,
+    }
+    return render(request, 'hechos/mis_solicitudes.html', context)
 
 
 @login_required

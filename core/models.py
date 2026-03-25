@@ -1,6 +1,21 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
+
+
+def generate_unique_username(model_class, email, exclude_pk=None):
+    base_username = slugify((email or "").split("@")[0]) or "usuario"
+    candidate = base_username
+    counter = 1
+    queryset = model_class.objects.all()
+    if exclude_pk is not None:
+        queryset = queryset.exclude(pk=exclude_pk)
+
+    while queryset.filter(username=candidate).exists():
+        counter += 1
+        candidate = f"{base_username}{counter}"
+    return candidate
 
 
 class User(AbstractUser):
@@ -40,6 +55,11 @@ class User(AbstractUser):
     
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}".strip() or self.username
+
+    def save(self, *args, **kwargs):
+        if not self.username:
+            self.username = generate_unique_username(self.__class__, self.email, exclude_pk=self.pk)
+        super().save(*args, **kwargs)
     
     def is_super_admin(self):
         return self.role == 'super_admin'
@@ -84,10 +104,13 @@ class Sede(models.Model):
     Modelo para manejar las diferentes sedes de la iglesia
     """
     nombre = models.CharField(max_length=200, unique=True)
+    imagen_referencia = models.ImageField(upload_to='sedes/', blank=True, null=True)
     direccion = models.TextField()
+    ciudad = models.CharField(max_length=120, blank=True, default="")
     telefono = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
     pastor_responsable = models.CharField(max_length=200, blank=True)
+    foto_pastor = models.ImageField(upload_to='pastores/', blank=True, null=True)
     descripcion = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -100,6 +123,25 @@ class Sede(models.Model):
     
     def __str__(self):
         return self.nombre
+
+
+class PastorSede(models.Model):
+    """
+    Pastores adicionales asociados a una sede.
+    """
+    sede = models.ForeignKey(Sede, on_delete=models.CASCADE, related_name='pastores_adicionales')
+    nombre = models.CharField(max_length=200)
+    foto = models.ImageField(upload_to='pastores/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Pastor de sede'
+        verbose_name_plural = 'Pastores de sede'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return f"{self.nombre} - {self.sede.nombre}"
 
 
 class UserAppPermission(models.Model):

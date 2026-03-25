@@ -1,0 +1,511 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}{{ page_title }} - Hechos Hub{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sede-form-shell {
+        max-width: 5rem;
+    }
+
+    .sede-panel {
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
+    }
+
+    .sede-section {
+        border: 1px solid #e7e5e4;
+        border-radius: 1rem;
+        padding: 1.25rem;
+        background: #ffffff;
+    }
+
+    .sede-section-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 1rem;
+    }
+
+    .sede-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #111827;
+        margin-bottom: 0.5rem;
+    }
+
+    .sede-hint {
+        margin-top: 0.4rem;
+        font-size: 0.75rem;
+        color: #78716c;
+    }
+
+    .sede-error {
+        margin-top: 0.35rem;
+        font-size: 0.875rem;
+        color: #dc2626;
+    }
+
+    .sede-preview-wrap {
+        width: fit-content;
+        max-width: min(100%, 22rem);
+    }
+
+    .sede-preview {
+        border: 1px dashed #d6d3d1;
+        border-radius: 1rem;
+        background: #fafaf9;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        max-height: 28rem;
+    }
+
+    .sede-preview img {
+        display: block;
+        width: auto;
+        height: auto;
+        max-width: 100%;
+        max-height: 28rem;
+    }
+
+    .sede-preview img[hidden] {
+        display: none !important;
+    }
+
+    .pastor-preview {
+        min-height: 16rem;
+        max-height: 20rem;
+    }
+
+    .pastor-preview img {
+        display: block;
+        width: auto;
+        height: auto;
+        max-width: 100%;
+        max-height: 20rem;
+    }
+
+    .pastor-preview img[hidden] {
+        display: none !important;
+    }
+
+    .pastor-extra-preview {
+        min-height: 12rem;
+        max-height: 16rem;
+    }
+
+    .pastor-extra-preview img {
+        display: block;
+        width: auto;
+        height: auto;
+        max-width: 100%;
+        max-height: 16rem;
+    }
+
+    .pastor-extra-preview img[hidden] {
+        display: none !important;
+    }
+
+    .pastor-extra-card {
+        border: 1px solid #e7e5e4;
+        border-radius: 1rem;
+        background: #fafaf9;
+        padding: 1rem;
+    }
+
+    .pastor-extra-card.is-deleting {
+        opacity: 0.55;
+        border-color: #fca5a5;
+        background: #fef2f2;
+    }
+
+    .pastor-delete-checkbox {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <div class="card sede-panel p-8">
+        <div class="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-8">
+            <div>
+                <div class="inline-flex items-center rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
+                    Configuración de sede
+                </div>
+                <h1 class="mt-3 text-3xl font-bold text-gray-900">{{ page_title }}</h1>
+                <p class="text-gray-600 mt-2">Completa la información principal para identificar y presentar esta sede.</p>
+            </div>
+
+            {% if sede %}
+                <div class="sede-preview-wrap w-full">
+                    <div class="text-sm font-medium text-gray-900 mb-3">Vista previa</div>
+                    <div class="sede-preview">
+                        {% if sede.imagen_referencia %}
+                            <img src="{{ sede.imagen_referencia.url }}" alt="{{ sede.nombre }}">
+                        {% else %}
+                            <div class="text-center text-stone-500 px-4 py-10">
+                                <i class="fas fa-building text-3xl mb-3"></i>
+                                <div class="text-sm">La sede aún no tiene imagen de referencia.</div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-5">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+            {% if pastores_formset.non_form_errors %}
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {{ pastores_formset.non_form_errors }}
+                </div>
+            {% endif %}
+
+            <div class="sede-section">
+                <h2 class="sede-section-title">Información principal</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label for="{{ form.nombre.id_for_label }}" class="sede-label">Nombre</label>
+                            {{ form.nombre }}
+                            <p class="sede-hint">Nombre visible de la sede.</p>
+                            {% if form.nombre.errors %}
+                                <p class="sede-error">{{ form.nombre.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.ciudad.id_for_label }}" class="sede-label">Ciudad</label>
+                            {{ form.ciudad }}
+                            <p class="sede-hint">Ciudad donde opera la sede.</p>
+                            {% if form.ciudad.errors %}
+                                <p class="sede-error">{{ form.ciudad.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label for="{{ form.imagen_referencia.id_for_label }}" class="sede-label">Imagen referencia</label>
+                            {{ form.imagen_referencia }}
+                            <p class="sede-hint">Opcional. Se usa para representar visualmente la sede.</p>
+                            {% if form.imagen_referencia.errors %}
+                                <p class="sede-error">{{ form.imagen_referencia.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sede-section">
+                <h2 class="sede-section-title">Ubicación y contacto</h2>
+                <div class="space-y-5">
+                    <div>
+                        <label for="{{ form.direccion.id_for_label }}" class="sede-label">Dirección</label>
+                        {{ form.direccion }}
+                        {% if form.direccion.errors %}
+                            <p class="sede-error">{{ form.direccion.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label for="{{ form.telefono.id_for_label }}" class="sede-label">Teléfono</label>
+                            {{ form.telefono }}
+                            {% if form.telefono.errors %}
+                                <p class="sede-error">{{ form.telefono.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.email.id_for_label }}" class="sede-label">Email</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <p class="sede-error">{{ form.email.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sede-section">
+                <h2 class="sede-section-title">Pastor responsable</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_18rem] gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label for="{{ form.pastor_responsable.id_for_label }}" class="sede-label">Pastor responsable</label>
+                            {{ form.pastor_responsable }}
+                            {% if form.pastor_responsable.errors %}
+                                <p class="sede-error">{{ form.pastor_responsable.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.foto_pastor.id_for_label }}" class="sede-label">Foto pastor</label>
+                            {{ form.foto_pastor }}
+                            <p class="sede-hint">Opcional. Ayuda a identificar al responsable de la sede.</p>
+                            {% if form.foto_pastor.errors %}
+                                <p class="sede-error">{{ form.foto_pastor.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="w-full">
+                        <div class="text-sm font-medium text-gray-900 mb-3">Vista previa</div>
+                        <div class="sede-preview pastor-preview" id="pastor-preview-frame">
+                            {% if sede and sede.foto_pastor %}
+                                <img src="{{ sede.foto_pastor.url }}" alt="{{ sede.pastor_responsable }}" id="pastor-preview-image">
+                            {% else %}
+                                <div class="text-center text-stone-500 px-4 py-10" id="pastor-preview-placeholder">
+                                    <i class="fas fa-user text-3xl mb-3"></i>
+                                    <div class="text-sm">El pastor responsable aún no tiene foto.</div>
+                                </div>
+                                <img src="" alt="Vista previa pastor" id="pastor-preview-image" hidden>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sede-section">
+                <h2 class="sede-section-title">Pastores adicionales</h2>
+                <p class="sede-hint mb-4">Opcional. Puedes registrar uno o varios pastores extra para esta sede.</p>
+                {{ pastores_formset.management_form }}
+                <div id="pastores-formset" class="space-y-4">
+                    {% for pastor_form in pastores_formset %}
+                        <div class="pastor-extra-card" data-pastor-form>
+                            {% for hidden in pastor_form.hidden_fields %}
+                                {{ hidden }}
+                            {% endfor %}
+                            <div class="flex items-center justify-between gap-4 mb-4">
+                                <div class="text-sm font-medium text-gray-900">Pastor adicional</div>
+                                <button type="button" class="btn-outline px-3 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50" data-remove-pastor>
+                                    Eliminar
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_16rem] gap-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="{{ pastor_form.nombre.id_for_label }}" class="sede-label">Nombre</label>
+                                        {{ pastor_form.nombre }}
+                                        {% if pastor_form.nombre.errors %}
+                                            <p class="sede-error">{{ pastor_form.nombre.errors|join:", " }}</p>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <label for="{{ pastor_form.foto.id_for_label }}" class="sede-label">Foto</label>
+                                        {{ pastor_form.foto }}
+                                        {% if pastor_form.foto.errors %}
+                                            <p class="sede-error">{{ pastor_form.foto.errors|join:", " }}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="w-full">
+                                    <div class="text-sm font-medium text-gray-900 mb-3">Vista previa</div>
+                                    <div class="sede-preview pastor-extra-preview" data-extra-pastor-preview-frame>
+                                        {% if pastor_form.instance and pastor_form.instance.foto %}
+                                            <img src="{{ pastor_form.instance.foto.url }}" alt="{{ pastor_form.instance.nombre|default:'Pastor adicional' }}" data-extra-pastor-preview-image>
+                                        {% else %}
+                                            <div class="text-center text-stone-500 px-4 py-8" data-extra-pastor-preview-placeholder>
+                                                <i class="fas fa-user text-3xl mb-3"></i>
+                                                <div class="text-sm">Este pastor adicional aún no tiene foto.</div>
+                                            </div>
+                                            <img src="" alt="Vista previa pastor adicional" data-extra-pastor-preview-image hidden>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% if pastor_form.DELETE %}
+                                <div class="pastor-delete-checkbox">
+                                    {{ pastor_form.DELETE }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-4">
+                    <button type="button" id="add-pastor-button" class="btn-outline px-4 py-2 text-sm font-medium">
+                        <i class="fas fa-plus mr-2"></i>Agregar pastor
+                    </button>
+                </div>
+            </div>
+
+            <div class="sede-section">
+                <h2 class="sede-section-title">Imagen y descripción</h2>
+                <div class="space-y-5">
+                    <div>
+                        <label for="{{ form.descripcion.id_for_label }}" class="sede-label">Descripción</label>
+                        {{ form.descripcion }}
+                        {% if form.descripcion.errors %}
+                            <p class="sede-error">{{ form.descripcion.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4">
+                <a href="{% url 'core:director_dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">Cancelar</a>
+                <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Guardar sede</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<template id="pastor-empty-form-template">
+    <div class="pastor-extra-card" data-pastor-form>
+        <div class="flex items-center justify-between gap-4 mb-4">
+            <div class="text-sm font-medium text-gray-900">Pastor adicional</div>
+            <button type="button" class="btn-outline px-3 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50" data-remove-pastor>
+                Eliminar
+            </button>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_16rem] gap-4">
+            {% for hidden in pastores_formset.empty_form.hidden_fields %}
+                {{ hidden }}
+            {% endfor %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="{{ pastores_formset.empty_form.nombre.id_for_label }}" class="sede-label">Nombre</label>
+                    {{ pastores_formset.empty_form.nombre }}
+                </div>
+                <div>
+                    <label for="{{ pastores_formset.empty_form.foto.id_for_label }}" class="sede-label">Foto</label>
+                    {{ pastores_formset.empty_form.foto }}
+                </div>
+            </div>
+            <div class="w-full">
+                <div class="text-sm font-medium text-gray-900 mb-3">Vista previa</div>
+                <div class="sede-preview pastor-extra-preview" data-extra-pastor-preview-frame>
+                    <div class="text-center text-stone-500 px-4 py-8" data-extra-pastor-preview-placeholder>
+                        <i class="fas fa-user text-3xl mb-3"></i>
+                        <div class="text-sm">Este pastor adicional aún no tiene foto.</div>
+                    </div>
+                    <img src="" alt="Vista previa pastor adicional" data-extra-pastor-preview-image hidden>
+                </div>
+            </div>
+        </div>
+        {% if pastores_formset.empty_form.DELETE %}
+            <div class="pastor-delete-checkbox">
+                {{ pastores_formset.empty_form.DELETE }}
+            </div>
+        {% endif %}
+    </div>
+</template>
+
+<script>
+    (function () {
+        const formsetContainer = document.getElementById('pastores-formset');
+        const addButton = document.getElementById('add-pastor-button');
+        const totalFormsInput = document.getElementById('id_pastores-TOTAL_FORMS');
+        const template = document.getElementById('pastor-empty-form-template');
+        const pastorPhotoInput = document.getElementById('id_foto_pastor');
+        const pastorPreviewImage = document.getElementById('pastor-preview-image');
+        const pastorPreviewPlaceholder = document.getElementById('pastor-preview-placeholder');
+
+        function wireExtraPastorPreview(scope) {
+            const cards = scope.matches && scope.matches('[data-pastor-form]') ? [scope] : scope.querySelectorAll('[data-pastor-form]');
+
+            cards.forEach(function (card) {
+                const input = card.querySelector('input[type="file"][name$="-foto"]');
+                const image = card.querySelector('[data-extra-pastor-preview-image]');
+                const placeholder = card.querySelector('[data-extra-pastor-preview-placeholder]');
+
+                if (!input || !image || input.dataset.previewBound === 'true') {
+                    return;
+                }
+
+                input.dataset.previewBound = 'true';
+                input.addEventListener('change', function (event) {
+                    const [file] = event.target.files || [];
+                    if (!file) {
+                        if (!image.getAttribute('src')) {
+                            image.hidden = true;
+                            if (placeholder) {
+                                placeholder.hidden = false;
+                            }
+                        }
+                        return;
+                    }
+
+                    const objectUrl = URL.createObjectURL(file);
+                    image.src = objectUrl;
+                    image.hidden = false;
+                    if (placeholder) {
+                        placeholder.hidden = true;
+                    }
+                });
+            });
+        }
+
+        function wireRemoveButtons(scope) {
+            scope.querySelectorAll('[data-remove-pastor]').forEach(function (button) {
+                if (button.dataset.bound === 'true') {
+                    return;
+                }
+                button.dataset.bound = 'true';
+                button.addEventListener('click', function () {
+                    const card = button.closest('[data-pastor-form]');
+                    const deleteInput = card.querySelector('input[type="checkbox"][name$="-DELETE"]');
+                    const idInput = card.querySelector('input[type="hidden"][name$="-id"]');
+
+                    if (deleteInput && idInput && idInput.value) {
+                        deleteInput.checked = true;
+                        card.classList.add('is-deleting');
+                        card.style.display = 'none';
+                    } else {
+                        card.remove();
+                    }
+                });
+            });
+        }
+
+        if (addButton && formsetContainer && totalFormsInput && template) {
+            addButton.addEventListener('click', function () {
+                const formIndex = Number(totalFormsInput.value);
+                const html = template.innerHTML.replaceAll('__prefix__', String(formIndex));
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = html.trim();
+                const newForm = wrapper.firstElementChild;
+                formsetContainer.appendChild(newForm);
+                totalFormsInput.value = String(formIndex + 1);
+                wireRemoveButtons(newForm);
+                wireExtraPastorPreview(newForm);
+            });
+            wireRemoveButtons(formsetContainer);
+            wireExtraPastorPreview(formsetContainer);
+        }
+
+        if (pastorPhotoInput && pastorPreviewImage) {
+            pastorPhotoInput.addEventListener('change', function (event) {
+                const [file] = event.target.files || [];
+                if (!file) {
+                    if (!pastorPreviewImage.getAttribute('src')) {
+                            pastorPreviewImage.hidden = true;
+                    }
+                    if (pastorPreviewPlaceholder && !pastorPreviewImage.getAttribute('src')) {
+                            pastorPreviewPlaceholder.hidden = false;
+                    }
+                    return;
+                }
+
+                const objectUrl = URL.createObjectURL(file);
+                pastorPreviewImage.src = objectUrl;
+                    pastorPreviewImage.hidden = false;
+                if (pastorPreviewPlaceholder) {
+                        pastorPreviewPlaceholder.hidden = true;
+                }
+            });
+        }
+    })();
+</script>
+{% endblock %}

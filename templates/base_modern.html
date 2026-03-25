@@ -1,38 +1,40 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}HechosHub{% endblock %}</title>
-    
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/icon/cross.png' %}">
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Custom CSS for shadcn/ui-like design -->
     <style>
         :root {
             --background: 0 0% 100%;
-            --foreground: 222.2 84% 4.9%;
+            --foreground: 220 26% 14%;
             --card: 0 0% 100%;
-            --card-foreground: 222.2 84% 4.9%;
+            --card-foreground: 220 26% 14%;
             --popover: 0 0% 100%;
-            --popover-foreground: 222.2 84% 4.9%;
-            --primary: 221.2 83.2% 53.3%;
-            --primary-foreground: 210 40% 98%;
-            --secondary: 210 40% 96%;
-            --secondary-foreground: 222.2 84% 4.9%;
-            --muted: 210 40% 96%;
-            --muted-foreground: 215.4 16.3% 46.9%;
-            --accent: 210 40% 96%;
-            --accent-foreground: 222.2 84% 4.9%;
-            --destructive: 0 84.2% 60.2%;
+            --popover-foreground: 220 26% 14%;
+            --primary: 220 26% 14%;
+            --primary-foreground: 0 0% 100%;
+            --secondary: 40 25% 96%;
+            --secondary-foreground: 220 26% 14%;
+            --muted: 210 20% 97%;
+            --muted-foreground: 220 10% 38%;
+            --accent: 42 60% 92%;
+            --accent-foreground: 220 26% 14%;
+            --destructive: 0 72% 52%;
             --destructive-foreground: 210 40% 98%;
-            --border: 214.3 31.8% 91.4%;
-            --input: 214.3 31.8% 91.4%;
-            --ring: 221.2 83.2% 53.3%;
+            --border: 220 14% 91%;
+            --input: 220 14% 91%;
+            --ring: 220 26% 14%;
             --radius: 0.5rem;
         }
 
@@ -131,16 +133,47 @@
             color: hsl(var(--muted-foreground));
             transition: all 0.2s;
             border-radius: var(--radius);
+            position: relative;
         }
 
         .nav-link:hover {
-            background-color: hsl(var(--accent));
-            color: hsl(var(--accent-foreground));
+            color: hsl(var(--foreground));
         }
 
         .nav-link.active {
-            background-color: hsl(var(--primary));
-            color: hsl(var(--primary-foreground));
+            background-color: transparent;
+            color: hsl(var(--foreground));
+        }
+
+        .nav-link.active::after {
+            content: "";
+            position: absolute;
+            left: 0.75rem;
+            right: 0.75rem;
+            bottom: 0.15rem;
+            height: 2px;
+            background: #d9c7a1;
+            border-radius: 9999px;
+        }
+
+        .brand-logo {
+            height: 2.6rem;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .topbar {
+            background: rgba(255, 255, 255, 0.98);
+        }
+
+        .user-avatar {
+            background: #f5f5f4;
+            color: #1f2937;
+        }
+
+        .dropdown-item:hover {
+            background: #f8f7f4;
+            color: #111827;
         }
 
         .badge {
@@ -170,117 +203,122 @@
             background-color: hsl(var(--destructive));
             color: hsl(var(--destructive-foreground));
         }
+
+        .flash-message {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .flash-message.is-hiding {
+            opacity: 0;
+            transform: translateY(-6px);
+        }
     </style>
-    
+
     {% block extra_css %}{% endblock %}
 </head>
-<body class="h-full bg-gray-50">
+<body class="h-full">
     <div class="min-h-full">
-        <!-- Navigation -->
-        <nav class="bg-white shadow-sm border-b border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-16">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <a href="{% url 'core:dashboard' %}" class="flex items-center space-x-2">
-                                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                                    <i class="fas fa-church text-white text-sm"></i>
-                                </div>
-                                <span class="text-xl font-bold text-gray-900">HechosHub</span>
-                            </a>
+        {% block top_navigation %}
+            <!-- Navigation -->
+            <nav class="topbar border-b border-stone-200">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between h-16">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <a href="{% if user.is_authenticated %}{% url 'core:dashboard' %}{% else %}{% url 'core:inicio' %}{% endif %}" class="flex items-center">
+                                    <img src="{% static 'img/logos/logohechoshub.svg' %}" alt="HechosHub" class="brand-logo">
+                                </a>
+                            </div>
+
+                            <!-- Desktop Navigation -->
+                            <div class="hidden md:ml-6 md:flex md:space-x-8">
+                                {% if user.is_authenticated %}
+                                    <!-- Super Admin Menu -->
+                                    {% if user.is_super_admin %}
+                                        <a href="{% url 'core:director_dashboard' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.url_name == 'director_dashboard' or request.resolver_match.url_name == 'director_sede_detail' or request.resolver_match.url_name == 'sede_create' or request.resolver_match.url_name == 'coordinador_create' or request.resolver_match.url_name == 'coordinador_edit' %}active{% endif %}">
+                                            <i class="fas fa-building mr-2"></i>
+                                            Director
+                                        </a>
+                                        <a href="{% url 'admin:index' %}" class="nav-link px-3 py-2 text-sm font-medium {% if 'admin' in request.resolver_match.namespace %}active{% endif %}">
+                                            <i class="fas fa-cog mr-2"></i>
+                                            Administración
+                                        </a>
+                                    {% endif %}
+
+                                    <!-- Role-specific Quick Actions -->
+                                    {% if user.estudiante_profile %}
+                                        <a href="{% url 'hechos:escuelas_disponibles' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                            <i class="fas fa-school mr-2"></i>
+                                            Escuelas
+                                        </a>
+                                        <a href="{% url 'hechos:notas_estudiante' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                            <i class="fas fa-chart-line mr-2"></i>
+                                            Mis Notas
+                                        </a>
+                                    {% elif user.profesor_profile %}
+                                        <a href="{% url 'hechos:clases_list' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                            <i class="fas fa-calendar-plus mr-2"></i>
+                                            Mis Clases
+                                        </a>
+                                        <a href="{% url 'hechos:notas_profesor' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                            <i class="fas fa-chart-line mr-2"></i>
+                                            Gestión de Notas
+                                        </a>
+                                    {% elif user.admin_escuela_profile %}
+                                        <a href="{% url 'hechos:estudiantes_list' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                            <i class="fas fa-users mr-2"></i>
+                                            Estudiantes
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+
+                                {% endif %}
+                            </div>
                         </div>
-                        
-                        <!-- Desktop Navigation -->
-                        <div class="hidden md:ml-6 md:flex md:space-x-8">
-                            <a href="{% url 'core:dashboard' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                                <i class="fas fa-tachometer-alt mr-2"></i>
-                                Dashboard
-                            </a>
-                            
+
+                        <!-- User Menu -->
+                        <div class="flex items-center space-x-4">
                             {% if user.is_authenticated %}
-                                <!-- Super Admin Menu -->
-                                {% if user.is_super_admin %}
-                                    <a href="{% url 'admin:index' %}" class="nav-link px-3 py-2 text-sm font-medium {% if 'admin' in request.resolver_match.namespace %}active{% endif %}">
-                                        <i class="fas fa-cog mr-2"></i>
-                                        Administración
-                                    </a>
-                                {% endif %}
-                                
-                                <!-- Hechos Module Access -->
-                                {% if user.is_super_admin or user.is_app_admin or user.estudiante_profile or user.profesor_profile or user.admin_escuela_profile %}
-                                    <a href="{% url 'hechos:dashboard' %}" class="nav-link px-3 py-2 text-sm font-medium {% if 'hechos' in request.resolver_match.namespace %}active{% endif %}">
-                                        <i class="fas fa-graduation-cap mr-2"></i>
-                                        Hechos
-                                    </a>
-                                {% endif %}
-                                
-                                <!-- Role-specific Quick Actions -->
-                                {% if user.estudiante_profile %}
-                                    <a href="{% url 'hechos:notas_estudiante' %}" class="nav-link px-3 py-2 text-sm font-medium">
-                                        <i class="fas fa-chart-line mr-2"></i>
-                                        Mis Notas
-                                    </a>
-                                {% elif user.profesor_profile %}
-                                    <a href="{% url 'hechos:clases_list' %}" class="nav-link px-3 py-2 text-sm font-medium">
-                                        <i class="fas fa-calendar-plus mr-2"></i>
-                                        Mis Clases
-                                    </a>
-                                    <a href="{% url 'hechos:notas_profesor' %}" class="nav-link px-3 py-2 text-sm font-medium">
-                                        <i class="fas fa-chart-line mr-2"></i>
-                                        Gestión de Notas
-                                    </a>
-                                {% elif user.admin_escuela_profile %}
-                                    <a href="{% url 'hechos:estudiantes_list' %}" class="nav-link px-3 py-2 text-sm font-medium">
-                                        <i class="fas fa-users mr-2"></i>
-                                        Estudiantes
-                                    </a>
-                                {% endif %}
+                                <div class="relative">
+                                    <button type="button" class="flex items-center space-x-2 text-sm font-medium text-slate-700 hover:text-slate-900 focus:outline-none" id="user-menu-button">
+                                        <div class="user-avatar w-8 h-8 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                        <span>{{ user.get_full_name|default:user.email }}</span>
+                                        <i class="fas fa-chevron-down text-xs"></i>
+                                    </button>
+
+                                    <!-- Dropdown menu -->
+                                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden" id="user-menu">
+                                        <a href="{% url 'core:profile' %}" class="dropdown-item block px-4 py-2 text-sm text-gray-700 transition">
+                                            <i class="fas fa-user mr-2"></i>Mi Perfil
+                                        </a>
+                                        <a href="{% url 'admin:index' %}" class="dropdown-item block px-4 py-2 text-sm text-gray-700 transition">
+                                            <i class="fas fa-cog mr-2"></i>Administración
+                                        </a>
+                                        <div class="border-t border-gray-100"></div>
+                                        <a href="{% url 'account_logout' %}" class="dropdown-item block px-4 py-2 text-sm text-gray-700 transition">
+                                            <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
+                                        </a>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <a href="{% url 'account_login' %}" class="btn-primary px-4 py-2 text-sm font-medium">
+                                    Iniciar Sesión
+                                </a>
                             {% endif %}
                         </div>
                     </div>
-                    
-                    <!-- User Menu -->
-                    <div class="flex items-center space-x-4">
-                        {% if user.is_authenticated %}
-                            <div class="relative">
-                                <button type="button" class="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none" id="user-menu-button">
-                                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                        <i class="fas fa-user text-blue-600"></i>
-                                    </div>
-                                    <span>{{ user.get_full_name|default:user.email }}</span>
-                                    <i class="fas fa-chevron-down text-xs"></i>
-                                </button>
-                                
-                                <!-- Dropdown menu -->
-                                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden" id="user-menu">
-                                    <a href="{% url 'core:profile' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-user mr-2"></i>Mi Perfil
-                                    </a>
-                                    <a href="{% url 'admin:index' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-cog mr-2"></i>Administración
-                                    </a>
-                                    <div class="border-t border-gray-100"></div>
-                                    <a href="{% url 'account_logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
-                                    </a>
-                                </div>
-                            </div>
-                        {% else %}
-                            <a href="{% url 'account_login' %}" class="btn-primary px-4 py-2 text-sm font-medium">
-                                Iniciar Sesión
-                            </a>
-                        {% endif %}
-                    </div>
                 </div>
-            </div>
-        </nav>
+            </nav>
+        {% endblock %}
 
         <!-- Main Content -->
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             {% if messages %}
                 <div class="mb-6">
                     {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} bg-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border border-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-200 text-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-800 px-4 py-3 rounded-md">
+                        <div class="flash-message alert alert-{{ message.tags }} bg-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border border-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-200 text-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-800 px-4 py-3 rounded-md" {% if message.tags == 'success' %}data-autodismiss="2000"{% endif %}>
                             {{ message }}
                         </div>
                     {% endfor %}
@@ -306,8 +344,21 @@
                 }
             });
         })();
+
+        (function () {
+            const messages = document.querySelectorAll('[data-autodismiss]');
+            messages.forEach(function (message) {
+                const delay = Number(message.dataset.autodismiss || 2000);
+                window.setTimeout(function () {
+                    message.classList.add('is-hiding');
+                    window.setTimeout(function () {
+                        message.remove();
+                    }, 250);
+                }, delay);
+            });
+        })();
     </script>
-    
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

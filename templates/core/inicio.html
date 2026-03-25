@@ -1,0 +1,88 @@
+{% extends "base_modern.html" %}
+{% load static %}
+
+{% block title %}Inicio - HechosHub{% endblock %}
+
+{% block extra_css %}
+<style>
+    .inicio-hero {
+        border: 1px solid #d4d4d4;
+        border-radius: 2rem;
+        background: #DDDDDD;
+    }
+
+    .inicio-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border: 1px solid #ece7df;
+        background: #faf7f1;
+        color: #57534e;
+        border-radius: 9999px;
+        padding: 0.6rem 1rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+    }
+
+    .inicio-card {
+        border: 1px solid #d1d1d1;
+        background: rgba(255, 255, 255, 0.55);
+    }
+
+    .inicio-illustration {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100%;
+        padding: 1rem;
+    }
+
+    .inicio-illustration img {
+        width: 100%;
+        max-width: 34rem;
+        height: auto;
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="inicio-hero px-6 py-10 sm:px-10 sm:py-14 lg:px-14 lg:py-16">
+    <div class="grid gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+        <div>
+            <span class="inicio-kicker">
+                <i class="fas fa-church text-[#b28b4b]"></i>
+
+            </span>
+
+            <h1 class="mt-6 max-w-3xl text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900">
+                Escuelas biblicas
+            </h1>
+
+            <p class="mt-6 max-w-2xl text-base sm:text-lg leading-8 text-slate-600">
+                HechosHub centraliza módulos como escuelas bíblicas y seguimiento de personas
+                nuevas en una experiencia limpia, clara y enfocada.
+            </p>
+
+            <div class="mt-8 flex flex-col gap-4 sm:flex-row">
+                <a href="{% url 'account_signup' %}" class="btn-primary inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold">
+                    <i class="fas fa-user-plus mr-2"></i>
+                    Matricularse
+                </a>
+                <a href="https://hechosnorte.org/" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold">
+                    Hechos norte
+                    <i class="fas fa-up-right-from-square ml-2 text-xs"></i>
+                </a>
+            </div>
+
+
+        </div>
+
+        <div class="inicio-card inicio-illustration rounded-3xl">
+            <img src="{% static 'img/inicio/imginicio.svg' %}" alt="Escuelas bíblicas">
+        </div>
+    </div>
+</section>
+{% endblock %}

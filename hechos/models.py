@@ -102,11 +102,33 @@ class AdminEscuela(models.Model):
         return f"{self.user.get_full_name()} (Admin - {self.sede.nombre})"
 
 
+class Escuela(models.Model):
+    """
+    Unidad académica principal visible para el estudiante.
+    """
+    sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='escuelas', null=True, blank=True)
+    nombre = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Escuela'
+        verbose_name_plural = 'Escuelas'
+        ordering = ['nombre']
+        unique_together = ['sede', 'nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
 class RutaEstudio(models.Model):
     """
-    Rutas de estudio disponibles en la escuela bíblica
+    Niveles dinámicos que viven dentro de una escuela.
     """
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='rutas_estudio', null=True, blank=True)
+    escuela = models.ForeignKey(Escuela, on_delete=models.CASCADE, related_name='niveles', null=True, blank=True)
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True)
     duracion_semanas = models.PositiveIntegerField(default=12)
@@ -120,12 +142,14 @@ class RutaEstudio(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = 'Ruta de Estudio'
-        verbose_name_plural = 'Rutas de Estudio'
-        ordering = ['nivel', 'nombre']
+        verbose_name = 'Nivel'
+        verbose_name_plural = 'Niveles'
+        ordering = ['escuela__nombre', 'nivel', 'nombre']
     
     def __str__(self):
-        return f"{self.nombre} ({self.get_nivel_display()})"
+        if self.escuela:
+            return f"{self.escuela.nombre} - {self.nombre}"
+        return self.nombre
 
 
 class Curso(models.Model):
@@ -149,6 +173,14 @@ class Curso(models.Model):
     
     def __str__(self):
         return f"{self.nombre} - {self.ruta_estudio.nombre}"
+
+    @property
+    def escuela(self):
+        return self.ruta_estudio.escuela
+
+    @property
+    def nivel(self):
+        return self.ruta_estudio
     
     @property
     def total_estudiantes_inscritos(self):
@@ -199,6 +231,44 @@ class EdicionCurso(models.Model):
         if self.cupo_maximo == 0:
             return 0
         return (self.estudiantes_inscritos / self.cupo_maximo) * 100
+
+
+class SolicitudMatricula(models.Model):
+    """
+    Solicitud previa a la matrícula aprobada por el profesor.
+    """
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('aprobada', 'Aprobada'),
+        ('rechazada', 'Rechazada'),
+    ]
+
+    sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='solicitudes_matricula')
+    estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE, related_name='solicitudes_matricula')
+    edicion_curso = models.ForeignKey(EdicionCurso, on_delete=models.CASCADE, related_name='solicitudes_matricula')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
+    pago_validado = models.BooleanField(default=False)
+    observaciones = models.TextField(blank=True)
+    revisado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='solicitudes_matricula_revisadas',
+    )
+    fecha_solicitud = models.DateTimeField(auto_now_add=True)
+    fecha_revision = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Solicitud de Matrícula'
+        verbose_name_plural = 'Solicitudes de Matrícula'
+        ordering = ['-fecha_solicitud']
+        unique_together = ['estudiante', 'edicion_curso']
+
+    def __str__(self):
+        return f"{self.estudiante.user.get_full_name()} -> {self.edicion_curso}"
 
 
 class Matricula(models.Model):
