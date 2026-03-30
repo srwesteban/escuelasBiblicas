@@ -112,12 +112,13 @@ DATABASES = {
     'default': get_database_config(BASE_DIR)
 }
 
-# Supabase transaction pooler (puerto 6543 en db.<ref>.supabase.co) no admite
-# prepared statements como Django los usa por defecto.
+# Supabase transaction pooler (puerto 6543) no admite prepared statements como Django por defecto.
 _default_db = DATABASES['default']
 _db_host = str(_default_db.get('HOST') or '')
 _db_port = str(_default_db.get('PORT') or '')
-if _db_port == '6543' and 'supabase.co' in _db_host:
+if _db_port == '6543' and (
+    'supabase.co' in _db_host or 'pooler.supabase.com' in _db_host
+):
     _default_db['CONN_MAX_AGE'] = 0
     _default_db['DISABLE_SERVER_SIDE_CURSORS'] = True
 
@@ -128,9 +129,6 @@ if _db_port == '6543' and 'supabase.co' in _db_host:
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',

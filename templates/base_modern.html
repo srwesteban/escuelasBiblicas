@@ -235,7 +235,7 @@
                                 {% if user.is_authenticated %}
                                     <!-- Super Admin Menu -->
                                     {% if user.is_super_admin %}
-                                        <a href="{% url 'core:director_dashboard' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.url_name == 'director_dashboard' or request.resolver_match.url_name == 'director_sede_detail' or request.resolver_match.url_name == 'sede_create' or request.resolver_match.url_name == 'coordinador_create' or request.resolver_match.url_name == 'coordinador_edit' %}active{% endif %}">
+                                        <a href="{% url 'core:director_dashboard' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.url_name == 'director_dashboard' or request.resolver_match.url_name == 'director_sede_detail' or request.resolver_match.url_name == 'sede_create' or request.resolver_match.url_name == 'coordinador_create' or request.resolver_match.url_name == 'coordinador_edit' or request.resolver_match.url_name == 'coordinador_delete' %}active{% endif %}">
                                             <i class="fas fa-building mr-2"></i>
                                             Director
                                         </a>
@@ -247,13 +247,21 @@
 
                                     <!-- Role-specific Quick Actions -->
                                     {% if user.estudiante_profile %}
-                                        <a href="{% url 'hechos:escuelas_disponibles' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                        <a href="{% url 'hechos:escuelas_disponibles' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'escuelas_disponibles' %}active{% endif %}">
                                             <i class="fas fa-school mr-2"></i>
                                             Escuelas
                                         </a>
-                                        <a href="{% url 'hechos:notas_estudiante' %}" class="nav-link px-3 py-2 text-sm font-medium">
-                                            <i class="fas fa-chart-line mr-2"></i>
-                                            Mis Notas
+                                        <a href="{% url 'hechos:mis_solicitudes' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'mis_solicitudes' %}active{% endif %}">
+                                            <i class="fas fa-list-check mr-2"></i>
+                                            Mis matrículas
+                                        </a>
+                                        <a href="{% url 'hechos:solicitudes_especiales_estudiante' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'solicitudes_especiales_estudiante' %}active{% endif %}">
+                                            <i class="fas fa-inbox mr-2"></i>
+                                            Solicitudes
+                                        </a>
+                                        <a href="{% url 'hechos:seleccionar_sede_estudiante' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'seleccionar_sede_estudiante' %}active{% endif %}">
+                                            <i class="fas fa-location-dot mr-2"></i>
+                                            Cambiar sede
                                         </a>
                                     {% elif user.profesor_profile %}
                                         <a href="{% url 'hechos:clases_list' %}" class="nav-link px-3 py-2 text-sm font-medium">
@@ -265,10 +273,58 @@
                                             Gestión de Notas
                                         </a>
                                     {% elif user.admin_escuela_profile %}
-                                        <a href="{% url 'hechos:estudiantes_list' %}" class="nav-link px-3 py-2 text-sm font-medium">
-                                            <i class="fas fa-users mr-2"></i>
-                                            Estudiantes
-                                        </a>
+                                        {% with t=user.admin_escuela_profile.tipo_coordinador %}
+                                        {% if t == 'sede' and user.admin_escuela_profile.sede_id %}
+                                            <a href="{% url 'core:coordinador_sede_escuelas' user.admin_escuela_profile.sede_id %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.url_name == 'coordinador_sede_escuelas' %}active{% endif %}">
+                                                <i class="fas fa-school mr-2"></i>
+                                                Escuelas
+                                            </a>
+                                            <a href="{% url 'core:coordinador_sede_equipo' user.admin_escuela_profile.sede_id %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.url_name == 'coordinador_sede_equipo' or request.resolver_match.url_name == 'coordinador_create' or request.resolver_match.url_name == 'coordinador_edit' %}active{% endif %}">
+                                                <i class="fas fa-user-tie mr-2"></i>
+                                                Equipo
+                                            </a>
+                                            <a href="{% url 'core:profile' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                                                <i class="fas fa-user-circle mr-2"></i>
+                                                Mi perfil
+                                            </a>
+                                        {% elif t == 'academico' %}
+                                            <a href="{% url 'hechos:dashboard' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                                                <i class="fas fa-house mr-2"></i>
+                                                Panel
+                                            </a>
+                                            <a href="{% url 'hechos:estudiantes_list' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'estudiantes_list' %}active{% endif %}">
+                                                <i class="fas fa-users mr-2"></i>
+                                                Estudiantes
+                                            </a>
+                                            <a href="{% url 'hechos:solicitudes_matricula_admin' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'solicitudes_matricula_admin' %}active{% endif %}">
+                                                <i class="fas fa-user-check mr-2"></i>
+                                                Matrículas
+                                            </a>
+                                            <a href="{% url 'hechos:solicitudes_especiales_admin' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'solicitudes_especiales_admin' %}active{% endif %}">
+                                                <i class="fas fa-inbox mr-2"></i>
+                                                Bandeja de entrada
+                                            </a>
+                                        {% elif t == 'pedagogico' %}
+                                            <a href="{% url 'hechos:profesores_list' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and 'profesor' in request.resolver_match.url_name %}active{% endif %}">
+                                                <i class="fas fa-chalkboard-teacher mr-2"></i>
+                                                Profesores
+                                            </a>
+                                            <a href="{% url 'core:profile' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                                                <i class="fas fa-user-circle mr-2"></i>
+                                                Mi perfil
+                                            </a>
+                                        {% elif t == 'financiero' %}
+                                            <a href="{% url 'hechos:coordinador_recursos' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                                <i class="fas fa-coins mr-2"></i>
+                                                Recursos
+                                            </a>
+                                        {% elif t == 'logistico' %}
+                                            <a href="{% url 'hechos:coordinador_logistica' %}" class="nav-link px-3 py-2 text-sm font-medium">
+                                                <i class="fas fa-warehouse mr-2"></i>
+                                                Logística
+                                            </a>
+                                        {% endif %}
+                                        {% endwith %}
                                     {% endif %}
                                 {% else %}
 
@@ -281,8 +337,12 @@
                             {% if user.is_authenticated %}
                                 <div class="relative">
                                     <button type="button" class="flex items-center space-x-2 text-sm font-medium text-slate-700 hover:text-slate-900 focus:outline-none" id="user-menu-button">
-                                        <div class="user-avatar w-8 h-8 rounded-full flex items-center justify-center">
-                                            <i class="fas fa-user"></i>
+                                        <div class="user-avatar w-8 h-8 rounded-full flex items-center justify-center overflow-hidden bg-stone-200 shrink-0 ring-1 ring-stone-300/80">
+                                            {% if user.avatar %}
+                                                <img src="{{ user.avatar.url }}" alt="" class="w-full h-full object-cover" width="32" height="32">
+                                            {% else %}
+                                                <i class="fas fa-user text-stone-500 text-sm"></i>
+                                            {% endif %}
                                         </div>
                                         <span>{{ user.get_full_name|default:user.email }}</span>
                                         <i class="fas fa-chevron-down text-xs"></i>
@@ -293,9 +353,11 @@
                                         <a href="{% url 'core:profile' %}" class="dropdown-item block px-4 py-2 text-sm text-gray-700 transition">
                                             <i class="fas fa-user mr-2"></i>Mi Perfil
                                         </a>
+                                        {% if user.is_super_admin %}
                                         <a href="{% url 'admin:index' %}" class="dropdown-item block px-4 py-2 text-sm text-gray-700 transition">
                                             <i class="fas fa-cog mr-2"></i>Administración
                                         </a>
+                                        {% endif %}
                                         <div class="border-t border-gray-100"></div>
                                         <a href="{% url 'account_logout' %}" class="dropdown-item block px-4 py-2 text-sm text-gray-700 transition">
                                             <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión

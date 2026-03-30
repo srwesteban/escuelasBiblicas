@@ -1,0 +1,84 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Detalle del profesor{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Detalle del profesor</h1>
+                <p class="text-sm text-gray-600 mt-1">Información general y actividad reciente.</p>
+            </div>
+            <a href="{% url 'hechos:profesores_list' %}"
+               class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Volver a Profesores
+            </a>
+        </div>
+
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+            <div class="p-6">
+                <div class="flex items-start gap-4">
+                    <div class="h-16 w-16 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-500 shrink-0">
+                        {% if profesor.user.avatar %}
+                            <img src="{{ profesor.user.avatar.url }}" alt="" class="h-full w-full object-cover">
+                        {% else %}
+                            <i class="fas fa-user text-lg"></i>
+                        {% endif %}
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="text-xl font-semibold text-gray-900">{{ profesor.user.get_full_name }}</h2>
+                        <p class="text-sm text-gray-500 mt-1">{{ profesor.user.email }}</p>
+                        <div class="mt-2 text-xs text-gray-500 font-mono">{{ profesor.codigo_profesor|default:"—" }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div class="rounded-lg border border-gray-200 p-4">
+                    <p class="text-gray-500">Teléfono</p>
+                    <p class="text-gray-900 font-medium mt-1">{{ profesor.user.phone|default:"No registrado" }}</p>
+                </div>
+                <div class="rounded-lg border border-gray-200 p-4">
+                    <p class="text-gray-500">Estado</p>
+                    <p class="mt-1">
+                        {% if profesor.is_active %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Activo</span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Inactivo</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">Cursos asignados</h3>
+                <div class="space-y-2 text-sm">
+                    {% for curso in cursos %}
+                        <div class="rounded-md border border-gray-200 px-3 py-2 text-gray-800">{{ curso.nombre }}</div>
+                    {% empty %}
+                        <p class="text-gray-500">Sin cursos asignados.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">Clases recientes</h3>
+                <div class="space-y-2 text-sm">
+                    {% for clase in clases %}
+                        <div class="rounded-md border border-gray-200 px-3 py-2">
+                            <p class="font-medium text-gray-900">{{ clase.titulo }}</p>
+                            <p class="text-gray-500">{{ clase.fecha_clase|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    {% empty %}
+                        <p class="text-gray-500">Sin clases registradas.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

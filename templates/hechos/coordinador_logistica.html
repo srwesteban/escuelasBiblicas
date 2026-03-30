@@ -1,0 +1,9 @@
+{% extends 'base_modern.html' %}
+{% block title %}Logística — {{ user_sede.nombre }}{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto card p-8">
+    <h1 class="text-2xl font-bold text-gray-900">Organización logística</h1>
+    <p class="text-stone-600 mt-2">Coordinación logística de la sede <span class="font-medium text-stone-900">{{ user_sede.nombre }}</span>.</p>
+    <p class="text-sm text-stone-500 mt-6">Aquí podrás gestionar espacios, horarios y materiales cuando definamos los flujos concretos.</p>
+</div>
+{% endblock %}

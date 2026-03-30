@@ -52,14 +52,14 @@
 
                     <div>
                         <label for="telefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
-                        <input type="tel" name="telefono" id="telefono" value="{{ profesor.telefono }}"
+                        <input type="tel" name="telefono" id="telefono" value="{{ profesor.user.phone|default:'' }}"
                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
                     <div class="md:col-span-2">
-                        <label for="direccion" class="block text-sm font-medium text-gray-700">Dirección</label>
-                        <textarea name="direccion" id="direccion" rows="2"
-                                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">{{ profesor.direccion }}</textarea>
+                        <label for="biografia" class="block text-sm font-medium text-gray-700">Biografía breve</label>
+                        <textarea name="biografia" id="biografia" rows="3"
+                                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">{{ profesor.biografia }}</textarea>
                     </div>
 
                     <!-- Información Profesional -->

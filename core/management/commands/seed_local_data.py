@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core.management.base import BaseCommand
 
+from django.utils import timezone
+
 from core.models import AppModule, Sede, UserAppPermission
 from hechos.models import AdminEscuela, Escuela, Estudiante, Profesor, RutaEstudio
 
@@ -119,6 +121,9 @@ class Command(BaseCommand):
             escuela, _ = Escuela.objects.update_or_create(
                 sede=sede,
                 nombre=escuela_data["nombre"],
+                anio=timezone.now().year,
+                ciclo=Escuela.Ciclo.A,
+                grupo=1,
                 defaults={
                     "descripcion": escuela_data["descripcion"],
                     "is_active": True,

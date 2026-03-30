@@ -202,7 +202,20 @@
         </div>
 
     {% elif user.admin_escuela_profile %}
-        <!-- Admin Escuela Dashboard -->
+        {% if user.admin_escuela_profile.tipo_coordinador == 'sede' and user.admin_escuela_profile.sede_id %}
+        <div class="card p-8 text-center max-w-xl mx-auto">
+            <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-user-tie text-amber-700 text-2xl"></i>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-900">{{ user.get_full_name }}</h2>
+            <p class="text-gray-600 mt-2">{{ user.admin_escuela_profile.get_tipo_coordinador_display }}</p>
+            <p class="text-sm text-gray-500 mt-4">Tu función es organizar el equipo de coordinación de esta sede, no gestionar estudiantes ni cursos desde aquí.</p>
+            <a href="{% url 'core:coordinador_sede_equipo' user.admin_escuela_profile.sede_id %}" class="btn-primary inline-flex items-center px-6 py-3 mt-6 font-medium">
+                <i class="fas fa-users-cog mr-2"></i> Ir al equipo de coordinación
+            </a>
+        </div>
+        {% else %}
+        <!-- Admin Escuela Dashboard (p. ej. académico) -->
         <div class="card p-6">
             <div class="flex items-center space-x-4 mb-6">
                 <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
@@ -210,7 +223,7 @@
                 </div>
                 <div>
                     <h2 class="text-xl font-semibold text-gray-900">{{ user.get_full_name }}</h2>
-                    <p class="text-gray-600">Admin de Escuela - {{ user.admin_escuela_profile.escuela }}</p>
+                    <p class="text-gray-600">{{ user.admin_escuela_profile.get_tipo_coordinador_display }}{% if user.admin_escuela_profile.sede %} — {{ user.admin_escuela_profile.sede.nombre }}{% endif %}</p>
                 </div>
             </div>
 
@@ -295,6 +308,20 @@
                     </div>
                 </div>
             </a>
+
+            {% if user.is_super_admin or user.admin_escuela_profile.tipo_coordinador == 'academico' %}
+            <a href="{% url 'hechos:solicitudes_matricula_admin' %}" class="card p-6 hover:shadow-lg transition-shadow">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-user-check text-amber-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900">Solicitudes</h3>
+                        <p class="text-sm text-gray-600">Aprobar o rechazar</p>
+                    </div>
+                </div>
+            </a>
+            {% endif %}
         </div>
 
         <!-- Crear Nuevos Recursos -->
@@ -337,6 +364,7 @@
                 </a>
             </div>
         </div>
+        {% endif %}
     {% endif %}
 
     <!-- Recent Activity -->

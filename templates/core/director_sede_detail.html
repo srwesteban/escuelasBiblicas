@@ -8,12 +8,18 @@
         background: #fafaf9;
         border-radius: 1rem;
         overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        flex-shrink: 0;
     }
 
-    .media-frame img {
+    .thumb-slot {
+        position: relative;
+        display: grid;
+        place-items: center;
+    }
+
+    .thumb-slot > .thumb-img {
+        grid-area: 1 / 1;
+        z-index: 1;
         display: block;
         width: auto;
         height: auto;
@@ -21,32 +27,92 @@
         max-height: 100%;
     }
 
-    .media-frame-header {
+    .thumb-fallback {
+        grid-area: 1 / 1;
+        z-index: 0;
+        width: 100%;
+        height: 100%;
+        min-height: 5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(145deg, #fafaf9 0%, #eceae8 52%, #e4e2df 100%);
+    }
+
+    .thumb-fallback-icon {
+        display: flex;
+        width: 3.25rem;
+        height: 3.25rem;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.94);
+        color: #57534e;
+        font-size: 1.35rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.07), 0 0 0 1px rgba(120, 113, 108, 0.14);
+    }
+
+    .thumb-fallback-icon--sede {
+        border-radius: 1rem;
+        color: #44403c;
+    }
+
+    .thumb-fallback-icon--person {
+        border-radius: 9999px;
+        color: #64748b;
+        font-size: 1.2rem;
+    }
+
+    .media-frame-header.thumb-slot {
         width: fit-content;
         max-width: 9rem;
         max-height: 9rem;
-        flex-shrink: 0;
+        border-radius: 1rem;
+        border: 1px solid rgba(120, 113, 108, 0.12);
     }
 
-    .media-frame-pastor {
+    .media-frame-pastor.thumb-slot {
         width: fit-content;
         max-width: 7rem;
         max-height: 7rem;
-        flex-shrink: 0;
+        border-radius: 1rem;
+        border: 1px solid rgba(120, 113, 108, 0.12);
     }
 
-    .media-frame-coordinator {
+    .media-frame-coordinator.thumb-slot {
         width: 4rem;
         height: 4rem;
-        flex-shrink: 0;
+        border-radius: 9999px;
+        border: 1px solid rgba(120, 113, 108, 0.12);
     }
 
-    .media-frame-coordinator img {
+    .media-frame-coordinator .thumb-fallback {
+        min-height: 0;
+        border-radius: 9999px;
+    }
+
+    .media-frame-coordinator .thumb-fallback-icon--person {
+        width: 2.5rem;
+        height: 2.5rem;
+        font-size: 1rem;
+    }
+
+    .media-frame-coordinator .thumb-img {
         width: 100%;
         height: 100%;
         max-width: none;
         max-height: none;
         object-fit: cover;
+    }
+
+    #delete-sede-dialog {
+        border: none;
+        padding: 0;
+        max-width: 28rem;
+        width: calc(100% - 2rem);
+    }
+
+    #delete-sede-dialog::backdrop {
+        background: rgba(15, 23, 42, 0.45);
     }
 </style>
 {% endblock %}
@@ -55,34 +121,45 @@
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
-            <div class="media-frame media-frame-header bg-stone-100">
+            <div class="media-frame media-frame-header thumb-slot bg-stone-50">
                 {% if sede.imagen_referencia %}
-                    <img src="{{ sede.imagen_referencia.url }}" alt="{{ sede.nombre }}">
+                    <img class="thumb-img" src="{{ sede.imagen_referencia.url }}" alt="{{ sede.nombre }}"
+                         onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+                    <div class="thumb-fallback hidden" aria-hidden="true">
+                        <span class="thumb-fallback-icon thumb-fallback-icon--sede"><i class="fas fa-church"></i></span>
+                    </div>
                 {% else %}
-                    <i class="fas fa-building text-stone-600 text-2xl"></i>
+                    <div class="thumb-fallback" aria-hidden="true">
+                        <span class="thumb-fallback-icon thumb-fallback-icon--sede"><i class="fas fa-church"></i></span>
+                    </div>
                 {% endif %}
             </div>
             <div>
                 <h1 class="text-3xl font-bold text-gray-900">{{ sede.nombre }}</h1>
-                <p class="text-gray-600 mt-1">{{ sede.direccion }}</p>
+                {% if sede.ubicacion_completa %}
+                <p class="text-sm text-stone-600 mt-1">{{ sede.ubicacion_completa }}</p>
+                {% endif %}
             </div>
         </div>
         <div class="flex items-center gap-3">
             <a href="{% url 'core:director_dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">Volver</a>
             <a href="{% url 'core:sede_edit' sede.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Editar sede</a>
-            <form method="post" action="{% url 'core:sede_delete' sede.id %}">
-                {% csrf_token %}
-                <button type="submit" class="btn-outline px-4 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50">
-                    Eliminar sede
-                </button>
-            </form>
+            <button type="button" id="open-delete-sede-dialog" class="btn-outline px-4 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50">
+                Eliminar sede
+            </button>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="card p-5">
-            <div class="text-sm text-gray-500">Ciudad</div>
-            <div class="mt-1 font-medium text-gray-900">{{ sede.ciudad|default:"No definido" }}</div>
+            <div class="text-sm text-gray-500">Dirección</div>
+            <div class="mt-1 font-medium text-gray-900 leading-snug">{{ sede.direccion|default:"No definido" }}</div>
+        </div>
+        <div class="card p-5">
+            <div class="text-sm text-gray-500">Ubicación</div>
+            <div class="mt-1 font-medium text-gray-900">
+                {% if sede.ubicacion_completa %}{{ sede.ubicacion_completa }}{% else %}{{ sede.ciudad|default:"No definido" }}{% endif %}
+            </div>
         </div>
         <div class="card p-5">
             <div class="text-sm text-gray-500">Correo</div>
@@ -98,15 +175,25 @@
         </div>
     </div>
 
-    {% if sede.foto_pastor %}
+    {% if sede.pastor_responsable or sede.foto_pastor %}
         <div class="card p-6">
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Pastor responsable</h2>
             <div class="flex items-center gap-4">
-                <div class="media-frame media-frame-pastor bg-stone-100">
-                    <img src="{{ sede.foto_pastor.url }}" alt="{{ sede.pastor_responsable }}">
+                <div class="media-frame media-frame-coordinator thumb-slot bg-stone-50">
+                    {% if sede.foto_pastor %}
+                        <img class="thumb-img" src="{{ sede.foto_pastor.url }}" alt="{{ sede.pastor_responsable }}"
+                             onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+                        <div class="thumb-fallback hidden" aria-hidden="true">
+                            <span class="thumb-fallback-icon thumb-fallback-icon--person"><i class="fas fa-user"></i></span>
+                        </div>
+                    {% else %}
+                        <div class="thumb-fallback" aria-hidden="true">
+                            <span class="thumb-fallback-icon thumb-fallback-icon--person"><i class="fas fa-user"></i></span>
+                        </div>
+                    {% endif %}
                 </div>
                 <div>
-                    <div class="text-lg font-medium text-gray-900">{{ sede.pastor_responsable }}</div>
+                    <div class="text-lg font-medium text-gray-900">{{ sede.pastor_responsable|default:"—" }}</div>
                     <div class="text-sm text-gray-500">{{ sede.ciudad|default:"" }}</div>
                 </div>
             </div>
@@ -120,11 +207,17 @@
                 {% for pastor in pastores_adicionales %}
                     <div class="rounded-xl border border-stone-200 p-4">
                         <div class="flex items-center gap-4">
-                            <div class="media-frame media-frame-pastor bg-stone-100">
+                            <div class="media-frame media-frame-pastor thumb-slot bg-stone-50">
                                 {% if pastor.foto %}
-                                    <img src="{{ pastor.foto.url }}" alt="{{ pastor.nombre }}">
+                                    <img class="thumb-img" src="{{ pastor.foto.url }}" alt="{{ pastor.nombre }}"
+                                         onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+                                    <div class="thumb-fallback hidden" aria-hidden="true">
+                                        <span class="thumb-fallback-icon thumb-fallback-icon--person"><i class="fas fa-user"></i></span>
+                                    </div>
                                 {% else %}
-                                    <i class="fas fa-user text-stone-500 text-xl"></i>
+                                    <div class="thumb-fallback" aria-hidden="true">
+                                        <span class="thumb-fallback-icon thumb-fallback-icon--person"><i class="fas fa-user"></i></span>
+                                    </div>
                                 {% endif %}
                             </div>
                             <div>
@@ -157,18 +250,24 @@
                 <div class="rounded-xl border border-stone-200 p-5">
                     <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div class="flex items-center gap-4">
-                            <div class="media-frame media-frame-coordinator bg-stone-100">
+                            <div class="media-frame media-frame-coordinator thumb-slot bg-stone-50">
                                 {% if coordinador.user.avatar %}
-                                    <img src="{{ coordinador.user.avatar.url }}" alt="{{ coordinador.user.get_full_name }}">
+                                    <img class="thumb-img" src="{{ coordinador.user.avatar.url }}" alt="{{ coordinador.user.get_full_name }}"
+                                         onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+                                    <div class="thumb-fallback hidden" aria-hidden="true">
+                                        <span class="thumb-fallback-icon thumb-fallback-icon--person"><i class="fas fa-user"></i></span>
+                                    </div>
                                 {% else %}
-                                    <i class="fas fa-user text-stone-500 text-xl"></i>
+                                    <div class="thumb-fallback" aria-hidden="true">
+                                        <span class="thumb-fallback-icon thumb-fallback-icon--person"><i class="fas fa-user"></i></span>
+                                    </div>
                                 {% endif %}
                             </div>
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-900">{{ coordinador.user.get_full_name }}</h3>
-                                <p class="text-sm text-gray-600 mt-1">{{ coordinador.cargo }}</p>
+                                <p class="text-sm text-gray-600 mt-1">{{ coordinador.get_tipo_coordinador_display }}</p>
                                 <div class="mt-2 text-sm text-gray-500">
-                                    {{ coordinador.user.username }} · {{ coordinador.user.email }}
+                                    {{ coordinador.user.email }}
                                 </div>
                             </div>
                         </div>
@@ -184,7 +283,7 @@
             {% empty %}
                 <div class="rounded-xl border border-dashed border-stone-300 p-10 text-center">
                     <h3 class="text-lg font-medium text-gray-900 mb-2">No hay coordinadores en esta sede</h3>
-                    <p class="text-gray-600 mb-6">Agrega el primer coordinador con su usuario y contraseña.</p>
+                    <p class="text-gray-600 mb-6">Agrega el primer coordinador con su correo y contraseña.</p>
                     <a href="{% url 'core:coordinador_create' sede.id %}" class="btn-primary px-4 py-2 text-sm font-medium inline-flex items-center">
                         <i class="fas fa-user-plus mr-2"></i>Crear coordinador
                     </a>
@@ -192,5 +291,57 @@
             {% endfor %}
         </div>
     </div>
+
+    <dialog id="delete-sede-dialog" aria-labelledby="delete-sede-dialog-title">
+        <form method="post" action="{% url 'core:sede_delete' sede.id %}" class="rounded-xl border border-stone-200 bg-white shadow-xl overflow-hidden">
+            {% csrf_token %}
+            <div class="p-6 space-y-4">
+                <h3 id="delete-sede-dialog-title" class="text-lg font-semibold text-gray-900">Eliminar sede</h3>
+                <p class="text-sm text-gray-600">Se desactivará la sede <span class="font-medium text-gray-900">{{ sede.nombre }}</span>. Introduce tu contraseña para confirmar.</p>
+                <div>
+                    <label for="sede-delete-password" class="block text-sm font-medium text-stone-700 mb-1">Tu contraseña</label>
+                    <input type="password" name="confirm_password" id="sede-delete-password" required
+                           autocomplete="current-password"
+                           class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200"
+                           placeholder="Contraseña actual">
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 px-6 py-4 bg-stone-50 border-t border-stone-200">
+                <button type="button" class="btn-outline px-4 py-2 text-sm font-medium" data-close-delete-sede-dialog>Cancelar</button>
+                <button type="submit" class="btn-outline px-4 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50">Eliminar definitivamente</button>
+            </div>
+        </form>
+    </dialog>
 </div>
+
+<script>
+(function () {
+    var dlg = document.getElementById('delete-sede-dialog');
+    var openBtn = document.getElementById('open-delete-sede-dialog');
+    var pw = document.getElementById('sede-delete-password');
+    if (!dlg || !openBtn) return;
+
+    function clearPassword() {
+        if (pw) pw.value = '';
+    }
+
+    openBtn.addEventListener('click', function () {
+        if (typeof dlg.showModal === 'function') {
+            dlg.showModal();
+            if (pw) {
+                pw.focus();
+            }
+        }
+    });
+
+    dlg.querySelectorAll('[data-close-delete-sede-dialog]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            dlg.close();
+            clearPassword();
+        });
+    });
+
+    dlg.addEventListener('close', clearPassword);
+})();
+</script>
 {% endblock %}

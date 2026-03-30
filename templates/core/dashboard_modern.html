@@ -132,10 +132,10 @@
                     <div class="text-sm text-gray-600">Panel de control</div>
                 </a>
 
-                <a href="{% url 'hechos:dashboard' %}" class="btn-outline p-4 text-center hover:bg-gray-50 transition-colors">
+                <a href="{% if user.admin_escuela_profile and user.admin_escuela_profile.tipo_coordinador == 'pedagogico' %}{% url 'hechos:profesores_list' %}{% else %}{% url 'hechos:dashboard' %}{% endif %}" class="btn-outline p-4 text-center hover:bg-gray-50 transition-colors">
                     <i class="fas fa-graduation-cap text-2xl mb-2 text-gray-600"></i>
                     <div class="font-medium text-gray-900">Hechos</div>
-                    <div class="text-sm text-gray-600">Escuelas Bíblicas</div>
+                    <div class="text-sm text-gray-600">{% if user.admin_escuela_profile and user.admin_escuela_profile.tipo_coordinador == 'pedagogico' %}Profesores{% else %}Escuelas Bíblicas{% endif %}</div>
                 </a>
                 
                 <a href="{% url 'core:profile' %}" class="btn-outline p-4 text-center hover:bg-gray-50 transition-colors">

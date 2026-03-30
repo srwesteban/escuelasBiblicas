@@ -103,9 +103,15 @@ class Sede(models.Model):
     """
     Modelo para manejar las diferentes sedes de la iglesia
     """
-    nombre = models.CharField(max_length=200, unique=True)
+    nombre = models.CharField(max_length=200)
     imagen_referencia = models.ImageField(upload_to='sedes/', blank=True, null=True)
-    direccion = models.TextField()
+    direccion = models.TextField(blank=True, default="")
+    departamento = models.CharField(
+        max_length=10,
+        blank=True,
+        default="",
+        help_text="ID del departamento (Colombia), desde el formulario de sede.",
+    )
     ciudad = models.CharField(max_length=120, blank=True, default="")
     telefono = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
@@ -119,9 +125,34 @@ class Sede(models.Model):
     class Meta:
         verbose_name = 'Sede'
         verbose_name_plural = 'Sedes'
-        ordering = ['nombre']
+        ordering = ['departamento', 'ciudad', 'nombre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['nombre', 'departamento', 'ciudad'],
+                name='core_sede_unique_nombre_ubicacion',
+            ),
+        ]
     
     def __str__(self):
+        return self.nombre
+
+    def ubicacion_completa(self) -> str:
+        """Ciudad y departamento (Colombia) para mostrar en UI."""
+        from core.colombia_geo import nombre_departamento
+
+        ciu = (self.ciudad or "").strip()
+        dep = (self.departamento or "").strip()
+        if dep and ciu:
+            return f"{ciu}, {nombre_departamento(dep)}"
+        if ciu:
+            return ciu
+        return ""
+
+    def titulo_con_ciudad(self) -> str:
+        """Ej. «Hechos Norte: Pasto» para distinguir sedes con el mismo nombre."""
+        ciu = (self.ciudad or "").strip()
+        if ciu:
+            return f"{self.nombre}: {ciu}"
         return self.nombre
 
 

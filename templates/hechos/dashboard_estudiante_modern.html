@@ -1,284 +1,206 @@
 {% extends 'base_modern.html' %}
 {% load static %}
 
-{% block title %}Mi Dashboard - Hechos{% endblock %}
+{% block title %}Mi espacio - Hechos Hub{% endblock %}
 
 {% block content %}
-<div class="h-screen flex flex-col">
-    <!-- Header del Estudiante -->
-    <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-4 text-white mb-4">
-        <div class="flex items-center justify-between">
+<div class="space-y-6">
+    <section class="card p-6 sm:p-8 overflow-hidden relative">
+        <div class="absolute -top-16 -right-10 w-48 h-48 rounded-full bg-stone-200/30"></div>
+        <div class="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
             <div>
-                <h1 class="text-2xl font-bold">¡Hola, {{ estudiante.user.get_full_name }}!</h1>
-                <p class="text-blue-100 text-sm">{{ user_sede.nombre }}</p>
-            </div>
-            <div class="text-right">
-                <div class="text-xl font-bold">{{ promedio_general }}</div>
-                <div class="text-blue-200 text-sm">Promedio</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Layout Principal -->
-    <div class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- Columna Izquierda: Curso Actual -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-3 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">Curso Actual</h3>
-            </div>
-            <div class="p-4">
-                {% if curso_actual %}
-                    <div class="space-y-3">
-                        <div>
-                            <h4 class="text-lg font-bold text-gray-900">{{ curso_actual.nombre }}</h4>
-                            <p class="text-sm text-gray-600">
-                                {{ curso_actual.escuela.nombre|default:"Escuela sin asignar" }}
-                                {% if curso_actual.nivel %}
-                                    · Nivel {{ curso_actual.nivel.nombre }}
-                                {% endif %}
-                            </p>
-                        </div>
-                        
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="bg-blue-50 p-2 rounded">
-                                <div class="text-xs text-blue-600 font-medium">Duración</div>
-                                <div class="text-sm font-bold text-blue-900">{{ curso_actual.duracion_semanas }} sem</div>
-                            </div>
-                            <div class="bg-green-50 p-2 rounded">
-                                <div class="text-xs text-green-600 font-medium">Estado</div>
-                                <div class="text-sm font-bold text-green-900">Activo</div>
-                            </div>
-                        </div>
-                        
-                        <div class="pt-2">
-                            <a href="{% url 'hechos:detalle_curso' curso_actual.id %}" 
-                               class="inline-flex items-center px-3 py-1.5 border border-transparent rounded text-xs font-medium text-white bg-blue-600 hover:bg-blue-700">
-                                <i class="fas fa-eye mr-1"></i>Ver Detalles
-                            </a>
-                        </div>
-                    </div>
-                {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-book-open text-gray-400 text-2xl mb-2"></i>
-                        <h4 class="text-sm font-medium text-gray-900 mb-1">Sin curso activo</h4>
-                        <p class="text-xs text-gray-500">Puedes revisar las escuelas disponibles y enviar tu solicitud.</p>
-                    </div>
+                <p class="text-sm text-stone-600">Tu página personal</p>
+                <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">Hola, {{ user.get_full_name|default:user.username }}</h1>
+                <p class="text-slate-600 mt-2 max-w-2xl">
+                    Explora escuelas disponibles para matricularte y revisa el estado de tus cursos activos.
+                </p>
+                {% if user_sede %}
+                <div class="mt-4">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-stone-100 text-stone-800">
+                        <i class="fas fa-location-dot mr-2"></i>{{ user_sede.nombre }}
+                    </span>
+                </div>
                 {% endif %}
             </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'hechos:escuelas_disponibles' %}" class="btn-primary px-4 py-2 text-sm font-medium">
+                    <i class="fas fa-school mr-2"></i>Ver escuelas
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="card p-4">
+            <p class="text-xs text-slate-500">Cursos activos</p>
+            <p class="text-2xl font-bold text-slate-900 mt-1">{{ matriculas_activas|length }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500">Promedio general</p>
+            <p class="text-2xl font-bold text-slate-900 mt-1">{{ promedio_general|default:0 }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500">Asistencia</p>
+            <p class="text-2xl font-bold text-slate-900 mt-1">{{ porcentaje_asistencia|default:0 }}%</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500">Solicitudes pendientes</p>
+            <p class="text-2xl font-bold text-slate-900 mt-1">{{ solicitudes_pendientes_count|default:0 }}</p>
+        </div>
+    </section>
+
+    <section class="space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-slate-900">Mis cursos matriculados</h2>
         </div>
 
-        <!-- Columna Central: Notas Recientes -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-3 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">Notas Recientes</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {% for m in matriculas_activas %}
+            <article class="card p-5">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-900">{{ m.edicion_curso.curso.nombre }}</h3>
+                        <p class="text-sm text-slate-600 mt-1">
+                            {{ m.edicion_curso.curso.escuela.nombre }} · {{ m.edicion_curso.nombre_edicion }}
+                        </p>
+                    </div>
+                    <span class="badge badge-success">{{ m.get_estado_display }}</span>
+                </div>
+                <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div class="rounded-lg bg-stone-50 p-3">
+                        <p class="text-slate-500">Inicio</p>
+                        <p class="font-medium text-slate-900">{{ m.edicion_curso.fecha_inicio|date:"d/m/Y" }}</p>
+                    </div>
+                    <div class="rounded-lg bg-stone-50 p-3">
+                        <p class="text-slate-500">Fin</p>
+                        <p class="font-medium text-slate-900">{{ m.edicion_curso.fecha_fin|date:"d/m/Y" }}</p>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <a href="{% url 'hechos:detalle_curso' m.edicion_curso.curso.id %}" class="btn-outline w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium">
+                        <i class="fas fa-eye mr-2"></i>Ver escuela
+                    </a>
+                </div>
+            </article>
+            {% empty %}
+            <div class="card p-8 text-center lg:col-span-2">
+                <div class="w-14 h-14 rounded-full bg-stone-100 text-stone-600 flex items-center justify-center mx-auto">
+                    <i class="fas fa-book-open text-xl"></i>
+                </div>
+                <h3 class="mt-4 text-lg font-semibold text-slate-900">Aún no tienes cursos activos</h3>
+                <p class="text-slate-600 mt-1">Debajo encontrarás escuelas disponibles para solicitar matrícula.</p>
             </div>
-            <div class="p-4">
-                {% if notas_recientes %}
-                    <div class="space-y-2">
-                        {% for nota in notas_recientes %}
-                            <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                <div class="flex-1 min-w-0">
-                                    <div class="text-sm font-medium text-gray-900 truncate">{{ nota.titulo }}</div>
-                                    <div class="text-xs text-gray-500">{{ nota.curso.nombre }}</div>
-                                </div>
-                                <div class="text-right ml-2">
-                                    <div class="text-sm font-bold {% if nota.puntaje_obtenido >= 3.5 %}text-green-600{% elif nota.puntaje_obtenido >= 2.5 %}text-yellow-600{% else %}text-red-600{% endif %}">
-                                        {{ nota.puntaje_obtenido }}/{{ nota.puntaje_maximo }}
-                                    </div>
-                                    <div class="text-xs text-gray-500">{{ nota.fecha_evaluacion|date:"d/m" }}</div>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                    <div class="mt-3">
-                        <a href="{% url 'hechos:notas_estudiante' %}" 
-                           class="inline-flex items-center px-3 py-1.5 border border-transparent rounded text-xs font-medium text-white bg-green-600 hover:bg-green-700">
-                            <i class="fas fa-chart-line mr-1"></i>Ver Todas
-                        </a>
-                    </div>
-                {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-chart-line text-gray-400 text-2xl mb-2"></i>
-                        <h4 class="text-sm font-medium text-gray-900 mb-1">Sin notas</h4>
-                        <p class="text-xs text-gray-500">Aparecerán cuando sean registradas</p>
-                    </div>
-                {% endif %}
-            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-slate-900">Escuelas para matricularte</h2>
+            <a href="{% url 'hechos:escuelas_disponibles' %}" class="text-sm font-medium text-stone-700 hover:text-stone-900">
+                Ver listado completo <i class="fas fa-arrow-right ml-1"></i>
+            </a>
         </div>
 
-        <!-- Columna Derecha: Asistencia Reciente -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-3 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">Asistencia Reciente</h3>
-            </div>
-            <div class="p-4">
-                {% if asistencia_reciente %}
-                    <div class="space-y-2">
-                        {% for asistencia in asistencia_reciente %}
-                            <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                <div class="flex-1 min-w-0">
-                                    <div class="text-sm font-medium text-gray-900 truncate">{{ asistencia.clase.titulo }}</div>
-                                    <div class="text-xs text-gray-500">{{ asistencia.clase.edicion_curso.curso.nombre }}</div>
-                                </div>
-                                <div class="text-right ml-2">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium 
-                                        {% if asistencia.estado == 'presente' %}bg-green-100 text-green-800
-                                        {% elif asistencia.estado == 'ausente' %}bg-red-100 text-red-800
-                                        {% elif asistencia.estado == 'justificado' %}bg-yellow-100 text-yellow-800
-                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                        {% if asistencia.estado == 'presente' %}
-                                            <i class="fas fa-check mr-1"></i>P
-                                        {% elif asistencia.estado == 'ausente' %}
-                                            <i class="fas fa-times mr-1"></i>A
-                                        {% elif asistencia.estado == 'justificado' %}
-                                            <i class="fas fa-exclamation-triangle mr-1"></i>J
-                                        {% else %}
-                                            {{ asistencia.get_estado_display|slice:":1" }}
-                                        {% endif %}
-                                    </span>
-                                    <div class="text-xs text-gray-500 mt-1">{{ asistencia.fecha_registro|date:"d/m" }}</div>
-                                </div>
-                            </div>
-                        {% endfor %}
+        <div class="space-y-5">
+            {% for item in escuelas_feed %}
+            <article class="card p-0 overflow-hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3">
+                    <div class="lg:col-span-1 min-h-[180px] bg-stone-100">
+                        {% if item.sede and item.sede.imagen_referencia %}
+                        <img src="{{ item.sede.imagen_referencia.url }}" alt="{{ item.escuela.nombre }}" class="w-full h-full object-cover">
+                        {% else %}
+                        <div class="h-full flex items-center justify-center text-stone-500">
+                            <i class="fas fa-school text-4xl"></i>
+                        </div>
+                        {% endif %}
                     </div>
-                {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-clipboard-check text-gray-400 text-2xl mb-2"></i>
-                        <h4 class="text-sm font-medium text-gray-900 mb-1">Sin asistencia</h4>
-                        <p class="text-xs text-gray-500">Aparecerá cuando sea registrada</p>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <!-- Mis Escuelas - Sección Inferior -->
-    <div class="mt-4 bg-white shadow rounded-lg">
-        <div class="px-4 py-3 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">Mis Escuelas</h3>
-        </div>
-        <div class="p-4">
-            {% if escuelas_activas %}
-                {% for item in escuelas_activas %}
-                    <div class="mb-4 last:mb-0">
-                        <div class="flex items-center justify-between mb-3">
+                    <div class="lg:col-span-2 p-5 sm:p-6">
+                        <div class="flex items-start justify-between gap-3">
                             <div>
-                                <h4 class="text-lg font-bold text-gray-900">{{ item.escuela.nombre }}</h4>
-                                <p class="text-sm text-gray-600">
-                                    {% if item.nivel %}Nivel {{ item.nivel.nombre }} · {% endif %}
-                                    {{ item.grupo.nombre_edicion }}
+                                <h3 class="text-xl font-semibold text-slate-900">{{ item.escuela.nombre }}</h3>
+                                <p class="text-sm text-slate-600 mt-1">
+                                    {{ item.sede.nombre|default:"Sede por definir" }}
                                 </p>
                             </div>
-                            <div class="text-right">
-                                <div class="text-xl font-bold text-blue-600">{{ item.curso.duracion_semanas }} sem</div>
-                                <div class="text-xs text-gray-500">Duración</div>
-                            </div>
+                            <span class="badge">{{ item.niveles|length }} opción{{ item.niveles|length|pluralize:"es" }}</span>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div class="rounded-lg border border-stone-200 bg-stone-50 p-3">
-                                <div class="text-xs font-medium text-stone-500">Curso actual</div>
-                                <div class="mt-1 text-sm font-semibold text-stone-900">{{ item.curso.nombre }}</div>
-                            </div>
-                            <div class="rounded-lg border border-stone-200 bg-stone-50 p-3">
-                                <div class="text-xs font-medium text-stone-500">Profesor</div>
-                                <div class="mt-1 text-sm font-semibold text-stone-900">
-                                    {% if item.grupo.profesor %}
-                                        {{ item.grupo.profesor.user.get_full_name }}
+
+                        {% if item.escuela.descripcion %}
+                        <p class="text-slate-700 text-sm mt-4">{{ item.escuela.descripcion }}</p>
+                        {% endif %}
+
+                        <div class="mt-5 grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            {% for nivel_item in item.niveles %}
+                            <div class="rounded-xl border border-stone-200 p-4">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div>
+                                        <h4 class="font-semibold text-slate-900">{{ nivel_item.curso.nombre }}</h4>
+                                        <p class="text-sm text-slate-600">Nivel {{ nivel_item.nivel.nombre }} · {{ nivel_item.edicion.nombre_edicion }}</p>
+                                    </div>
+                                    {% if nivel_item.ya_matriculado %}
+                                    <span class="badge badge-success">Matriculado</span>
+                                    {% elif nivel_item.solicitud %}
+                                        {% if nivel_item.solicitud.estado == 'pendiente' %}
+                                        <span class="badge badge-warning">Pendiente</span>
+                                        {% elif nivel_item.solicitud.estado == 'aprobada' %}
+                                        <span class="badge badge-success">Aprobada</span>
+                                        {% else %}
+                                        <span class="badge badge-danger">Rechazada</span>
+                                        {% endif %}
                                     {% else %}
-                                        Por asignar
+                                    <span class="badge">{{ nivel_item.edicion.cupos_disponibles }} cupos</span>
+                                    {% endif %}
+                                </div>
+                                <div class="mt-3 space-y-1 text-sm text-slate-600">
+                                    <p><strong>Profesor:</strong>
+                                        {% if nivel_item.edicion.profesor %}
+                                            {{ nivel_item.edicion.profesor.user.get_full_name }}
+                                        {% else %}
+                                            Por asignar
+                                        {% endif %}
+                                    </p>
+                                    <p><strong>Horario:</strong> {{ nivel_item.edicion.horario|default:"Por definir" }}</p>
+                                </div>
+                                <div class="mt-4">
+                                    {% if nivel_item.ya_matriculado %}
+                                    <a href="{% url 'hechos:detalle_curso' nivel_item.curso.id %}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                        <i class="fas fa-arrow-right mr-2"></i>Entrar a la escuela
+                                    </a>
+                                    {% elif nivel_item.puede_solicitar %}
+                                    <form method="post" action="{% url 'hechos:solicitar_matricula' nivel_item.edicion.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                            <i class="fas fa-user-plus mr-2"></i>Solicitar matrícula
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <div class="btn-secondary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                        <i class="fas fa-clock mr-2"></i>
+                                        {% if nivel_item.solicitud %}
+                                            {{ nivel_item.solicitud.get_estado_display }}
+                                        {% else %}
+                                            No disponible
+                                        {% endif %}
+                                    </div>
                                     {% endif %}
                                 </div>
                             </div>
-                            <div class="rounded-lg border border-stone-200 bg-stone-50 p-3">
-                                <div class="text-xs font-medium text-stone-500">Grupo</div>
-                                <div class="mt-1 text-sm font-semibold text-stone-900">{{ item.grupo.nombre_edicion }}</div>
-                            </div>
-                        </div>
-
-                        <div class="mt-4 text-center">
-                            <a href="{% url 'hechos:cursos_list' %}" 
-                               class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-                                <i class="fas fa-arrow-right mr-2"></i>Entrar a mi escuela
-                            </a>
+                            {% endfor %}
                         </div>
                     </div>
-                {% endfor %}
-            {% else %}
-                <div class="text-center py-4">
-                    <i class="fas fa-school text-gray-400 text-2xl mb-2"></i>
-                    <h4 class="text-sm font-medium text-gray-900 mb-1">Sin escuelas activas</h4>
-                    <p class="text-xs text-gray-500">
-                        {% if solicitudes_pendientes_count %}
-                            Tienes {{ solicitudes_pendientes_count }} solicitud{{ solicitudes_pendientes_count|pluralize }} pendiente{{ solicitudes_pendientes_count|pluralize }}.
-                        {% else %}
-                            Aún no tienes una escuela aprobada.
-                        {% endif %}
-                    </p>
                 </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Acciones Rápidas - Footer -->
-    <div class="mt-4 bg-white shadow rounded-lg">
-        <div class="px-4 py-3 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">Acciones Rápidas</h3>
-        </div>
-        <div class="p-4">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <a href="{% url 'hechos:notas_estudiante' %}" 
-                   class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors">
-                    <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-chart-line text-green-600"></i>
-                        </div>
-                    </div>
-                    <div class="ml-3">
-                        <h4 class="text-sm font-medium text-gray-900">Mis Notas</h4>
-                        <p class="text-xs text-gray-500">Ver calificaciones</p>
-                    </div>
-                </a>
-                
-                <a href="{% url 'hechos:escuelas_disponibles' %}" 
-                   class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors">
-                    <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-school text-blue-600"></i>
-                        </div>
-                    </div>
-                    <div class="ml-3">
-                        <h4 class="text-sm font-medium text-gray-900">Escuelas</h4>
-                        <p class="text-xs text-gray-500">Ver oferta disponible</p>
-                    </div>
-                </a>
-                
-                <a href="{% url 'hechos:clases_list' %}" 
-                   class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 transition-colors">
-                    <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-calendar text-purple-600"></i>
-                        </div>
-                    </div>
-                    <div class="ml-3">
-                        <h4 class="text-sm font-medium text-gray-900">Mis Clases</h4>
-                        <p class="text-xs text-gray-500">Horarios</p>
-                    </div>
-                </a>
-                
-                <a href="{% url 'hechos:mis_solicitudes' %}" 
-                   class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-orange-50 hover:border-orange-300 transition-colors">
-                    <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-list-check text-orange-600"></i>
-                        </div>
-                    </div>
-                    <div class="ml-3">
-                        <h4 class="text-sm font-medium text-gray-900">Mis Solicitudes</h4>
-                        <p class="text-xs text-gray-500">Estado de matrícula</p>
-                    </div>
-                </a>
+            </article>
+            {% empty %}
+            <div class="card p-10 text-center">
+                <div class="w-14 h-14 rounded-full bg-stone-100 text-stone-600 flex items-center justify-center mx-auto">
+                    <i class="fas fa-school text-xl"></i>
+                </div>
+                <h3 class="mt-4 text-lg font-semibold text-slate-900">No hay escuelas disponibles ahora</h3>
+                <p class="text-slate-600 mt-1">Cuando se habiliten nuevas ediciones aparecerán aquí.</p>
             </div>
+            {% endfor %}
         </div>
-    </div>
+    </section>
 </div>
 {% endblock %}

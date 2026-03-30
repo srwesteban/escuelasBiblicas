@@ -1,4 +1,5 @@
 {% extends 'base_modern.html' %}
+{% load static %}
 
 {% block title %}{{ page_title }} - Hechos Hub{% endblock %}
 
@@ -173,42 +174,51 @@
 
             <div class="sede-section">
                 <h2 class="sede-section-title">Información principal</h2>
-                <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] gap-6">
+                <div class="space-y-5 max-w-3xl">
+                    <div>
+                        <label for="{{ form.nombre.id_for_label }}" class="sede-label">
+                            Nombre <span class="text-red-600">*</span>
+                        </label>
+                        {{ form.nombre }}
+                        <p class="sede-hint">Único dato obligatorio. El resto es opcional.</p>
+                        {% if form.nombre.errors %}
+                            <p class="sede-error">{{ form.nombre.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
-                            <label for="{{ form.nombre.id_for_label }}" class="sede-label">Nombre</label>
-                            {{ form.nombre }}
-                            <p class="sede-hint">Nombre visible de la sede.</p>
-                            {% if form.nombre.errors %}
-                                <p class="sede-error">{{ form.nombre.errors|join:", " }}</p>
+                            <label for="{{ form.departamento.id_for_label }}" class="sede-label">Departamento</label>
+                            {{ form.departamento }}
+                            <p class="sede-hint">Opcional. Distingue sedes por ciudad.</p>
+                            {% if form.departamento.errors %}
+                                <p class="sede-error">{{ form.departamento.errors|join:", " }}</p>
                             {% endif %}
                         </div>
-
                         <div>
-                            <label for="{{ form.ciudad.id_for_label }}" class="sede-label">Ciudad</label>
+                            <label for="{{ form.ciudad.id_for_label }}" class="sede-label">Ciudad o municipio</label>
                             {{ form.ciudad }}
-                            <p class="sede-hint">Ciudad donde opera la sede.</p>
+                            <p class="sede-hint">Opcional. Según el departamento.</p>
                             {% if form.ciudad.errors %}
                                 <p class="sede-error">{{ form.ciudad.errors|join:", " }}</p>
                             {% endif %}
                         </div>
                     </div>
 
-                    <div class="space-y-4">
-                        <div>
-                            <label for="{{ form.imagen_referencia.id_for_label }}" class="sede-label">Imagen referencia</label>
-                            {{ form.imagen_referencia }}
-                            <p class="sede-hint">Opcional. Se usa para representar visualmente la sede.</p>
-                            {% if form.imagen_referencia.errors %}
-                                <p class="sede-error">{{ form.imagen_referencia.errors|join:", " }}</p>
-                            {% endif %}
-                        </div>
+                    <div>
+                        <label for="{{ form.imagen_referencia.id_for_label }}" class="sede-label">Imagen referencia</label>
+                        {{ form.imagen_referencia }}
+                        <p class="sede-hint">Opcional.</p>
+                        {% if form.imagen_referencia.errors %}
+                            <p class="sede-error">{{ form.imagen_referencia.errors|join:", " }}</p>
+                        {% endif %}
                     </div>
                 </div>
             </div>
 
             <div class="sede-section">
                 <h2 class="sede-section-title">Ubicación y contacto</h2>
+                <p class="sede-hint mb-4">Opcional.</p>
                 <div class="space-y-5">
                     <div>
                         <label for="{{ form.direccion.id_for_label }}" class="sede-label">Dirección</label>
@@ -240,6 +250,7 @@
 
             <div class="sede-section">
                 <h2 class="sede-section-title">Pastor responsable</h2>
+                <p class="sede-hint mb-4">Opcional.</p>
                 <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_18rem] gap-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
@@ -340,19 +351,6 @@
                 </div>
             </div>
 
-            <div class="sede-section">
-                <h2 class="sede-section-title">Imagen y descripción</h2>
-                <div class="space-y-5">
-                    <div>
-                        <label for="{{ form.descripcion.id_for_label }}" class="sede-label">Descripción</label>
-                        {{ form.descripcion }}
-                        {% if form.descripcion.errors %}
-                            <p class="sede-error">{{ form.descripcion.errors|join:", " }}</p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
             <div class="flex items-center justify-end gap-3 pt-4">
                 <a href="{% url 'core:director_dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">Cancelar</a>
                 <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Guardar sede</button>
@@ -401,6 +399,50 @@
         {% endif %}
     </div>
 </template>
+
+<script>
+(function () {
+    const deptSel = document.getElementById("{{ form.departamento.id_for_label }}");
+    const citySel = document.getElementById("{{ form.ciudad.id_for_label }}");
+    if (!deptSel || !citySel) return;
+    const citiesUrl = "{% static 'geo/colombia_cities.json' %}";
+    const selectedCity = "{{ form.ciudad.value|default:''|escapejs }}";
+    let cache = null;
+    function loadAll() {
+        if (cache) return Promise.resolve(cache);
+        return fetch(citiesUrl).then(function (r) { return r.json(); }).then(function (d) {
+            cache = d.data || [];
+            return cache;
+        });
+    }
+    function fillCities(depId) {
+        const firstLabel = depId ? "Seleccione ciudad o municipio" : "Primero seleccione departamento";
+        citySel.innerHTML = "";
+        const opt0 = document.createElement("option");
+        opt0.value = "";
+        opt0.textContent = firstLabel;
+        citySel.appendChild(opt0);
+        if (!depId) return;
+        loadAll().then(function (rows) {
+            var list = rows.filter(function (c) { return String(c.departmentId) === String(depId); });
+            list.sort(function (a, b) { return a.name.localeCompare(b.name, "es"); });
+            list.forEach(function (c) {
+                var o = document.createElement("option");
+                o.value = c.name;
+                o.textContent = c.name;
+                citySel.appendChild(o);
+            });
+            if (selectedCity) citySel.value = selectedCity;
+        });
+    }
+    deptSel.addEventListener("change", function () {
+        fillCities(deptSel.value);
+    });
+    document.addEventListener("DOMContentLoaded", function () {
+        if (deptSel.value) fillCities(deptSel.value);
+    });
+})();
+</script>
 
 <script>
     (function () {

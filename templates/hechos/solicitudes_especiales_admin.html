@@ -1,0 +1,98 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Bandeja de entrada{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Bandeja de entrada</h1>
+            <p class="text-gray-600 mt-1">Atención estudiantil en {{ user_sede.nombre }}</p>
+        </div>
+        <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+            <i class="fas fa-arrow-left mr-2"></i>Volver
+        </a>
+    </div>
+
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="card p-4">
+            <p class="text-xs text-slate-500">Pendientes</p>
+            <p class="text-2xl font-bold text-slate-900 mt-1">{{ pendientes|length }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500">Revisadas recientes</p>
+            <p class="text-2xl font-bold text-slate-900 mt-1">{{ revisadas|length }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500">Total en bandeja</p>
+            <p class="text-2xl font-bold text-slate-900 mt-1">{{ total_bandeja }}</p>
+        </div>
+    </section>
+
+    <section class="card p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Pendientes</h2>
+        <div class="space-y-4">
+            {% for s in pendientes %}
+            <article class="rounded-xl border border-stone-200 p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="font-semibold text-gray-900">{{ s.asunto }}</h3>
+                        <p class="text-sm text-gray-600 mt-1">{{ s.estudiante.user.get_full_name }} · {{ s.get_tipo_display }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ s.fecha_solicitud|date:"d/m/Y H:i" }}</p>
+                    </div>
+                    <span class="badge badge-warning">Pendiente</span>
+                </div>
+                <p class="text-sm text-gray-700 mt-3">{{ s.descripcion }}</p>
+                <form method="post" action="{% url 'hechos:revisar_solicitud_especial_admin' s.id %}" class="mt-4 space-y-3">
+                    {% csrf_token %}
+                    <textarea
+                        name="observaciones"
+                        rows="2"
+                        class="input w-full px-3 py-2 border rounded-xl focus:outline-none"
+                        placeholder="Observación o respuesta al estudiante"
+                    ></textarea>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="submit" name="accion" value="atender" class="btn-primary px-4 py-2 text-sm font-medium">
+                            <i class="fas fa-check mr-2"></i>Marcar atendida
+                        </button>
+                        <button type="submit" name="accion" value="cerrar" class="btn-outline px-4 py-2 text-sm font-medium">
+                            <i class="fas fa-folder-closed mr-2"></i>Cerrar
+                        </button>
+                    </div>
+                </form>
+            </article>
+            {% empty %}
+            <div class="rounded-xl border border-dashed border-stone-300 p-8 text-center text-gray-600">
+                No hay solicitudes especiales pendientes.
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="card p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Revisadas recientemente</h2>
+        <div class="space-y-3">
+            {% for s in revisadas %}
+            <div class="rounded-xl border border-stone-200 p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="font-medium text-gray-900">{{ s.asunto }}</p>
+                        <p class="text-sm text-gray-600">{{ s.estudiante.user.get_full_name }} · {{ s.get_tipo_display }}</p>
+                    </div>
+                    {% if s.estado == 'atendida' %}
+                        <span class="badge badge-success">Atendida</span>
+                    {% else %}
+                        <span class="badge">Cerrada</span>
+                    {% endif %}
+                </div>
+                {% if s.observaciones %}
+                <p class="text-sm text-gray-700 mt-2">{{ s.observaciones }}</p>
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-600">Sin revisiones recientes.</p>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

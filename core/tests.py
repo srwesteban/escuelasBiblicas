@@ -46,7 +46,8 @@ class DirectorInterfaceTests(TestCase):
             {
                 "nombre": "Hechos Norte",
                 "direccion": "Calle Principal 123",
-                "ciudad": "Monterrey",
+                "departamento": "5",
+                "ciudad": "Medellín",
                 "telefono": "555-1000",
                 "email": "norte@example.com",
                 "pastor_responsable": "Pastor Norte",
@@ -71,11 +72,10 @@ class DirectorInterfaceTests(TestCase):
         response = self.client.post(
             reverse("core:coordinador_create", args=[sede.id]),
             {
-                "first_name": "Ana",
-                "last_name": "Lopez",
-                "username": "ana.lopez",
+                "nombres": "Ana",
+                "apellidos": "Lopez",
                 "email": "ana@example.com",
-                "cargo": "Coordinadora de sede",
+                "tipo_coordinador": AdminEscuela.TipoCoordinador.SEDE,
                 "avatar": self.make_test_image(),
                 "password1": "coord12345",
                 "password2": "coord12345",
@@ -85,6 +85,12 @@ class DirectorInterfaceTests(TestCase):
 
         coordinador = AdminEscuela.objects.get(sede=sede)
         self.assertRedirects(response, reverse("core:director_sede_detail", args=[sede.id]))
+        self.assertEqual(coordinador.user.username, "ana")
+        self.assertEqual(coordinador.tipo_coordinador, AdminEscuela.TipoCoordinador.SEDE)
+        self.assertEqual(
+            coordinador.cargo,
+            AdminEscuela.cargo_para_tipo(AdminEscuela.TipoCoordinador.SEDE, sede.nombre),
+        )
         self.assertEqual(coordinador.user.role, "app_admin")
         self.assertTrue(bool(coordinador.user.avatar))
         self.assertTrue(
@@ -111,7 +117,8 @@ class DirectorInterfaceTests(TestCase):
         coordinador = AdminEscuela.objects.create(
             user=user,
             sede=sede,
-            cargo="Coordinadora de sede",
+            tipo_coordinador=AdminEscuela.TipoCoordinador.SEDE,
+            cargo=AdminEscuela.cargo_para_tipo(AdminEscuela.TipoCoordinador.SEDE, sede.nombre),
             is_active=True,
         )
         self.client.force_login(self.director)
@@ -119,11 +126,10 @@ class DirectorInterfaceTests(TestCase):
         response = self.client.post(
             reverse("core:coordinador_edit", args=[sede.id, coordinador.id]),
             {
-                "first_name": "Ana Maria",
-                "last_name": "Lopez",
-                "username": "ana.maria",
+                "nombres": "Ana María",
+                "apellidos": "Lopez",
                 "email": "ana.maria@example.com",
-                "cargo": "Coordinadora general",
+                "tipo_coordinador": AdminEscuela.TipoCoordinador.SEDE,
                 "avatar": self.make_test_image("avatar-edit.gif"),
                 "password1": "",
                 "password2": "",
@@ -134,10 +140,14 @@ class DirectorInterfaceTests(TestCase):
         coordinador.refresh_from_db()
         coordinador.user.refresh_from_db()
         self.assertRedirects(response, reverse("core:director_sede_detail", args=[sede.id]))
-        self.assertEqual(coordinador.user.first_name, "Ana Maria")
-        self.assertEqual(coordinador.user.username, "ana.maria")
+        self.assertEqual(coordinador.user.first_name, "Ana María")
+        self.assertEqual(coordinador.user.username, "anamaria")
         self.assertEqual(coordinador.user.email, "ana.maria@example.com")
-        self.assertEqual(coordinador.cargo, "Coordinadora general")
+        self.assertEqual(coordinador.tipo_coordinador, AdminEscuela.TipoCoordinador.SEDE)
+        self.assertEqual(
+            coordinador.cargo,
+            AdminEscuela.cargo_para_tipo(AdminEscuela.TipoCoordinador.SEDE, sede.nombre),
+        )
         self.assertTrue(bool(coordinador.user.avatar))
 
     def test_deleted_coordinator_is_hidden_from_sede_detail(self):
@@ -156,7 +166,8 @@ class DirectorInterfaceTests(TestCase):
         coordinador = AdminEscuela.objects.create(
             user=user,
             sede=sede,
-            cargo="Coordinadora de sede",
+            tipo_coordinador=AdminEscuela.TipoCoordinador.ACADEMICO,
+            cargo=AdminEscuela.cargo_para_tipo(AdminEscuela.TipoCoordinador.ACADEMICO, sede.nombre),
             is_active=True,
         )
         self.client.force_login(self.director)
@@ -170,7 +181,7 @@ class DirectorInterfaceTests(TestCase):
         self.assertFalse(coordinador.user.is_active)
 
         detail_response = self.client.get(reverse("core:director_sede_detail", args=[sede.id]))
-        self.assertNotContains(detail_response, "ana.lopez")
+        self.assertNotContains(detail_response, "ana@example.com")
         self.assertContains(detail_response, "No hay coordinadores en esta sede")
 
     def test_director_can_edit_sede(self):
@@ -182,6 +193,7 @@ class DirectorInterfaceTests(TestCase):
             {
                 "nombre": "Hechos Norte Actualizada",
                 "direccion": "Nueva dirección 456",
+                "departamento": "5",
                 "ciudad": "Guadalupe",
                 "telefono": "555-9999",
                 "email": "actualizada@example.com",
@@ -201,16 +213,33 @@ class DirectorInterfaceTests(TestCase):
         self.assertRedirects(response, reverse("core:director_sede_detail", args=[sede.id]))
         self.assertEqual(sede.nombre, "Hechos Norte Actualizada")
         self.assertEqual(sede.ciudad, "Guadalupe")
+        self.assertEqual(sede.departamento, "5")
 
     def test_director_can_delete_sede(self):
         sede = Sede.objects.create(nombre="Hechos Norte", direccion="Calle Principal 123", is_active=True)
         self.client.force_login(self.director)
 
-        response = self.client.post(reverse("core:sede_delete", args=[sede.id]))
+        response = self.client.post(
+            reverse("core:sede_delete", args=[sede.id]),
+            {"confirm_password": "local12345"},
+        )
 
         sede.refresh_from_db()
         self.assertRedirects(response, reverse("core:director_dashboard"))
         self.assertFalse(sede.is_active)
+
+    def test_director_cannot_delete_sede_with_wrong_password(self):
+        sede = Sede.objects.create(nombre="Hechos Sur", direccion="Calle Sur 1", is_active=True)
+        self.client.force_login(self.director)
+
+        response = self.client.post(
+            reverse("core:sede_delete", args=[sede.id]),
+            {"confirm_password": "clave-incorrecta"},
+        )
+
+        sede.refresh_from_db()
+        self.assertTrue(sede.is_active)
+        self.assertRedirects(response, reverse("core:director_sede_detail", args=[sede.id]))
 
     def test_director_can_add_optional_additional_pastors(self):
         self.client.force_login(self.director)
@@ -220,7 +249,8 @@ class DirectorInterfaceTests(TestCase):
             {
                 "nombre": "Hechos Centro",
                 "direccion": "Calle Centro 321",
-                "ciudad": "Monterrey",
+                "departamento": "5",
+                "ciudad": "Medellín",
                 "telefono": "",
                 "email": "",
                 "pastor_responsable": "Pastor Principal",

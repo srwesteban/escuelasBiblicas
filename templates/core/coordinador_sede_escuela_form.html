@@ -1,0 +1,74 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Editar escuela — {{ sede.nombre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="flex items-start justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Editar escuela</h1>
+            <p class="text-stone-600 mt-1">Sede: {{ sede.nombre }}</p>
+        </div>
+        <a href="{% url 'core:coordinador_sede_escuelas' sede.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Volver</a>
+    </div>
+
+    <div class="card p-6">
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div>
+                <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.nombre.label }}</label>
+                {{ form.nombre }}
+                {% if form.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ form.nombre.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.descripcion.label }}</label>
+                {{ form.descripcion }}
+                {% if form.descripcion.errors %}<p class="text-sm text-red-600 mt-1">{{ form.descripcion.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label for="{{ form.anio.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.anio.label }}</label>
+                    {{ form.anio }}
+                    {% if form.anio.errors %}<p class="text-sm text-red-600 mt-1">{{ form.anio.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.ciclo.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.ciclo.label }}</label>
+                    {{ form.ciclo }}
+                    {% if form.ciclo.errors %}<p class="text-sm text-red-600 mt-1">{{ form.ciclo.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.grupo.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.grupo.label }}</label>
+                    {{ form.grupo }}
+                    {% if form.grupo.errors %}<p class="text-sm text-red-600 mt-1">{{ form.grupo.errors|join:", " }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label for="{{ form.cupo_maximo.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.cupo_maximo.label }}</label>
+                    {{ form.cupo_maximo }}
+                    {% if form.cupo_maximo.errors %}<p class="text-sm text-red-600 mt-1">{{ form.cupo_maximo.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.maestro.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.maestro.label }}</label>
+                    {{ form.maestro }}
+                    {% if form.maestro.errors %}<p class="text-sm text-red-600 mt-1">{{ form.maestro.errors|join:", " }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-stone-200">
+                <a href="{% url 'core:coordinador_sede_escuelas' sede.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Cancelar</a>
+                <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Guardar cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

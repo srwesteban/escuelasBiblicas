@@ -1,0 +1,88 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Solicitudes de matrícula{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Solicitudes de matrícula</h1>
+            <p class="text-gray-600 mt-1">Revisión académica de estudiantes en {{ user_sede.nombre }}</p>
+        </div>
+        <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+            <i class="fas fa-arrow-left mr-2"></i>Volver
+        </a>
+    </div>
+
+    <section class="card p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Pendientes</h2>
+        <div class="space-y-4">
+            {% for s in pendientes %}
+            <article class="rounded-xl border border-stone-200 p-4">
+                <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                    <div>
+                        <h3 class="font-semibold text-gray-900">{{ s.estudiante.user.get_full_name }}</h3>
+                        <p class="text-sm text-gray-600 mt-1">
+                            {{ s.edicion_curso.curso.nombre }} · {{ s.edicion_curso.nombre_edicion }}
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            {{ s.edicion_curso.curso.escuela.nombre }} · {{ s.fecha_solicitud|date:"d/m/Y H:i" }}
+                        </p>
+                    </div>
+                    <span class="badge badge-warning">Pendiente</span>
+                </div>
+
+                <form method="post" action="{% url 'hechos:revisar_solicitud_matricula' s.id %}" class="mt-4 space-y-3">
+                    {% csrf_token %}
+                    <textarea
+                        name="observaciones"
+                        rows="2"
+                        class="input w-full px-3 py-2 border rounded-xl focus:outline-none"
+                        placeholder="Observación opcional (motivo o comentario)"
+                    ></textarea>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="submit" name="accion" value="aprobar" class="btn-primary px-4 py-2 text-sm font-medium">
+                            <i class="fas fa-check mr-2"></i>Aprobar
+                        </button>
+                        <button type="submit" name="accion" value="rechazar" class="btn-outline px-4 py-2 text-sm font-medium">
+                            <i class="fas fa-times mr-2"></i>Rechazar
+                        </button>
+                    </div>
+                </form>
+            </article>
+            {% empty %}
+            <div class="rounded-xl border border-dashed border-stone-300 p-8 text-center text-gray-600">
+                No hay solicitudes pendientes.
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="card p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Revisadas recientemente</h2>
+        <div class="space-y-3">
+            {% for s in revisadas %}
+            <div class="rounded-xl border border-stone-200 p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="font-medium text-gray-900">{{ s.estudiante.user.get_full_name }}</p>
+                        <p class="text-sm text-gray-600">{{ s.edicion_curso.curso.nombre }} · {{ s.edicion_curso.nombre_edicion }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ s.fecha_revision|date:"d/m/Y H:i" }}</p>
+                    </div>
+                    {% if s.estado == 'aprobada' %}
+                        <span class="badge badge-success">Aprobada</span>
+                    {% else %}
+                        <span class="badge badge-danger">Rechazada</span>
+                    {% endif %}
+                </div>
+                {% if s.observaciones %}
+                <p class="text-sm text-gray-700 mt-2">{{ s.observaciones }}</p>
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-600">Sin revisiones recientes.</p>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

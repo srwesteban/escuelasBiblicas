@@ -1,0 +1,41 @@
+{% extends 'base_modern.html' %}
+{% block title %}Equipo de coordinación — {{ sede.nombre }}{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-8">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Equipo de coordinación</h1>
+            <p class="text-stone-600 mt-1">Sede: {{ sede.nombre }}</p>
+            <p class="text-sm text-stone-500 mt-2">Gestiona al resto del equipo (académico, pedagógico, financiero y logístico). Tu perfil está en la pestaña Mi perfil.</p>
+        </div>
+        <a href="{% url 'core:coordinador_create' sede.id %}" class="btn-primary px-4 py-2 text-sm font-medium inline-flex items-center justify-center">
+            <i class="fas fa-user-plus mr-2"></i>Agregar coordinador
+        </a>
+    </div>
+
+    <div class="card p-6">
+        <div class="space-y-4">
+            {% for c in coordinadores %}
+                <div class="rounded-xl border border-stone-200 p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">{{ c.user.get_full_name }}</h2>
+                        <p class="text-sm text-stone-600 mt-1">{{ c.get_tipo_coordinador_display }}</p>
+                        <p class="text-xs text-stone-500 mt-1">{{ c.user.email }}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="{% url 'core:coordinador_edit' sede.id c.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Editar</a>
+                        {% if c.tipo_coordinador != 'sede' %}
+                            <form method="post" action="{% url 'core:coordinador_delete' sede.id c.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-outline px-4 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50">Eliminar</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-stone-600 text-center py-8">Aún no hay otros coordinadores en esta sede.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

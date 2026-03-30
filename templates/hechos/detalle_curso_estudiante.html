@@ -1,0 +1,78 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Mi escuela - {{ curso.escuela.nombre }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <section class="card p-6">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">{{ curso.escuela.nombre }}</h1>
+                <p class="text-slate-600 mt-1">
+                    {% if curso.escuela %}
+                        {{ curso.escuela.anio }} · {{ curso.escuela.get_ciclo_display }} · Grupo {{ curso.escuela.grupo }}
+                    {% endif %}
+                </p>
+                {% if curso.descripcion %}
+                <p class="text-sm text-slate-700 mt-3 max-w-3xl">{{ curso.descripcion }}</p>
+                {% endif %}
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'hechos:notas_estudiante' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                    <i class="fas fa-chart-line mr-2"></i>Ver calificaciones
+                </a>
+                <a href="{% url 'hechos:clases_list' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                    <i class="fas fa-calendar mr-2"></i>Actividades y clases
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="card p-4">
+            <p class="text-xs text-slate-500">Promedio</p>
+            <p class="text-2xl font-bold text-slate-900 mt-1">{{ promedio_general }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500">Notas registradas</p>
+            <p class="text-2xl font-bold text-slate-900 mt-1">{{ total_notas }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500">Clases programadas</p>
+            <p class="text-2xl font-bold text-slate-900 mt-1">{{ total_clases }}</p>
+        </div>
+    </section>
+
+    <section class="card p-6">
+        <h2 class="text-lg font-semibold text-slate-900 mb-3">Información de la escuela</h2>
+        <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <dt class="text-slate-500">Año</dt>
+                <dd class="font-medium text-slate-900">{{ curso.escuela.anio }}</dd>
+            </div>
+            <div>
+                <dt class="text-slate-500">Ciclo</dt>
+                <dd class="font-medium text-slate-900">{{ curso.escuela.get_ciclo_display }}</dd>
+            </div>
+            <div>
+                <dt class="text-slate-500">Grupo</dt>
+                <dd class="font-medium text-slate-900">{{ curso.escuela.grupo }}</dd>
+            </div>
+            <div>
+                <dt class="text-slate-500">Profesor</dt>
+                <dd class="font-medium text-slate-900">
+                    {% if matricula.edicion_curso.profesor %}
+                        {{ matricula.edicion_curso.profesor.user.get_full_name }}
+                    {% else %}
+                        Por asignar
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-slate-500">Sede</dt>
+                <dd class="font-medium text-slate-900">{{ user_sede.nombre }}</dd>
+            </div>
+        </dl>
+    </section>
+</div>
+{% endblock %}

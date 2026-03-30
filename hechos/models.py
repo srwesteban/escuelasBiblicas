@@ -1,22 +1,50 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 User = get_user_model()
+
+
+def default_anio_escuela():
+    return timezone.now().year
 
 
 class Estudiante(models.Model):
     """
     Perfil de estudiante en el módulo Hechos
     """
+    class TipoDocumento(models.TextChoices):
+        CC = "CC", _("Cedula de ciudadania")
+        TI = "TI", _("Tarjeta de identidad")
+        CE = "CE", _("Cedula de extranjeria")
+        PAS = "PAS", _("Pasaporte")
+
+    class PeticionArea(models.TextChoices):
+        SALUD = "salud", _("Salud")
+        FAMILIAR = "familiar", _("Familiar")
+        FINANCIERA = "financiera", _("Financiera")
+        EDUCACION = "educacion", _("Educación")
+        LABORAL = "laboral", _("Laboral")
+        OTRO = "otro", _("Otro")
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='estudiante_profile')
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='estudiantes', null=True, blank=True)
     codigo_estudiante = models.CharField(max_length=20, blank=True, null=True)
+    tipo_documento = models.CharField(max_length=3, choices=TipoDocumento.choices, default=TipoDocumento.CC)
+    numero_documento = models.CharField(max_length=30, blank=True, default="")
     fecha_nacimiento = models.DateField(blank=True, null=True)
     direccion = models.TextField(blank=True)
     iglesia = models.CharField(max_length=200, blank=True)
     telefono_emergencia = models.CharField(max_length=20, blank=True)
     contacto_emergencia = models.CharField(max_length=100, blank=True)
+    peticion_texto = models.TextField(blank=True, default="")
+    peticion_area = models.CharField(
+        max_length=20,
+        choices=PeticionArea.choices,
+        blank=True,
+        default="",
+    )
     notas_medicas = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -86,9 +114,22 @@ class AdminEscuela(models.Model):
     """
     Perfil de administrador de escuela en el módulo Hechos
     """
+
+    class TipoCoordinador(models.TextChoices):
+        SEDE = 'sede', _('Coordinador de sede')
+        ACADEMICO = 'academico', _('Coordinador académico')
+        PEDAGOGICO = 'pedagogico', _('Coordinador pedagógico')
+        FINANCIERO = 'financiero', _('Coordinador financiero')
+        LOGISTICO = 'logistico', _('Coordinador logístico')
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_escuela_profile')
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='admins_escuela', null=True, blank=True)
-    cargo = models.CharField(max_length=100)
+    cargo = models.CharField(max_length=200)
+    tipo_coordinador = models.CharField(
+        max_length=20,
+        choices=TipoCoordinador.choices,
+        default=TipoCoordinador.ACADEMICO,
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -101,14 +142,50 @@ class AdminEscuela(models.Model):
     def __str__(self):
         return f"{self.user.get_full_name()} (Admin - {self.sede.nombre})"
 
+    @classmethod
+    def cargo_para_tipo(cls, tipo: str, sede_nombre: str) -> str:
+        label = dict(cls.TipoCoordinador.choices).get(tipo, '')
+        if label:
+            return f"{label} — {sede_nombre}"
+        return f"Coordinador — {sede_nombre}"
+
 
 class Escuela(models.Model):
     """
     Unidad académica principal visible para el estudiante.
     """
+
+    class Ciclo(models.TextChoices):
+        A = 'A', _('Ciclo A')
+        B = 'B', _('Ciclo B')
+
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='escuelas', null=True, blank=True)
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True)
+    anio = models.PositiveIntegerField(
+        default=default_anio_escuela,
+        verbose_name=_('Año'),
+        help_text=_('Año de referencia (por defecto el año en curso).'),
+    )
+    ciclo = models.CharField(
+        max_length=1,
+        choices=Ciclo.choices,
+        default=Ciclo.A,
+        verbose_name=_('Ciclo'),
+    )
+    grupo = models.PositiveIntegerField(
+        default=1,
+        verbose_name=_('Grupo'),
+    )
+    maestro = models.ForeignKey(
+        Profesor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='escuelas_dirigidas',
+        verbose_name=_('Maestro asignado'),
+        help_text=_('Profesor responsable; puede quedar por asignar hasta definirlo.'),
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -116,11 +193,14 @@ class Escuela(models.Model):
     class Meta:
         verbose_name = 'Escuela'
         verbose_name_plural = 'Escuelas'
-        ordering = ['nombre']
-        unique_together = ['sede', 'nombre']
+        ordering = ['-anio', 'ciclo', 'grupo', 'nombre']
+        unique_together = [['sede', 'nombre', 'anio', 'ciclo', 'grupo']]
 
     def __str__(self):
         return self.nombre
+
+    def titulo_tarjeta(self) -> str:
+        return f'{self.nombre} — {self.anio} · Ciclo {self.ciclo} · Grupo {self.grupo}'
 
 
 class RutaEstudio(models.Model):
@@ -269,6 +349,69 @@ class SolicitudMatricula(models.Model):
 
     def __str__(self):
         return f"{self.estudiante.user.get_full_name()} -> {self.edicion_curso}"
+
+
+class NotificacionEstudiante(models.Model):
+    class Tipo(models.TextChoices):
+        APROBACION = 'aprobacion', _('Aprobación')
+        RECHAZO = 'rechazo', _('Rechazo')
+        INFO = 'info', _('Información')
+
+    estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE, related_name='notificaciones')
+    tipo = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.INFO)
+    titulo = models.CharField(max_length=200)
+    mensaje = models.TextField(blank=True)
+    leida = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Notificación de estudiante'
+        verbose_name_plural = 'Notificaciones de estudiante'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.estudiante.user.get_full_name()} - {self.titulo}"
+
+
+class SolicitudEspecialEstudiante(models.Model):
+    class Tipo(models.TextChoices):
+        SALUD = 'salud', _('Salud')
+        FAMILIAR = 'familiar', _('Familiar')
+        ECONOMICA = 'economica', _('Económica')
+        ACADEMICA = 'academica', _('Académica')
+        OTRA = 'otra', _('Otra')
+
+    class Estado(models.TextChoices):
+        PENDIENTE = 'pendiente', _('Pendiente')
+        ATENDIDA = 'atendida', _('Atendida')
+        CERRADA = 'cerrada', _('Cerrada')
+
+    sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='solicitudes_especiales')
+    estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE, related_name='solicitudes_especiales')
+    tipo = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.OTRA)
+    asunto = models.CharField(max_length=180)
+    descripcion = models.TextField()
+    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.PENDIENTE)
+    observaciones = models.TextField(blank=True)
+    revisado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='solicitudes_especiales_revisadas',
+    )
+    fecha_solicitud = models.DateTimeField(auto_now_add=True)
+    fecha_revision = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Solicitud especial'
+        verbose_name_plural = 'Solicitudes especiales'
+        ordering = ['-fecha_solicitud']
+
+    def __str__(self):
+        return f"{self.estudiante.user.get_full_name()} - {self.asunto}"
 
 
 class Matricula(models.Model):

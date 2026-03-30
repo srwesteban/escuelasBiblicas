@@ -2,16 +2,18 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Q, Count, Avg, Exists, OuterRef
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import (
     Estudiante, Profesor, AdminEscuela, Escuela, RutaEstudio, Curso,
-    Matricula, Clase, Asistencia, Nota, EdicionCurso, SolicitudMatricula
+    Matricula, Clase, Asistencia, Nota, EdicionCurso, SolicitudMatricula, NotificacionEstudiante,
+    SolicitudEspecialEstudiante,
 )
 from .utils import get_current_period, get_period_from_date, get_period_display, get_period_stats
-from core.models import Sede
+from core.models import Sede, generate_unique_username
+from hechos import coordinador_access as ca
 
 User = get_user_model()
 
@@ -36,6 +38,16 @@ def hechos_dashboard(request):
     """
     Dashboard del módulo Hechos (Escuelas Bíblicas)
     """
+    redir = ca.redirect_operational_home_if_restricted(request)
+    if redir:
+        return redir
+
+    if (
+        hasattr(request.user, 'admin_escuela_profile')
+        and ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.PEDAGOGICO
+    ):
+        return redirect('hechos:profesores_list')
+
     # Verificar si el usuario tiene acceso al módulo
     if not hasattr(request.user, 'estudiante_profile') and not hasattr(request.user, 'profesor_profile') and not hasattr(request.user, 'admin_escuela_profile'):
         messages.warning(request, 'No tienes acceso al módulo Hechos.')
@@ -43,6 +55,8 @@ def hechos_dashboard(request):
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
+    if not user_sede and hasattr(request.user, 'estudiante_profile'):
+        return redirect('hechos:seleccionar_sede_estudiante')
     if not user_sede:
         messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
         return redirect('core:dashboard')
@@ -100,6 +114,57 @@ def hechos_dashboard(request):
             'edicion_curso__curso__ruta_estudio__escuela'
         )
         solicitudes_pendientes = solicitudes_estudiante.filter(estado='pendiente')
+
+        solicitudes_por_edicion = {
+            solicitud.edicion_curso_id: solicitud
+            for solicitud in SolicitudMatricula.objects.filter(estudiante=estudiante).select_related(
+                'edicion_curso__curso__ruta_estudio__escuela',
+                'edicion_curso__curso__sede',
+                'edicion_curso__profesor__user',
+            )
+        }
+        matriculas_activas_ids = set(
+            Matricula.objects.filter(estudiante=estudiante, is_active=True).values_list('edicion_curso_id', flat=True)
+        )
+        ediciones_disponibles = EdicionCurso.objects.filter(
+            is_active=True,
+            curso__is_active=True,
+            curso__ruta_estudio__escuela__isnull=False,
+            curso__sede=user_sede,
+        ).select_related(
+            'curso__ruta_estudio__escuela',
+            'curso__sede',
+            'profesor__user',
+        ).order_by(
+            'curso__ruta_estudio__escuela__nombre',
+            'curso__ruta_estudio__nombre',
+            'curso__nombre',
+            'nombre_edicion',
+        )
+        escuelas_feed_by_id = {}
+        for edicion in ediciones_disponibles:
+            escuela = edicion.curso.escuela
+            if not escuela:
+                continue
+            solicitud = solicitudes_por_edicion.get(edicion.id)
+            escuela_data = escuelas_feed_by_id.setdefault(
+                escuela.id,
+                {
+                    'escuela': escuela,
+                    'sede': escuela.sede or edicion.curso.sede,
+                    'niveles': [],
+                },
+            )
+            escuela_data['niveles'].append(
+                {
+                    'nivel': edicion.curso.nivel,
+                    'edicion': edicion,
+                    'curso': edicion.curso,
+                    'ya_matriculado': edicion.id in matriculas_activas_ids,
+                    'solicitud': solicitud,
+                    'puede_solicitar': edicion.id not in matriculas_activas_ids and solicitud is None,
+                }
+            )
         
         # Obtener asistencia reciente
         from hechos.models import Asistencia
@@ -130,6 +195,7 @@ def hechos_dashboard(request):
             'total_asistencias': total_asistencias,
             'asistencias_presentes': asistencias_presentes,
             'porcentaje_asistencia': round(porcentaje_asistencia, 1),
+            'escuelas_feed': list(escuelas_feed_by_id.values()),
         })
     
     if hasattr(request.user, 'profesor_profile'):
@@ -172,19 +238,110 @@ def hechos_dashboard(request):
     
     if hasattr(request.user, 'admin_escuela_profile'):
         admin = request.user.admin_escuela_profile
+        solicitudes_matricula_pendientes = SolicitudMatricula.objects.filter(
+            sede=user_sede,
+            estado='pendiente',
+        ).count()
+        solicitudes_especiales_pendientes = SolicitudEspecialEstudiante.objects.filter(
+            sede=user_sede,
+            estado='pendiente',
+        ).count()
         context.update({
             'admin': admin,
+            'admin_tipo_coordinador': admin.tipo_coordinador,
             'total_estudiantes': Estudiante.objects.filter(sede=user_sede, is_active=True).count(),
             'total_profesores': Profesor.objects.filter(sede=user_sede, is_active=True).count(),
             'total_cursos': Curso.objects.filter(sede=user_sede, is_active=True).count(),
             'total_matriculas': Matricula.objects.filter(sede=user_sede, is_active=True).count(),
+            'solicitudes_matricula_pendientes': solicitudes_matricula_pendientes,
+            'solicitudes_especiales_pendientes': solicitudes_especiales_pendientes,
         })
     
-    # Usar template específico para estudiantes
+    # Estudiantes no deben usar esta pantalla: enviarlos a Escuelas.
     if hasattr(request.user, 'estudiante_profile'):
-        return render(request, 'hechos/dashboard_estudiante_modern.html', context)
+        return redirect('hechos:escuelas_disponibles')
+    if (
+        hasattr(request.user, 'admin_escuela_profile')
+        and request.user.admin_escuela_profile.tipo_coordinador == AdminEscuela.TipoCoordinador.ACADEMICO
+    ):
+        return render(request, 'hechos/dashboard_academico.html', context)
     else:
         return render(request, 'hechos/dashboard_modern.html', context)
+
+
+@login_required
+def seleccionar_sede_estudiante(request):
+    if not hasattr(request.user, 'estudiante_profile'):
+        messages.error(request, 'Solo los estudiantes pueden seleccionar sede.')
+        return redirect('core:dashboard')
+
+    estudiante = request.user.estudiante_profile
+    sedes_qs = Sede.objects.filter(is_active=True).order_by('ciudad', 'nombre')
+    next_url = request.GET.get('next') or request.POST.get('next') or ''
+
+    if request.method == 'POST':
+        sede_id = request.POST.get('sede_id')
+        sede = get_object_or_404(sedes_qs, id=sede_id)
+        estudiante.sede = sede
+        estudiante.save(update_fields=['sede'])
+        if request.user.sede_id != sede.id:
+            request.user.sede = sede
+            request.user.save(update_fields=['sede'])
+        messages.success(request, f'Sede asignada: {sede.titulo_con_ciudad()}.')
+
+        if next_url and next_url.startswith('/'):
+            return redirect(next_url)
+        return redirect('hechos:escuelas_disponibles')
+
+    sedes_con_ciudad = (
+        Sede.objects.filter(is_active=True)
+        .exclude(ciudad__exact='')
+        .order_by('ciudad', 'nombre')
+    )
+    por_ciudad = {}
+    for s in sedes_con_ciudad:
+        c = (s.ciudad or '').strip()
+        if not c:
+            continue
+        por_ciudad.setdefault(c, []).append(
+            {'id': s.id, 'label': s.titulo_con_ciudad()}
+        )
+    ciudades = sorted(por_ciudad.keys(), key=str.casefold)
+
+    sedes_sin_ciudad = [
+        {'id': s.id, 'label': s.nombre}
+        for s in Sede.objects.filter(is_active=True)
+        .filter(Q(ciudad='') | Q(ciudad__isnull=True))
+        .order_by('nombre')
+    ]
+
+    sede_actual = estudiante.sede if estudiante.sede_id else None
+    ciudad_inicial = ''
+    usar_bucket_otras = False
+    if sede_actual:
+        c0 = (sede_actual.ciudad or '').strip()
+        if c0:
+            ciudad_inicial = c0
+        elif sedes_sin_ciudad:
+            usar_bucket_otras = True
+
+    return render(
+        request,
+        'hechos/seleccionar_sede_estudiante.html',
+        {
+            'sedes_todas': sedes_qs,
+            'por_ciudad': por_ciudad,
+            'sedes_sin_ciudad_data': sedes_sin_ciudad,
+            'ciudades': ciudades,
+            'tiene_cascada_ciudad': bool(ciudades),
+            'sede_actual_id': estudiante.sede_id or request.user.sede_id,
+            'sede_actual': sede_actual,
+            'ciudad_inicial': ciudad_inicial,
+            'usar_bucket_otras': usar_bucket_otras,
+            'is_change': bool(estudiante.sede_id),
+            'next_url': next_url,
+        },
+    )
 
 
 @login_required
@@ -192,7 +349,15 @@ def estudiantes_list(request):
     """
     Lista de estudiantes (para admins y profesores)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile') or hasattr(request.user, 'profesor_profile')):
+    allowed = (
+        request.user.is_super_admin()
+        or hasattr(request.user, 'profesor_profile')
+        or (
+            hasattr(request.user, 'admin_escuela_profile')
+            and ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.ACADEMICO
+        )
+    )
+    if not allowed:
         messages.error(request, 'No tienes permisos para ver esta página.')
         return redirect('core:dashboard')
     
@@ -253,9 +418,16 @@ def estudiantes_list(request):
 @login_required
 def profesores_list(request):
     """
-    Lista de profesores (solo para admins)
+    Lista de profesores (director o coordinador pedagógico)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
+    allowed = (
+        request.user.is_super_admin()
+        or (
+            hasattr(request.user, 'admin_escuela_profile')
+            and ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.PEDAGOGICO
+        )
+    )
+    if not allowed:
         messages.error(request, 'No tienes permisos para ver esta página.')
         return redirect('core:dashboard')
     
@@ -265,11 +437,50 @@ def profesores_list(request):
         messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
         return redirect('core:dashboard')
     
-    profesores = Profesor.objects.filter(sede=user_sede, is_active=True).select_related('user')
-    
+    base_qs = Profesor.objects.filter(sede=user_sede, is_active=True)
+    experiencia_promedio = base_qs.aggregate(avg=Avg('experiencia_anos'))['avg'] or 0
+    edicion_asignada = EdicionCurso.objects.filter(
+        profesor_id=OuterRef('pk'),
+        is_active=True,
+        curso__sede=user_sede,
+        curso__is_active=True,
+    )
+    profesores_con_asignacion = (
+        base_qs.annotate(_tiene_edicion=Exists(edicion_asignada)).filter(_tiene_edicion=True).count()
+    )
+    total_ediciones_en_sede = EdicionCurso.objects.filter(
+        curso__sede=user_sede,
+        is_active=True,
+        curso__is_active=True,
+        profesor__isnull=False,
+    ).count()
+
+    profesores = (
+        base_qs.select_related('user')
+        .annotate(
+            num_ediciones_activas=Count(
+                'ediciones_curso',
+                filter=Q(
+                    ediciones_curso__is_active=True,
+                    ediciones_curso__curso__is_active=True,
+                    ediciones_curso__curso__sede=user_sede,
+                ),
+            )
+        )
+        .order_by('user__first_name', 'user__last_name')
+    )
+
+    es_pedagogico = ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.PEDAGOGICO
+
     context = {
         'profesores': profesores,
         'user_sede': user_sede,
+        'total_profesores': base_qs.count(),
+        'profesores_con_asignacion': profesores_con_asignacion,
+        'profesores_sin_asignacion': max(0, base_qs.count() - profesores_con_asignacion),
+        'total_ediciones_en_sede': total_ediciones_en_sede,
+        'experiencia_promedio': round(float(experiencia_promedio), 1),
+        'es_coordinador_pedagogico': bool(es_pedagogico and not request.user.is_super_admin()),
     }
     
     return render(request, 'hechos/profesores_list_modern.html', context)
@@ -291,12 +502,18 @@ def cursos_list(request):
     # Filtrar según el perfil del usuario
     if hasattr(request.user, 'estudiante_profile'):
         # Estudiante ve solo sus cursos matriculados
-        matriculas = Matricula.objects.filter(
+        matriculas_qs = Matricula.objects.filter(
             estudiante=request.user.estudiante_profile,
             sede=user_sede,
             is_active=True
-        ).values_list('edicion_curso__curso_id', flat=True)
-        cursos = cursos.filter(id__in=matriculas)
+        ).select_related('edicion_curso__curso__ruta_estudio__escuela', 'edicion_curso__profesor__user')
+        cursos_ids = matriculas_qs.values_list('edicion_curso__curso_id', flat=True)
+        cursos = cursos.filter(id__in=cursos_ids)
+        context = {
+            'matriculas': matriculas_qs,
+            'user_sede': user_sede,
+        }
+        return render(request, 'hechos/cursos_list_estudiante.html', context)
     elif hasattr(request.user, 'profesor_profile'):
         # Profesor ve solo sus cursos (a través de ediciones)
         ediciones_profesor = EdicionCurso.objects.filter(
@@ -305,6 +522,10 @@ def cursos_list(request):
             is_active=True
         ).values_list('curso_id', flat=True)
         cursos = cursos.filter(id__in=ediciones_profesor)
+    elif hasattr(request.user, 'admin_escuela_profile') and not request.user.is_super_admin():
+        resp = ca.require_academico_o_pedagogico(request)
+        if resp:
+            return resp
     
     context = {
         'cursos': cursos,
@@ -324,6 +545,11 @@ def escuelas_disponibles(request):
         return redirect('core:dashboard')
 
     estudiante = request.user.estudiante_profile
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.info(request, 'Selecciona tu sede para ver escuelas disponibles.')
+        return redirect('hechos:seleccionar_sede_estudiante')
+
     solicitudes = {
         solicitud.edicion_curso_id: solicitud
         for solicitud in SolicitudMatricula.objects.filter(estudiante=estudiante).select_related(
@@ -338,6 +564,7 @@ def escuelas_disponibles(request):
         is_active=True,
         curso__is_active=True,
         curso__ruta_estudio__escuela__isnull=False,
+        curso__sede=user_sede,
     ).select_related('curso__ruta_estudio__escuela', 'curso__sede', 'profesor__user').order_by(
         'curso__ruta_estudio__escuela__nombre', 'curso__ruta_estudio__nombre', 'curso__nombre', 'nombre_edicion'
     )
@@ -369,6 +596,7 @@ def escuelas_disponibles(request):
     context = {
         'escuelas': list(escuelas_by_id.values()),
         'estudiante': estudiante,
+        'user_sede': user_sede,
     }
     return render(request, 'hechos/escuelas_disponibles.html', context)
 
@@ -436,13 +664,264 @@ def mis_solicitudes(request):
 
 
 @login_required
+def solicitudes_matricula_admin(request):
+    if not request.user.is_super_admin():
+        r = ca.require_academico(request)
+        if r:
+            return r
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
+        return redirect('core:dashboard')
+
+    pendientes = SolicitudMatricula.objects.filter(
+        sede=user_sede,
+        estado='pendiente',
+    ).select_related(
+        'estudiante__user',
+        'edicion_curso__curso__ruta_estudio__escuela',
+        'edicion_curso__profesor__user',
+    ).order_by('-fecha_solicitud')
+
+    revisadas = SolicitudMatricula.objects.filter(
+        sede=user_sede,
+    ).exclude(
+        estado='pendiente'
+    ).select_related(
+        'estudiante__user',
+        'edicion_curso__curso__ruta_estudio__escuela',
+        'revisado_por',
+    ).order_by('-fecha_revision', '-updated_at')[:30]
+
+    return render(
+        request,
+        'hechos/solicitudes_matricula_admin.html',
+        {
+            'pendientes': pendientes,
+            'revisadas': revisadas,
+            'user_sede': user_sede,
+        },
+    )
+
+
+@login_required
+def revisar_solicitud_matricula(request, solicitud_id):
+    if request.method != 'POST':
+        return redirect('hechos:solicitudes_matricula_admin')
+
+    if not request.user.is_super_admin():
+        r = ca.require_academico(request)
+        if r:
+            return r
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
+        return redirect('core:dashboard')
+
+    solicitud = get_object_or_404(
+        SolicitudMatricula.objects.select_related('estudiante__user', 'edicion_curso__curso__sede'),
+        id=solicitud_id,
+        sede=user_sede,
+    )
+    if solicitud.estado != 'pendiente':
+        messages.info(request, 'Esta solicitud ya fue revisada.')
+        return redirect('hechos:solicitudes_matricula_admin')
+
+    accion = (request.POST.get('accion') or '').strip().lower()
+    observaciones = (request.POST.get('observaciones') or '').strip()
+    ahora = timezone.now()
+
+    if accion == 'aprobar':
+        solicitud.estado = 'aprobada'
+        solicitud.observaciones = observaciones
+        solicitud.revisado_por = request.user
+        solicitud.fecha_revision = ahora
+        solicitud.save(update_fields=['estado', 'observaciones', 'revisado_por', 'fecha_revision', 'updated_at'])
+
+        estudiante = solicitud.estudiante
+        if estudiante.sede_id != solicitud.sede_id:
+            estudiante.sede = solicitud.sede
+            estudiante.save(update_fields=['sede'])
+        if estudiante.user.sede_id != solicitud.sede_id:
+            estudiante.user.sede = solicitud.sede
+            estudiante.user.save(update_fields=['sede'])
+
+        Matricula.objects.get_or_create(
+            estudiante=estudiante,
+            edicion_curso=solicitud.edicion_curso,
+            defaults={
+                'sede': solicitud.sede,
+                'periodo': get_current_period(),
+                'estado': 'activa',
+                'is_active': True,
+            },
+        )
+
+        NotificacionEstudiante.objects.create(
+            estudiante=estudiante,
+            tipo=NotificacionEstudiante.Tipo.APROBACION,
+            titulo='Solicitud aprobada',
+            mensaje=(
+                f"Tu solicitud para {solicitud.edicion_curso.curso.nombre} "
+                f"({solicitud.edicion_curso.nombre_edicion}) fue aprobada."
+                + (f" Observación: {observaciones}" if observaciones else "")
+            ),
+        )
+        messages.success(request, 'Solicitud aprobada y matrícula creada.')
+    elif accion == 'rechazar':
+        solicitud.estado = 'rechazada'
+        solicitud.observaciones = observaciones
+        solicitud.revisado_por = request.user
+        solicitud.fecha_revision = ahora
+        solicitud.save(update_fields=['estado', 'observaciones', 'revisado_por', 'fecha_revision', 'updated_at'])
+
+        NotificacionEstudiante.objects.create(
+            estudiante=solicitud.estudiante,
+            tipo=NotificacionEstudiante.Tipo.RECHAZO,
+            titulo='Solicitud rechazada',
+            mensaje=(
+                f"Tu solicitud para {solicitud.edicion_curso.curso.nombre} "
+                f"({solicitud.edicion_curso.nombre_edicion}) fue rechazada."
+                + (f" Motivo: {observaciones}" if observaciones else "")
+            ),
+        )
+        messages.warning(request, 'Solicitud rechazada.')
+    else:
+        messages.error(request, 'Acción no válida.')
+
+    return redirect('hechos:solicitudes_matricula_admin')
+
+
+@login_required
+def solicitudes_especiales_estudiante(request):
+    if not hasattr(request.user, 'estudiante_profile'):
+        messages.error(request, 'Solo los estudiantes pueden acceder a esta sección.')
+        return redirect('core:dashboard')
+
+    estudiante = request.user.estudiante_profile
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.info(request, 'Selecciona tu sede para continuar.')
+        return redirect('hechos:seleccionar_sede_estudiante')
+
+    if request.method == 'POST':
+        asunto = (request.POST.get('asunto') or '').strip()
+        descripcion = (request.POST.get('descripcion') or '').strip()
+        if not asunto or not descripcion:
+            messages.error(request, 'Asunto y descripción son obligatorios.')
+            return redirect('hechos:solicitudes_especiales_estudiante')
+
+        SolicitudEspecialEstudiante.objects.create(
+            sede=user_sede,
+            estudiante=estudiante,
+            tipo=SolicitudEspecialEstudiante.Tipo.OTRA,
+            asunto=asunto,
+            descripcion=descripcion,
+        )
+        messages.success(request, 'Tu solicitud especial fue enviada.')
+        return redirect('hechos:solicitudes_especiales_estudiante')
+
+    solicitudes = SolicitudEspecialEstudiante.objects.filter(
+        estudiante=estudiante,
+    ).select_related('revisado_por').order_by('-fecha_solicitud')
+    return render(
+        request,
+        'hechos/solicitudes_especiales_estudiante.html',
+        {'solicitudes': solicitudes},
+    )
+
+
+@login_required
+def solicitudes_especiales_admin(request):
+    if not request.user.is_super_admin():
+        r = ca.require_academico(request)
+        if r:
+            return r
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
+        return redirect('core:dashboard')
+
+    pendientes = SolicitudEspecialEstudiante.objects.filter(
+        sede=user_sede,
+        estado='pendiente',
+    ).select_related('estudiante__user').order_by('-fecha_solicitud')
+    revisadas = SolicitudEspecialEstudiante.objects.filter(
+        sede=user_sede,
+    ).exclude(estado='pendiente').select_related('estudiante__user', 'revisado_por').order_by('-fecha_revision', '-updated_at')[:30]
+    total_bandeja = SolicitudEspecialEstudiante.objects.filter(sede=user_sede).count()
+
+    return render(
+        request,
+        'hechos/solicitudes_especiales_admin.html',
+        {'pendientes': pendientes, 'revisadas': revisadas, 'user_sede': user_sede, 'total_bandeja': total_bandeja},
+    )
+
+
+@login_required
+def revisar_solicitud_especial_admin(request, solicitud_id):
+    if request.method != 'POST':
+        return redirect('hechos:solicitudes_especiales_admin')
+
+    if not request.user.is_super_admin():
+        r = ca.require_academico(request)
+        if r:
+            return r
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
+        return redirect('core:dashboard')
+
+    solicitud = get_object_or_404(
+        SolicitudEspecialEstudiante.objects.select_related('estudiante__user'),
+        id=solicitud_id,
+        sede=user_sede,
+    )
+    if solicitud.estado != SolicitudEspecialEstudiante.Estado.PENDIENTE:
+        messages.info(request, 'Esta solicitud ya fue revisada.')
+        return redirect('hechos:solicitudes_especiales_admin')
+
+    accion = (request.POST.get('accion') or '').strip().lower()
+    observaciones = (request.POST.get('observaciones') or '').strip()
+    if accion == 'atender':
+        solicitud.estado = SolicitudEspecialEstudiante.Estado.ATENDIDA
+    elif accion == 'cerrar':
+        solicitud.estado = SolicitudEspecialEstudiante.Estado.CERRADA
+    else:
+        messages.error(request, 'Acción no válida.')
+        return redirect('hechos:solicitudes_especiales_admin')
+
+    solicitud.observaciones = observaciones
+    solicitud.revisado_por = request.user
+    solicitud.fecha_revision = timezone.now()
+    solicitud.save(update_fields=['estado', 'observaciones', 'revisado_por', 'fecha_revision', 'updated_at'])
+
+    NotificacionEstudiante.objects.create(
+        estudiante=solicitud.estudiante,
+        tipo=NotificacionEstudiante.Tipo.INFO,
+        titulo='Actualización de solicitud especial',
+        mensaje=(
+            f"Tu solicitud '{solicitud.asunto}' fue marcada como {solicitud.get_estado_display().lower()}."
+            + (f" Comentario: {observaciones}" if observaciones else "")
+        ),
+    )
+    messages.success(request, 'Solicitud especial actualizada.')
+    return redirect('hechos:solicitudes_especiales_admin')
+
+
+@login_required
 def rutas_estudio_list(request):
     """
     Lista de rutas de estudio (solo para admins)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para ver esta página.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -476,9 +955,10 @@ def ruta_estudio_detail(request, ruta_id):
     """
     Detalle de una ruta de estudio específica
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para ver esta página.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -515,9 +995,10 @@ def crear_curso_ruta(request, ruta_id):
     """
     Crear nuevo curso para una ruta específica
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para crear cursos.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -574,6 +1055,11 @@ def clases_list(request):
     if not user_sede:
         messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
         return redirect('core:dashboard')
+
+    if hasattr(request.user, 'admin_escuela_profile') and not request.user.is_super_admin():
+        if not ca.admin_may_access_clases_list(request.user):
+            messages.error(request, 'No tienes permisos para ver las clases.')
+            return redirect('core:dashboard')
     
     clases = Clase.objects.filter(sede=user_sede, is_active=True).select_related('edicion_curso__curso', 'profesor__user')
     
@@ -1106,9 +1592,10 @@ def crear_estudiante(request):
     """
     Crear nuevo estudiante (solo para admins)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para crear estudiantes.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1118,6 +1605,7 @@ def crear_estudiante(request):
     
     if request.method == 'POST':
         try:
+            avatar_file = request.FILES.get('avatar')
             # Crear usuario
             user = User.objects.create_user(
                 username=request.POST.get('username'),
@@ -1125,7 +1613,8 @@ def crear_estudiante(request):
                 password=request.POST.get('password'),
                 first_name=request.POST.get('first_name'),
                 last_name=request.POST.get('last_name'),
-                sede=user_sede
+                sede=user_sede,
+                avatar=avatar_file,
             )
             
             # Crear perfil de estudiante
@@ -1158,9 +1647,10 @@ def crear_profesor(request):
     """
     Crear nuevo profesor (solo para admins)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para crear profesores.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1170,24 +1660,27 @@ def crear_profesor(request):
     
     if request.method == 'POST':
         try:
+            email = (request.POST.get('email') or '').strip()
+            username = generate_unique_username(User, email)
             # Crear usuario
             user = User.objects.create_user(
-                username=request.POST.get('username'),
-                email=request.POST.get('email'),
+                username=username,
+                email=email,
                 password=request.POST.get('password'),
                 first_name=request.POST.get('first_name'),
                 last_name=request.POST.get('last_name'),
-                sede=user_sede
+                sede=user_sede,
+                avatar=request.FILES.get('avatar'),
             )
+            tel = (request.POST.get('telefono') or '').strip()
+            if tel:
+                user.phone = tel
+                user.save(update_fields=['phone'])
             
             # Crear perfil de profesor
             Profesor.objects.create(
                 user=user,
                 sede=user_sede,
-                telefono=request.POST.get('telefono', ''),
-                direccion=request.POST.get('direccion', ''),
-                especialidad=request.POST.get('especialidad', ''),
-                experiencia_anos=request.POST.get('experiencia_anos', 0) or 0
             )
             
             messages.success(request, f'Profesor {user.get_full_name()} creado exitosamente.')
@@ -1208,9 +1701,10 @@ def crear_ruta_estudio(request):
     """
     Crear nueva ruta de estudio (solo para admins)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para crear rutas de estudio.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1251,9 +1745,10 @@ def crear_curso(request):
     """
     Crear nuevo curso (solo para admins)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para crear cursos.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1304,7 +1799,15 @@ def matricular_estudiante(request):
     """
     Matricular estudiante en curso (para admins y profesores)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile') or hasattr(request.user, 'profesor_profile')):
+    allowed = (
+        request.user.is_super_admin()
+        or hasattr(request.user, 'profesor_profile')
+        or (
+            hasattr(request.user, 'admin_escuela_profile')
+            and ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.ACADEMICO
+        )
+    )
+    if not allowed:
         messages.error(request, 'No tienes permisos para matricular estudiantes.')
         return redirect('core:dashboard')
     
@@ -1406,9 +1909,10 @@ def editar_estudiante(request, estudiante_id):
     """
     Editar estudiante existente (solo para admins)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para editar estudiantes.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1453,9 +1957,10 @@ def editar_profesor(request, profesor_id):
     """
     Editar profesor existente (solo para admins)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para editar profesores.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1473,13 +1978,14 @@ def editar_profesor(request, profesor_id):
             profesor.user.email = request.POST.get('email')
             if request.POST.get('password'):
                 profesor.user.set_password(request.POST.get('password'))
+            tel = (request.POST.get('telefono') or '').strip()
+            profesor.user.phone = tel
             profesor.user.save()
             
             # Actualizar perfil de profesor
-            profesor.telefono = request.POST.get('telefono', '')
-            profesor.direccion = request.POST.get('direccion', '')
             profesor.especialidad = request.POST.get('especialidad', '')
             profesor.experiencia_anos = request.POST.get('experiencia_anos', 0) or 0
+            profesor.biografia = request.POST.get('biografia', '')
             profesor.save()
             
             messages.success(request, f'Profesor {profesor.user.get_full_name()} actualizado exitosamente.')
@@ -1501,9 +2007,10 @@ def editar_curso(request, curso_id):
     """
     Editar curso existente (solo para admins)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para editar cursos.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1553,9 +2060,10 @@ def editar_ruta_estudio(request, ruta_id):
     """
     Editar ruta de estudio existente (solo para admins)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para editar rutas de estudio.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1597,9 +2105,10 @@ def eliminar_estudiante(request, estudiante_id):
     """
     Eliminar estudiante (soft delete)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para eliminar estudiantes.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1628,9 +2137,10 @@ def eliminar_profesor(request, profesor_id):
     """
     Eliminar profesor (soft delete)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para eliminar profesores.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1659,9 +2169,10 @@ def eliminar_curso(request, curso_id):
     """
     Eliminar curso (soft delete)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para eliminar cursos.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1690,9 +2201,10 @@ def eliminar_ruta_estudio(request, ruta_id):
     """
     Eliminar ruta de estudio (soft delete)
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para eliminar rutas de estudio.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1721,9 +2233,10 @@ def detalle_estudiante(request, estudiante_id):
     """
     Ver detalles completos del estudiante
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para ver detalles de estudiantes.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1750,9 +2263,10 @@ def detalle_profesor(request, profesor_id):
     """
     Ver detalles completos del profesor
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para ver detalles de profesores.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -1784,8 +2298,20 @@ def detalle_curso(request, curso_id):
     """
     Ver detalles completos del curso
     """
-    # Permitir acceso a administradores y profesores
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile') or hasattr(request.user, 'profesor_profile')):
+    allowed = (
+        request.user.is_super_admin()
+        or hasattr(request.user, 'estudiante_profile')
+        or hasattr(request.user, 'profesor_profile')
+        or (
+            hasattr(request.user, 'admin_escuela_profile')
+            and ca.admin_tipo(request.user)
+            in (
+                AdminEscuela.TipoCoordinador.ACADEMICO,
+                AdminEscuela.TipoCoordinador.PEDAGOGICO,
+            )
+        )
+    )
+    if not allowed:
         messages.error(request, 'No tienes permisos para ver detalles de cursos.')
         return redirect('core:dashboard')
     
@@ -1797,6 +2323,41 @@ def detalle_curso(request, curso_id):
     
     curso = get_object_or_404(Curso, id=curso_id, sede=user_sede)
     
+    if hasattr(request.user, 'estudiante_profile'):
+        estudiante = request.user.estudiante_profile
+        matricula = Matricula.objects.filter(
+            estudiante=estudiante,
+            edicion_curso__curso=curso,
+            sede=user_sede,
+            is_active=True,
+        ).select_related('edicion_curso__profesor__user').first()
+        if not matricula:
+            messages.error(request, 'No tienes acceso a este curso.')
+            return redirect('hechos:dashboard')
+
+        clases = Clase.objects.filter(
+            edicion_curso=matricula.edicion_curso,
+            sede=user_sede,
+            is_active=True,
+        ).order_by('fecha_clase')
+        notas_curso = Nota.objects.filter(
+            curso=curso,
+            estudiante=estudiante,
+            sede=user_sede,
+        ).order_by('-fecha_evaluacion')
+        promedio = notas_curso.aggregate(promedio=Avg('puntaje_obtenido'))['promedio'] or 0
+        context = {
+            'curso': curso,
+            'matricula': matricula,
+            'clases': clases,
+            'notas_curso': notas_curso,
+            'promedio_general': round(promedio, 2),
+            'total_clases': clases.count(),
+            'total_notas': notas_curso.count(),
+            'user_sede': user_sede,
+        }
+        return render(request, 'hechos/detalle_curso_estudiante.html', context)
+
     # Si es profesor, verificar que tenga ediciones de este curso
     if hasattr(request.user, 'profesor_profile'):
         if not EdicionCurso.objects.filter(curso=curso, profesor=request.user.profesor_profile, is_active=True).exists():
@@ -1834,7 +2395,6 @@ def detalle_curso(request, curso_id):
     ).select_related('estudiante__user').order_by('-fecha_evaluacion')
     
     # Calcular promedio general
-    from django.db.models import Avg
     promedio_general = notas_curso.aggregate(
         promedio=Avg('puntaje_obtenido')
     )['promedio'] or 0
@@ -2002,9 +2562,10 @@ def matriculas_list(request):
     """
     Lista de matrículas para administradores de sede con filtros y agrupación
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para ver matrículas.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -2130,9 +2691,10 @@ def desmatricular_estudiante(request, matricula_id):
     """
     Desmatricular estudiante de un curso
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para desmatricular estudiantes.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -2170,9 +2732,10 @@ def ediciones_curso_list(request, curso_id):
     """
     Lista de ediciones de un curso específico
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para ver ediciones de cursos.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -2197,9 +2760,10 @@ def crear_edicion_curso(request, curso_id):
     """
     Crear nueva edición de curso
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para crear ediciones de cursos.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -2246,9 +2810,10 @@ def editar_edicion_curso(request, edicion_id):
     """
     Editar edición de curso existente
     """
-    if not (request.user.is_super_admin() or hasattr(request.user, 'admin_escuela_profile')):
-        messages.error(request, 'No tienes permisos para editar ediciones de cursos.')
-        return redirect('core:dashboard')
+    if not request.user.is_super_admin():
+        r = ca.require_academico_o_pedagogico(request)
+        if r:
+            return r
     
     # Obtener la sede del usuario
     user_sede = get_user_sede(request.user)
@@ -2286,3 +2851,25 @@ def editar_edicion_curso(request, edicion_id):
     }
     
     return render(request, 'hechos/editar_edicion_curso.html', context)
+
+
+@login_required
+def coordinador_recursos(request):
+    if not request.user.is_super_admin():
+        p = getattr(request.user, 'admin_escuela_profile', None)
+        if not p or p.tipo_coordinador != AdminEscuela.TipoCoordinador.FINANCIERO:
+            messages.error(request, 'Solo el coordinador financiero puede acceder a esta sección.')
+            return redirect('core:dashboard')
+    user_sede = get_user_sede(request.user)
+    return render(request, 'hechos/coordinador_recursos.html', {'user_sede': user_sede})
+
+
+@login_required
+def coordinador_logistica(request):
+    if not request.user.is_super_admin():
+        p = getattr(request.user, 'admin_escuela_profile', None)
+        if not p or p.tipo_coordinador != AdminEscuela.TipoCoordinador.LOGISTICO:
+            messages.error(request, 'Solo el coordinador logístico puede acceder a esta sección.')
+            return redirect('core:dashboard')
+    user_sede = get_user_sede(request.user)
+    return render(request, 'hechos/coordinador_logistica.html', {'user_sede': user_sede})

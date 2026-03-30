@@ -1,171 +1,258 @@
 {% extends 'base_modern.html' %}
 {% load static %}
 
-{% block title %}Profesores - Hechos{% endblock %}
+{% block title %}Cuerpo docente — {{ user_sede.nombre|default:"Hechos" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .docentes-hero {
+        background: linear-gradient(135deg, #1c1917 0%, #44403c 42%, #854d0e 120%);
+        border-radius: 1rem;
+        padding: 1.75rem 1.5rem;
+        color: #fafaf9;
+        position: relative;
+        overflow: hidden;
+    }
+    .docentes-hero::after {
+        content: "";
+        position: absolute;
+        right: -3rem;
+        top: -2rem;
+        width: 14rem;
+        height: 14rem;
+        border-radius: 50%;
+        background: rgba(250, 250, 249, 0.06);
+        pointer-events: none;
+    }
+    .docentes-fab {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.25rem;
+        border-radius: 9999px;
+        background: #fafaf9;
+        color: #1c1917;
+        font-weight: 600;
+        font-size: 0.875rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .docentes-fab:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900">Profesores</h1>
-            <p class="text-gray-600 mt-1">Gestión de profesores del sistema</p>
+<div class="max-w-6xl mx-auto space-y-8">
+    <nav class="text-sm text-stone-600" aria-label="Miga de pan">
+        {% if es_coordinador_pedagogico %}
+        <span class="text-stone-900 font-medium">Profesores</span>
+        {% else %}
+        <a href="{% url 'hechos:dashboard' %}" class="hover:text-stone-900">Inicio</a>
+        <span class="mx-2 text-stone-400">/</span>
+        <span class="text-stone-900 font-medium">Cuerpo docente</span>
+        {% endif %}
+    </nav>
+
+    <div class="docentes-hero flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="relative z-10 max-w-xl">
+            {% if es_coordinador_pedagogico %}
+                <p class="text-xs font-semibold uppercase tracking-wider text-amber-200/90">Coordinación pedagógica</p>
+                <h1 class="mt-1 text-2xl font-bold text-white">Profesores de tu sede</h1>
+                <p class="mt-2 text-sm text-stone-200/95">Regístralos aquí y actualiza sus datos cuando haga falta.</p>
+            {% else %}
+                <p class="text-xs font-semibold uppercase tracking-wider text-stone-300/90">Dirección</p>
+                <h1 class="mt-1 text-2xl font-bold text-white">Profesores</h1>
+                <p class="mt-2 text-sm text-stone-200/95">Listado de docentes activos por sede.</p>
+            {% endif %}
             {% if user_sede %}
-                <div class="mt-2">
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                        <i class="fas fa-building mr-2"></i>{{ user_sede.nombre }}
-                    </span>
-                </div>
+                <p class="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/95">
+                    <i class="fas fa-church text-amber-200"></i>{{ user_sede.nombre }}
+                </p>
             {% endif %}
         </div>
-        <div class="flex items-center space-x-3">
-            <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">
-                <i class="fas fa-arrow-left mr-2"></i>Volver
+        <div class="relative z-10 flex flex-wrap items-center gap-2">
+            {% if not es_coordinador_pedagogico %}
+            <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium border-white/30 bg-white/10 text-white hover:bg-white/15">
+                <i class="fas fa-arrow-left mr-2"></i>Inicio
             </a>
-            <a href="{% url 'hechos:crear_profesor' %}" class="btn-primary px-4 py-2 text-sm font-medium">
-                <i class="fas fa-plus mr-2"></i>Nuevo Profesor
+            {% endif %}
+            <a href="{% url 'hechos:crear_profesor' %}" class="docentes-fab">
+                <i class="fas fa-user-plus text-amber-700"></i>
+                {% if es_coordinador_pedagogico %}Registrar profesor{% else %}Nuevo maestro{% endif %}
             </a>
         </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="card p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-chalkboard-teacher text-blue-600"></i>
-                    </div>
+    <div class="card p-5 border border-stone-200/80">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="text-base font-semibold text-gray-900">Buscar en tiempo real</h2>
+                <p class="text-sm text-stone-600 mt-0.5">Nombre, correo, código o especialidad.</p>
+            </div>
+            <div class="text-sm text-stone-600">
+                <span class="font-semibold text-gray-900" id="docentes-visible-count">{{ profesores|length }}</span>
+                <span> de {{ profesores|length }}</span>
+            </div>
+        </div>
+        <div class="mt-4">
+            <label for="filtro-docentes" class="sr-only">Filtrar docentes</label>
+            <input type="search" id="filtro-docentes" placeholder="Ej. María, teología, PROF-0001…"
+                   class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-500/20">
+        </div>
+    </div>
+
+    {% if es_coordinador_pedagogico %}
+    <div class="card p-5 border border-stone-200/80 max-w-sm">
+        <p class="text-sm text-stone-600">Total registrados</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">{{ total_profesores }}</p>
+    </div>
+    {% else %}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
+                    <i class="fas fa-chalkboard-teacher"></i>
                 </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Total Profesores</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ profesores|length }}</p>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Docentes</p>
+                    <p class="text-xl font-bold text-gray-900">{{ total_profesores }}</p>
                 </div>
             </div>
         </div>
-
-        <div class="card p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-check-circle text-green-600"></i>
-                    </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                    <i class="fas fa-link"></i>
                 </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Activos</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ profesores_activos|length }}</p>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Con edición</p>
+                    <p class="text-xl font-bold text-gray-900">{{ profesores_con_asignacion }}</p>
                 </div>
             </div>
         </div>
-
-        <div class="card p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-book text-purple-600"></i>
-                    </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-800">
+                    <i class="fas fa-layer-group"></i>
                 </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Cursos Asignados</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ total_cursos|default:"0" }}</p>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Ediciones c/ grupo</p>
+                    <p class="text-xl font-bold text-gray-900">{{ total_ediciones_en_sede }}</p>
                 </div>
             </div>
         </div>
-
-        <div class="card p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-star text-orange-600"></i>
-                    </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80 col-span-2 lg:col-span-1">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
+                    <i class="fas fa-chart-line"></i>
                 </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Experiencia Promedio</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ experiencia_promedio|default:"0" }} años</p>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Experiencia media</p>
+                    <p class="text-xl font-bold text-gray-900">{{ experiencia_promedio }} <span class="text-sm font-normal text-stone-600">años</span></p>
                 </div>
             </div>
         </div>
     </div>
+    {% endif %}
 
-    <!-- Teachers Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid gap-4 sm:grid-cols-2" id="docentes-grid">
         {% for profesor in profesores %}
-        <div class="card hover:shadow-lg transition-shadow">
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-chalkboard-teacher text-blue-600 text-xl"></i>
-                    </div>
-                    <div class="text-right">
-                        <div class="text-sm text-gray-600">Cursos</div>
-                        <div class="text-lg font-bold text-gray-900">{{ profesor.cursos.count }}</div>
-                    </div>
-                </div>
-                
-                <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ profesor.user.get_full_name }}</h3>
-                <p class="text-sm text-gray-600 mb-2">{{ profesor.codigo_profesor }}</p>
-                
-                {% if profesor.especialidad %}
-                <p class="text-sm text-gray-500 mb-2">
-                    <i class="fas fa-graduation-cap mr-1"></i>{{ profesor.especialidad }}
-                </p>
-                {% endif %}
-                
-                <div class="space-y-2 mb-4">
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-600">Experiencia:</span>
-                        <span class="font-medium">{{ profesor.experiencia_anos }} años</span>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-600">Email:</span>
-                        <span class="font-medium">{{ profesor.user.email }}</span>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-600">Teléfono:</span>
-                        <span class="font-medium">{{ profesor.user.phone|default:"No registrado" }}</span>
-                    </div>
-                </div>
-                
-                {% if profesor.biografia %}
-                <p class="text-sm text-gray-500 mb-4">{{ profesor.biografia|truncatechars:100 }}</p>
-                {% endif %}
-                
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
-                        {% if profesor.is_active %}
-                            <span class="badge badge-success">Activo</span>
+        <article
+            class="card border border-stone-200/80 overflow-hidden hover:border-stone-300 transition-colors js-docente-card"
+            data-search="{{ profesor.user.get_full_name|default:'' }} {{ profesor.user.email|default:'' }} {{ profesor.codigo_profesor|default:'' }} {{ profesor.especialidad|default:'' }} {{ profesor.user.phone|default:'' }}">
+            <div class="p-5">
+                <div class="flex items-start gap-3">
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-600 overflow-hidden font-semibold text-sm">
+                        {% if profesor.user.avatar %}
+                            <img src="{{ profesor.user.avatar.url }}" alt="" class="h-full w-full object-cover" width="48" height="48">
                         {% else %}
-                            <span class="badge badge-secondary">Inactivo</span>
+                            {{ profesor.user.first_name.0|default:"?" }}{{ profesor.user.last_name.0|default:"" }}
                         {% endif %}
                     </div>
-                    <div class="flex items-center space-x-2">
-                        <a href="{% url 'hechos:detalle_profesor' profesor.id %}" 
-                           class="text-blue-600 hover:text-blue-900 text-sm" title="Ver detalles">
-                            <i class="fas fa-eye mr-1"></i>Ver
-                        </a>
-                        <a href="{% url 'hechos:editar_profesor' profesor.id %}" 
-                           class="text-green-600 hover:text-green-900 text-sm" title="Editar">
-                            <i class="fas fa-edit mr-1"></i>Editar
-                        </a>
-                        <a href="{% url 'hechos:eliminar_profesor' profesor.id %}" 
-                           class="text-red-600 hover:text-red-900 text-sm" title="Eliminar">
-                            <i class="fas fa-trash mr-1"></i>Eliminar
-                        </a>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                            <h3 class="text-lg font-semibold text-gray-900 leading-snug">{{ profesor.user.get_full_name }}</h3>
+                            {% if not es_coordinador_pedagogico %}
+                                {% if profesor.num_ediciones_activas %}
+                                    <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                                        <i class="fas fa-check"></i>{{ profesor.num_ediciones_activas }} edición{{ profesor.num_ediciones_activas|pluralize:"es" }}
+                                    </span>
+                                {% else %}
+                                    <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
+                                        Sin edición activa
+                                    </span>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                        <p class="text-xs text-stone-500 mt-1 font-mono">{{ profesor.codigo_profesor|default:"—" }}</p>
+                        {% if profesor.especialidad %}
+                        <p class="text-sm text-stone-600 mt-2"><i class="fas fa-graduation-cap mr-1 text-stone-400"></i>{{ profesor.especialidad }}</p>
+                        {% endif %}
+                        <div class="mt-3 space-y-1 text-sm text-stone-700">
+                            <p class="truncate"><span class="text-stone-500">Correo:</span> {{ profesor.user.email|default:"—" }}</p>
+                            <p><span class="text-stone-500">Tel.:</span> {{ profesor.user.phone|default:"—" }}</p>
+                            <p><span class="text-stone-500">Experiencia:</span> {{ profesor.experiencia_anos }} año{{ profesor.experiencia_anos|pluralize:"s" }}</p>
+                        </div>
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            <a href="{% url 'hechos:detalle_profesor' profesor.id %}" class="btn-outline px-3 py-1.5 text-xs font-medium">Ver</a>
+                            <a href="{% url 'hechos:editar_profesor' profesor.id %}" class="btn-outline px-3 py-1.5 text-xs font-medium">Editar</a>
+                            <a href="{% url 'hechos:eliminar_profesor' profesor.id %}" class="btn-outline px-3 py-1.5 text-xs font-medium text-red-700 border-red-200 hover:bg-red-50">Dar de baja</a>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </article>
         {% empty %}
-        <div class="col-span-full">
-            <div class="card p-12 text-center">
-                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-chalkboard-teacher text-gray-400 text-2xl"></i>
-                </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">No hay profesores</h3>
-                <p class="text-gray-600">No se encontraron profesores en el sistema.</p>
+        <div class="sm:col-span-2 card p-12 text-center border border-dashed border-stone-300 bg-stone-50/50">
+            <div class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-200/80 text-stone-500 mb-4">
+                <i class="fas fa-user-plus text-xl"></i>
             </div>
+            <h3 class="text-lg font-semibold text-gray-900">Aún no hay docentes</h3>
+            <p class="text-stone-600 text-sm mt-2 max-w-md mx-auto">Crea el primer maestro con el botón <strong>Nuevo maestro</strong>.</p>
         </div>
         {% endfor %}
+        <div class="sm:col-span-2 card p-10 text-center border border-dashed border-stone-300 bg-stone-50/50 hidden" id="docentes-sin-resultados">
+            <div class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-200/80 text-stone-500 mb-4">
+                <i class="fas fa-search text-xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900">Sin coincidencias</h3>
+            <p class="text-stone-600 text-sm mt-2">Prueba con otro término o limpia el filtro.</p>
+        </div>
     </div>
 </div>
+
+<script>
+(function () {
+    var grid = document.getElementById('docentes-grid');
+    var input = document.getElementById('filtro-docentes');
+    var countEl = document.getElementById('docentes-visible-count');
+    var emptyMsg = document.getElementById('docentes-sin-resultados');
+    if (!grid || !input) return;
+
+    var cards = Array.prototype.slice.call(grid.querySelectorAll('.js-docente-card'));
+
+    function norm(s) {
+        return (s || '').toString().trim().toLowerCase();
+    }
+
+    function apply() {
+        var q = norm(input.value);
+        var n = 0;
+        for (var i = 0; i < cards.length; i++) {
+            var el = cards[i];
+            var hay = !q || norm(el.getAttribute('data-search')).indexOf(q) !== -1;
+            el.classList.toggle('hidden', !hay);
+            if (hay) n++;
+        }
+        if (countEl) countEl.textContent = String(n);
+        if (emptyMsg) emptyMsg.classList.toggle('hidden', n !== 0 || cards.length === 0);
+    }
+
+    input.addEventListener('input', apply);
+    apply();
+})();
+</script>
 {% endblock %}

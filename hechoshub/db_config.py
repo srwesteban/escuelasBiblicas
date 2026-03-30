@@ -1,7 +1,12 @@
 import os
+import re
 from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qs, unquote, urlparse
+
+# Host directo db.<ref>.supabase.co suele resolver solo a IPv6; en Windows/redes IPv4 falla.
+# Session pooler: {SUPABASE_POOLER_CLUSTER: aws-0|aws-1}-{region}.pooler.supabase.com (ver Connect en dashboard).
+_SUPABASE_DIRECT_DB_HOST = re.compile(r"^db\.([a-z0-9]+)\.supabase\.co$", re.IGNORECASE)
 
 
 ENGINE_ALIASES = {
@@ -51,10 +56,32 @@ def _url_to_db_config(base_dir: Path, database_url: str) -> dict:
     return config
 
 
+def _rewrite_supabase_direct_to_ipv4_pooler(config: dict) -> dict:
+    if os.getenv("SUPABASE_SKIP_POOLER_REWRITE", "").lower() in {"1", "true", "yes"}:
+        return config
+    if config.get("ENGINE") != "django.db.backends.postgresql":
+        return config
+    host = (config.get("HOST") or "").strip()
+    match = _SUPABASE_DIRECT_DB_HOST.fullmatch(host)
+    if not match:
+        return config
+    project_ref = match.group(1).lower()
+    region = (os.getenv("SUPABASE_POOLER_REGION") or "us-east-1").strip().lower()
+    user = (config.get("USER") or "").strip()
+    if user.lower() == "postgres":
+        config["USER"] = f"postgres.{project_ref}"
+    pooler_cluster = (os.getenv("SUPABASE_POOLER_CLUSTER") or "aws-0").strip().lower()
+    if not re.fullmatch(r"aws-\d+", pooler_cluster):
+        pooler_cluster = "aws-0"
+    config["HOST"] = f"{pooler_cluster}-{region}.pooler.supabase.com"
+    return config
+
+
 def get_database_config(base_dir: Path) -> dict:
     database_url = os.getenv("DATABASE_URL")
     if database_url:
-        return _url_to_db_config(base_dir, database_url)
+        cfg = _url_to_db_config(base_dir, database_url)
+        return _rewrite_supabase_direct_to_ipv4_pooler(cfg)
 
     selected_engine = (os.getenv("DB_ENGINE") or "sqlite").lower()
     if selected_engine == "sqlite":
@@ -63,7 +90,7 @@ def get_database_config(base_dir: Path) -> dict:
     if selected_engine not in ENGINE_ALIASES:
         raise ValueError(f"DB_ENGINE no soportado: {selected_engine}")
 
-    return {
+    cfg = {
         "ENGINE": ENGINE_ALIASES[selected_engine],
         "NAME": os.getenv("DB_NAME", ""),
         "USER": os.getenv("DB_USER", ""),
@@ -71,3 +98,4 @@ def get_database_config(base_dir: Path) -> dict:
         "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", ""),
     }
+    return _rewrite_supabase_direct_to_ipv4_pooler(cfg)

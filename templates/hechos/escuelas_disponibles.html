@@ -4,29 +4,25 @@
 
 {% block content %}
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div>
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">Escuelas Bíblicas</h1>
+            <h1 class="text-2xl font-bold text-gray-900">Escuelas disponibles</h1>
             <p class="text-gray-600 mt-1">Explora las escuelas disponibles y solicita tu matrícula.</p>
-        </div>
-        <div class="flex items-center space-x-3">
-            <a href="{% url 'hechos:mis_solicitudes' %}" class="btn-outline px-4 py-2 text-sm font-medium">
-                <i class="fas fa-list-check mr-2"></i>Mis Solicitudes
-            </a>
-            <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">
-                <i class="fas fa-arrow-left mr-2"></i>Volver
-            </a>
+            {% if user_sede %}
+            <p class="text-sm text-stone-600 mt-2">
+                <i class="fas fa-location-dot mr-1"></i>Sede actual: {{ user_sede.nombre }}
+            </p>
+            {% endif %}
         </div>
     </div>
 
     <div class="space-y-6">
         {% for item in escuelas %}
             <div class="card p-6">
-                <div class="flex items-start justify-between mb-4">
+                <div class="flex items-start mb-4">
                     <div class="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center">
                         <i class="fas fa-school text-stone-700 text-xl"></i>
                     </div>
-                    <span class="badge">{{ item.niveles|length }} nivel{{ item.niveles|length|pluralize:"es" }}</span>
                 </div>
 
                 <h2 class="text-xl font-semibold text-gray-900">{{ item.escuela.nombre }}</h2>
@@ -84,9 +80,9 @@
 
                             <div class="mt-4">
                                 {% if nivel_item.ya_matriculado %}
-                                    <a href="{% url 'hechos:cursos_list' %}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
-                                        <i class="fas fa-arrow-right mr-2"></i>Ingresar
-                                    </a>
+                                    <div class="btn-secondary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                        <i class="fas fa-circle-check mr-2"></i>Matriculado · entra desde Mis matrículas
+                                    </div>
                                 {% elif nivel_item.puede_solicitar %}
                                     <form method="post" action="{% url 'hechos:solicitar_matricula' nivel_item.edicion.id %}">
                                         {% csrf_token %}

@@ -43,27 +43,62 @@
         color: #dc2626;
     }
 
-    .coordinador-preview {
+    /* Sin foto: mismo marco cuadrado que con foto */
+    .coordinador-preview--placeholder {
         border: 1px dashed #d6d3d1;
-        border-radius: 1rem;
+        border-radius: 0.75rem;
+        background: linear-gradient(145deg, #fafaf9 0%, #eceae8 52%, #e4e2df 100%);
+        min-height: 9.5rem;
+        max-height: 11rem;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .coordinador-preview-placeholder-inner {
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: 0.65rem;
+        background: rgba(255, 255, 255, 0.94);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.07), 0 0 0 1px rgba(120, 113, 108, 0.14);
+    }
+
+    .coordinador-preview-placeholder-icon {
+        font-size: 1.1rem;
+        color: #64748b;
+        line-height: 1;
+    }
+
+    /* Con foto: marco rectangular, esquinas redondeadas */
+    .coordinador-preview--photo {
+        border: 1px dashed #d6d3d1;
+        border-radius: 0.75rem;
         background: #fafaf9;
         overflow: hidden;
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 16rem;
-        max-height: 20rem;
+        min-height: 9.5rem;
+        max-height: 11rem;
+        width: 100%;
     }
 
-    .coordinador-preview img {
+    .coordinador-preview--photo img {
         display: block;
         width: auto;
         height: auto;
         max-width: 100%;
-        max-height: 20rem;
+        max-height: 11rem;
+        object-fit: contain;
     }
 
-    .coordinador-preview img[hidden] {
+    .coordinador-preview--photo img[hidden],
+    .coordinador-preview--photo img.is-broken {
         display: none !important;
     }
 </style>
@@ -90,77 +125,79 @@
 
             <div class="coordinador-section">
                 <h2 class="coordinador-section-title">Información personal</h2>
+                <div class="mb-5 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+                    El cargo se define con el <span class="font-medium text-stone-900">tipo de coordinador</span> para la sede <span class="font-semibold text-stone-900">{{ sede.nombre }}</span>.
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                        <label for="{{ form.first_name.id_for_label }}" class="coordinador-label">Nombre</label>
-                        {{ form.first_name }}
-                        {% if form.first_name.errors %}
-                            <p class="coordinador-error">{{ form.first_name.errors|join:", " }}</p>
+                        <label for="{{ form.nombres.id_for_label }}" class="coordinador-label">{{ form.nombres.label }}</label>
+                        {{ form.nombres }}
+                        {% if form.nombres.errors %}
+                            <p class="coordinador-error">{{ form.nombres.errors|join:", " }}</p>
                         {% endif %}
                     </div>
                     <div>
-                        <label for="{{ form.last_name.id_for_label }}" class="coordinador-label">Apellido</label>
-                        {{ form.last_name }}
-                        {% if form.last_name.errors %}
-                            <p class="coordinador-error">{{ form.last_name.errors|join:", " }}</p>
+                        <label for="{{ form.apellidos.id_for_label }}" class="coordinador-label">{{ form.apellidos.label }}</label>
+                        {{ form.apellidos }}
+                        {% if form.apellidos.errors %}
+                            <p class="coordinador-error">{{ form.apellidos.errors|join:", " }}</p>
                         {% endif %}
                     </div>
                 </div>
             </div>
 
             <div class="coordinador-section">
-                <h2 class="coordinador-section-title">Acceso y foto</h2>
-                <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_18rem] gap-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div>
-                            <label for="{{ form.username.id_for_label }}" class="coordinador-label">Usuario</label>
-                            {{ form.username }}
-                            {% if form.username.errors %}
-                                <p class="coordinador-error">{{ form.username.errors|join:", " }}</p>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label for="{{ form.email.id_for_label }}" class="coordinador-label">Correo</label>
-                            {{ form.email }}
-                            {% if form.email.errors %}
-                                <p class="coordinador-error">{{ form.email.errors|join:", " }}</p>
-                            {% endif %}
-                        </div>
-                        <div class="md:col-span-2">
-                            <label for="{{ form.avatar.id_for_label }}" class="coordinador-label">Foto</label>
-                            {{ form.avatar }}
-                            <p class="coordinador-hint">Opcional. Puedes subir una foto del coordinador.</p>
-                            {% if form.avatar.errors %}
-                                <p class="coordinador-error">{{ form.avatar.errors|join:", " }}</p>
-                            {% endif %}
-                        </div>
+                <h2 class="coordinador-section-title">Foto</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(9rem,14rem)] gap-6 lg:items-start">
+                    <div>
+                        <label for="{{ form.avatar.id_for_label }}" class="coordinador-label">Imagen</label>
+                        {{ form.avatar }}
+                        <p class="coordinador-hint">Opcional. Puedes subir una foto del coordinador.</p>
+                        {% if form.avatar.errors %}
+                            <p class="coordinador-error">{{ form.avatar.errors|join:", " }}</p>
+                        {% endif %}
                     </div>
 
-                    <div class="w-full">
+                    <div class="w-full max-w-[14rem] lg:max-w-none lg:justify-self-end">
                         <div class="text-sm font-medium text-gray-900 mb-3">Vista previa</div>
-                        <div class="coordinador-preview">
-                            {% if coordinador and coordinador.user.avatar %}
-                                <img src="{{ coordinador.user.avatar.url }}" alt="{{ coordinador.user.get_full_name }}" id="coordinador-preview-image">
-                            {% else %}
-                                <div class="text-center text-stone-500 px-4 py-10" id="coordinador-preview-placeholder">
-                                    <i class="fas fa-user text-3xl mb-3"></i>
-                                    <div class="text-sm">El coordinador aún no tiene foto.</div>
-                                </div>
-                                <img src="" alt="Vista previa coordinador" id="coordinador-preview-image" hidden>
-                            {% endif %}
+                        {# Siempre img + placeholder en el DOM para que el JS y onerror funcionen en crear/editar/con o sin foto #}
+                        <div id="coordinador-preview-frame"
+                             class="coordinador-preview {% if coordinador and coordinador.user.avatar %}coordinador-preview--photo{% else %}coordinador-preview--placeholder{% endif %}">
+                            <div id="coordinador-preview-placeholder"
+                                 class="coordinador-preview-placeholder-inner"
+                                 {% if coordinador and coordinador.user.avatar %}hidden{% endif %}>
+                                <span class="coordinador-preview-placeholder-icon" aria-hidden="true"><i class="fas fa-user"></i></span>
+                            </div>
+                            <img id="coordinador-preview-image"
+                                 {% if coordinador and coordinador.user.avatar %}src="{{ coordinador.user.avatar.url }}"{% endif %}
+                                 alt="{% if coordinador %}{{ coordinador.user.get_full_name|default:'Coordinador' }}{% else %}Vista previa{% endif %}"
+                                 {% if not coordinador or not coordinador.user.avatar %}hidden{% endif %}
+                                 data-initial-photo="{% if coordinador and coordinador.user.avatar %}1{% else %}0{% endif %}"
+                                 onerror="this.onerror=null;this.classList.add('is-broken');this.setAttribute('hidden','');this.removeAttribute('src');this.dataset.loadError='1';var p=document.getElementById('coordinador-preview-placeholder');var f=document.getElementById('coordinador-preview-frame');if(p){p.removeAttribute('hidden');}if(f){f.classList.remove('coordinador-preview--photo');f.classList.add('coordinador-preview--placeholder');}">
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="coordinador-section">
-                <h2 class="coordinador-section-title">Rol y seguridad</h2>
+                <h2 class="coordinador-section-title">Rol y acceso</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div class="md:col-span-2">
-                        <label for="{{ form.cargo.id_for_label }}" class="coordinador-label">Cargo</label>
-                        {{ form.cargo }}
-                        {% if form.cargo.errors %}
-                            <p class="coordinador-error">{{ form.cargo.errors|join:", " }}</p>
+                        {% if not form.tipo_coordinador.is_hidden %}
+                        <label for="{{ form.tipo_coordinador.id_for_label }}" class="coordinador-label">Tipo de coordinador</label>
+                        <p class="coordinador-hint mb-2">Académico, pedagógico, financiero o logístico.</p>
+                        {% endif %}
+                        {{ form.tipo_coordinador }}
+                        {% if form.tipo_coordinador.errors %}
+                            <p class="coordinador-error">{{ form.tipo_coordinador.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="{{ form.email.id_for_label }}" class="coordinador-label">{{ form.email.label }}</label>
+                        {{ form.email }}
+                        <p class="coordinador-hint">El coordinador entra con este correo y su contraseña.</p>
+                        {% if form.email.errors %}
+                            <p class="coordinador-error">{{ form.email.errors|join:", " }}</p>
                         {% endif %}
                     </div>
                     <div>
@@ -191,7 +228,7 @@
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-4">
-                <a href="{% url 'core:director_sede_detail' sede.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Cancelar</a>
+                <a href="{{ cancel_url }}" class="btn-outline px-4 py-2 text-sm font-medium">Cancelar</a>
                 <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">{{ submit_label }}</button>
             </div>
         </form>
@@ -201,31 +238,60 @@
 <script>
     (function () {
         const avatarInput = document.getElementById('id_avatar');
+        const previewFrame = document.getElementById('coordinador-preview-frame');
         const previewImage = document.getElementById('coordinador-preview-image');
         const previewPlaceholder = document.getElementById('coordinador-preview-placeholder');
 
-        if (!avatarInput || !previewImage) {
+        if (!avatarInput || !previewImage || !previewFrame || !previewPlaceholder) {
             return;
         }
 
-        avatarInput.addEventListener('change', function (event) {
-            const [file] = event.target.files || [];
+        const initialServerPhoto = previewImage.getAttribute('data-initial-photo') === '1';
+        let initialPhotoUrl = initialServerPhoto ? (previewImage.getAttribute('src') || '') : '';
+
+        function setPhotoMode(isPhoto) {
+            previewFrame.classList.toggle('coordinador-preview--photo', isPhoto);
+            previewFrame.classList.toggle('coordinador-preview--placeholder', !isPhoto);
+        }
+
+        function showPlaceholder() {
+            previewImage.classList.remove('is-broken');
+            previewImage.setAttribute('hidden', '');
+            previewImage.removeAttribute('src');
+            delete previewImage.dataset.loadError;
+            previewPlaceholder.removeAttribute('hidden');
+            setPhotoMode(false);
+        }
+
+        function showPhotoRect() {
+            previewImage.classList.remove('is-broken');
+            previewPlaceholder.setAttribute('hidden', '');
+            previewImage.removeAttribute('hidden');
+            delete previewImage.dataset.loadError;
+            setPhotoMode(true);
+        }
+
+        previewImage.addEventListener('error', function () {
+            previewImage.dataset.loadError = '1';
+            initialPhotoUrl = '';
+            showPlaceholder();
+        });
+
+        avatarInput.addEventListener('change', function () {
+            const [file] = avatarInput.files || [];
             if (!file) {
-                if (!previewImage.getAttribute('src')) {
-                    previewImage.hidden = true;
-                    if (previewPlaceholder) {
-                        previewPlaceholder.hidden = false;
-                    }
+                if (initialServerPhoto && initialPhotoUrl && previewImage.dataset.loadError !== '1') {
+                    previewImage.src = initialPhotoUrl;
+                    showPhotoRect();
+                } else {
+                    showPlaceholder();
                 }
                 return;
             }
 
             const objectUrl = URL.createObjectURL(file);
             previewImage.src = objectUrl;
-            previewImage.hidden = false;
-            if (previewPlaceholder) {
-                previewPlaceholder.hidden = true;
-            }
+            showPhotoRect();
         });
     })();
 </script>
