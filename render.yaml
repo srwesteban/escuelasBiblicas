@@ -1,0 +1,20 @@
+# Blueprint Render: https://render.com/docs/blueprint-spec
+# Crea el Web Service en el panel o: render blueprint apply
+services:
+  - type: web
+    name: hechoshub
+    runtime: python
+    plan: free
+    region: oregon
+    # Evita problemas con bash/CRLF en Windows: mismo efecto que build.sh
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput"
+    startCommand: "python manage.py migrate --noinput && python -m gunicorn hechoshub.wsgi:application --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: DJANGO_DEBUG
+        value: "false"
+      # Añade en el panel (no commitear secretos):
+      # DJANGO_SECRET_KEY
+      # DATABASE_URL  (Postgres Render o Supabase)
+      # DJANGO_ALLOWED_HOSTS  (opcional si usas dominio propio, ej: tuapp.onrender.com,tudominio.com)
