@@ -10,7 +10,10 @@ urlpatterns = [
     path('coordinacion/recursos/', views.coordinador_recursos, name='coordinador_recursos'),
     path('coordinacion/logistica/', views.coordinador_logistica, name='coordinador_logistica'),
     path('escuelas/', views.escuelas_disponibles, name='escuelas_disponibles'),
+    path('quejas-reclamos/', views.quejas_reclamos, name='quejas_reclamos'),
     path('escuelas/<int:edicion_id>/solicitar-matricula/', views.solicitar_matricula, name='solicitar_matricula'),
+    path('estructura/', views.estructura_ediciones, name='estructura_ediciones'),
+    path('estructura/<int:edicion_id>/', views.estructura_edicion_edit, name='estructura_edicion_edit'),
     path('mis-solicitudes/', views.mis_solicitudes, name='mis_solicitudes'),
     path('solicitudes/', views.solicitudes_matricula_admin, name='solicitudes_matricula_admin'),
     path('solicitudes/<int:solicitud_id>/revisar/', views.revisar_solicitud_matricula, name='revisar_solicitud_matricula'),
@@ -69,4 +72,8 @@ urlpatterns = [
     path('cursos/<int:curso_id>/ediciones/', views.ediciones_curso_list, name='ediciones_curso_list'),
     path('cursos/<int:curso_id>/ediciones/crear/', views.crear_edicion_curso, name='crear_edicion_curso'),
     path('ediciones/<int:edicion_id>/editar/', views.editar_edicion_curso, name='editar_edicion_curso'),
+
+    # Ofrendas (Profesor/Maestro)
+    path('ofrendas/', views.ofrendas_profesor, name='ofrendas_profesor'),
+    path('ofrendas/registrar/', views.registrar_ofrenda, name='registrar_ofrenda'),
 ]

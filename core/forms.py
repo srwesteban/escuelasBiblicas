@@ -10,6 +10,16 @@ from hechos.models import AdminEscuela, Estudiante, Escuela, Profesor
 class StudentSignupForm(SignupForm):
     first_name = forms.CharField(max_length=150, label="Nombres")
     last_name = forms.CharField(max_length=150, label="Apellidos")
+    genero = forms.ChoiceField(
+        choices=Estudiante.Genero.choices,
+        label="Género",
+        required=True,
+    )
+    estado_civil = forms.ChoiceField(
+        choices=Estudiante.EstadoCivil.choices,
+        label="Estado civil",
+        required=True,
+    )
     tipo_documento = forms.ChoiceField(
         choices=Estudiante.TipoDocumento.choices,
         label="Tipo de documento",
@@ -30,19 +40,6 @@ class StudentSignupForm(SignupForm):
         label="Ciudad o municipio",
         required=True,
     )
-    peticion_texto = forms.CharField(
-        required=False,
-        label="Escriba la petición.",
-        widget=forms.Textarea(attrs={"rows": 4}),
-    )
-    peticion_area = forms.ChoiceField(
-        required=False,
-        label="",
-        choices=[("", "Seleccione")] + list(Estudiante.PeticionArea.choices),
-    )
-
-    telefono_emergencia = forms.CharField(required=False, max_length=20, label="Celular de emergencia")
-    contacto_emergencia = forms.CharField(required=False, max_length=100, label="Contacto de emergencia")
     autoriza_tratamiento_datos = forms.BooleanField(
         required=True,
         label="Autorizo a HechosHub el tratamiento de mis datos personales.",
@@ -96,6 +93,8 @@ class StudentSignupForm(SignupForm):
         Estudiante.objects.update_or_create(
             user=user,
             defaults={
+                "genero": self.cleaned_data.get("genero"),
+                "estado_civil": self.cleaned_data.get("estado_civil"),
                 "tipo_documento": self.cleaned_data.get("tipo_documento"),
                 "numero_documento": self.cleaned_data.get("numero_documento"),
                 "fecha_nacimiento": self.cleaned_data.get("fecha_nacimiento"),
@@ -114,14 +113,6 @@ class StudentSignupForm(SignupForm):
                     ]
                 ).strip(", "),
                 "iglesia": "",
-                "telefono_emergencia": (self.cleaned_data.get("telefono_emergencia") or "").strip(),
-                "contacto_emergencia": (self.cleaned_data.get("contacto_emergencia") or "").strip(),
-                "peticion_area": (self.cleaned_data.get("peticion_area") or "").strip(),
-                "peticion_texto": (
-                    (self.cleaned_data.get("peticion_texto") or "").strip()
-                    if (self.cleaned_data.get("peticion_area") or "") == Estudiante.PeticionArea.OTRO
-                    else ""
-                ),
             },
         )
 

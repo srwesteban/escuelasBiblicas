@@ -6,14 +6,19 @@ from django.db.models import Q, Count, Avg, Exists, OuterRef
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.core.mail import EmailMessage
+from django.conf import settings
 from .models import (
     Estudiante, Profesor, AdminEscuela, Escuela, RutaEstudio, Curso,
     Matricula, Clase, Asistencia, Nota, EdicionCurso, SolicitudMatricula, NotificacionEstudiante,
-    SolicitudEspecialEstudiante,
+    SolicitudEspecialEstudiante, EdicionCursoHorario, Ofrenda,
 )
 from .utils import get_current_period, get_period_from_date, get_period_display, get_period_stats
 from core.models import Sede, generate_unique_username
 from hechos import coordinador_access as ca
+from .forms import OfrendaForm, QuejaReclamoForm
+
+from datetime import timedelta, time as dt_time
 
 User = get_user_model()
 
@@ -486,6 +491,207 @@ def profesores_list(request):
     return render(request, 'hechos/profesores_list_modern.html', context)
 
 
+def _dias_horarios_to_string(rows):
+    """
+    rows: iterable de (dia_semana:int, hora:datetime.time)
+    """
+    by_day = {d: h for d, h in rows}
+    ordered_days = [d for d in range(0, 7) if d in by_day]
+    day_labels = {
+        0: "Lunes",
+        1: "Martes",
+        2: "Miércoles",
+        3: "Jueves",
+        4: "Viernes",
+        5: "Sábado",
+        6: "Domingo",
+    }
+    parts = []
+    for d in ordered_days:
+        h = by_day[d]
+        parts.append(f"{day_labels.get(d, str(d))} {h.strftime('%I:%M %p').lstrip('0')}")
+    return " · ".join(parts)
+
+
+def _calcular_fechas_clase(fecha_inicio, fecha_fin, dias):
+    """
+    dias: set[int] (0=Lunes .. 6=Domingo) usando weekday() estándar.
+    """
+    if not fecha_inicio or not fecha_fin or not dias:
+        return []
+    if fecha_fin < fecha_inicio:
+        return []
+    fechas = []
+    d = fecha_inicio
+    while d <= fecha_fin:
+        if d.weekday() in dias:
+            fechas.append(d)
+        d += timedelta(days=1)
+    return fechas
+
+
+@login_required
+def estructura_ediciones(request):
+    """
+    Módulo para coordinador pedagógico: define estructura (días+hora) por edición.
+    """
+    if not request.user.is_super_admin():
+        r = ca.require_pedagogico(request)
+        if r:
+            return r
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, "No tienes una sede asignada. Contacta al administrador.")
+        return redirect("core:dashboard")
+
+    ediciones = (
+        EdicionCurso.objects.filter(curso__sede=user_sede, is_active=True, curso__is_active=True)
+        .select_related("curso__ruta_estudio__escuela", "profesor__user")
+        .order_by("-fecha_inicio", "curso__nombre", "nombre_edicion")
+    )
+
+    estructura = (
+        EdicionCursoHorario.objects.filter(edicion__in=ediciones)
+        .values_list("edicion_id", "dia_semana", "hora")
+    )
+    by_edicion = {}
+    for ed_id, dia, hora in estructura:
+        by_edicion.setdefault(ed_id, []).append((dia, hora))
+
+    feed = []
+    for e in ediciones:
+        rows = sorted(by_edicion.get(e.id, []), key=lambda r: r[0])
+        dias = {d for d, _ in rows}
+        fechas = _calcular_fechas_clase(e.fecha_inicio, e.fecha_fin, dias)
+        feed.append(
+            {
+                "edicion": e,
+                "estructura_str": _dias_horarios_to_string(rows) if rows else "Sin estructura",
+                "num_clases": len(fechas),
+            }
+        )
+
+    return render(
+        request,
+        "hechos/estructura_ediciones_list.html",
+        {"user_sede": user_sede, "ediciones_feed": feed},
+    )
+
+
+@login_required
+def estructura_edicion_edit(request, edicion_id):
+    """
+    Editar estructura interna de una edición (días y hora por día).
+    """
+    if not request.user.is_super_admin():
+        r = ca.require_pedagogico(request)
+        if r:
+            return r
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, "No tienes una sede asignada. Contacta al administrador.")
+        return redirect("core:dashboard")
+
+    edicion = get_object_or_404(EdicionCurso, id=edicion_id, curso__sede=user_sede)
+
+    existing = {
+        h.dia_semana: h.hora for h in EdicionCursoHorario.objects.filter(edicion=edicion)
+    }
+
+    day_defs = [
+        (0, "lunes"),
+        (1, "martes"),
+        (2, "miercoles"),
+        (3, "jueves"),
+        (4, "viernes"),
+        (5, "sabado"),
+        (6, "domingo"),
+    ]
+
+    if request.method == "POST":
+        selected = []
+        errors = []
+        for day_int, key in day_defs:
+            checked = request.POST.get(f"dia_{key}") == "on"
+            t_raw = (request.POST.get(f"hora_{key}") or "").strip()
+            if not checked and not t_raw:
+                continue
+            if checked and not t_raw:
+                errors.append(f"Define la hora para {key}.")
+                continue
+            if not checked and t_raw:
+                # Si escriben hora pero no marcan, asumimos selección.
+                checked = True
+            try:
+                # HTML time input → HH:MM
+                hh, mm = t_raw.split(":")
+                hh_i = int(hh)
+                mm_i = int(mm)
+                selected.append((day_int, dt_time(hour=hh_i, minute=mm_i)))
+            except Exception:
+                errors.append(f"Hora inválida para {key}. Usa formato HH:MM.")
+
+        if not selected:
+            errors.append("Selecciona al menos un día y define su hora.")
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+        else:
+            EdicionCursoHorario.objects.filter(edicion=edicion).delete()
+            for day_int, hora in selected:
+                EdicionCursoHorario.objects.create(edicion=edicion, dia_semana=day_int, hora=hora)
+
+            # Mantener compatibilidad: actualiza campo string `horario`
+            horario_str = _dias_horarios_to_string(selected)
+            edicion.horario = horario_str
+            edicion.save(update_fields=["horario", "updated_at"])
+
+            messages.success(request, "Estructura interna guardada.")
+            return redirect("hechos:estructura_ediciones")
+
+    current_rows = [(d, existing.get(d)) for d, _ in day_defs]
+    selected_days = {d for d, h in current_rows if h}
+    dias = {d for d, h in current_rows if h}
+    fechas = _calcular_fechas_clase(edicion.fecha_inicio, edicion.fecha_fin, dias)
+
+    label_by_key = {
+        "lunes": "Lunes",
+        "martes": "Martes",
+        "miercoles": "Miércoles",
+        "jueves": "Jueves",
+        "viernes": "Viernes",
+        "sabado": "Sábado",
+        "domingo": "Domingo",
+    }
+    day_rows = []
+    for day_int, key in day_defs:
+        hora = existing.get(day_int)
+        day_rows.append(
+            {
+                "day_int": day_int,
+                "key": key,
+                "label": label_by_key.get(key, key),
+                "checked": day_int in selected_days,
+                "value": hora.strftime("%H:%M") if hora else "",
+            }
+        )
+
+    return render(
+        request,
+        "hechos/estructura_edicion_edit.html",
+        {
+            "user_sede": user_sede,
+            "edicion": edicion,
+            "day_rows": day_rows,
+            "num_clases": len(fechas),
+            "fechas_preview": fechas[:12],
+        },
+    )
+
+
 @login_required
 def cursos_list(request):
     """
@@ -597,8 +803,88 @@ def escuelas_disponibles(request):
         'escuelas': list(escuelas_by_id.values()),
         'estudiante': estudiante,
         'user_sede': user_sede,
+        'coordinador_pedagogico': AdminEscuela.objects.filter(
+            sede=user_sede,
+            tipo_coordinador=AdminEscuela.TipoCoordinador.PEDAGOGICO,
+            is_active=True,
+            user__is_active=True,
+        ).select_related("user").first(),
     }
     return render(request, 'hechos/escuelas_disponibles.html', context)
+
+
+@login_required
+def quejas_reclamos(request):
+    if not hasattr(request.user, "estudiante_profile"):
+        messages.error(request, "Solo los estudiantes pueden enviar quejas y reclamos.")
+        return redirect("core:dashboard")
+
+    estudiante = request.user.estudiante_profile
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.info(request, "Selecciona tu sede para contactar al coordinador pedagógico.")
+        return redirect("hechos:seleccionar_sede_estudiante")
+
+    coordinador = AdminEscuela.objects.filter(
+        sede=user_sede,
+        tipo_coordinador=AdminEscuela.TipoCoordinador.PEDAGOGICO,
+        is_active=True,
+        user__is_active=True,
+    ).select_related("user").first()
+
+    if request.method == "POST":
+        if not coordinador or not coordinador.user.email:
+            messages.error(
+                request,
+                "No hay coordinador pedagógico configurado para tu sede. Contacta al administrador.",
+            )
+            return redirect("hechos:escuelas_disponibles")
+
+        form = QuejaReclamoForm(request.POST)
+        if form.is_valid():
+            qr = form.save(commit=False)
+            qr.estudiante = estudiante
+            qr.sede = user_sede
+            qr.asignado_a = coordinador
+            qr.save()
+
+            subject = f"[HechosHub] {qr.get_tipo_display()} - {user_sede.nombre}: {qr.asunto}"
+            body = (
+                f"Sede: {user_sede.nombre}\n"
+                f"Estudiante: {request.user.get_full_name()} ({request.user.email})\n"
+                f"Tipo: {qr.get_tipo_display()}\n"
+                f"Asunto: {qr.asunto}\n\n"
+                f"Mensaje:\n{qr.mensaje}\n\n"
+                f"ID interno: {qr.id}\n"
+            )
+
+            from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "no-reply@hechoshub.local"
+            email = EmailMessage(
+                subject=subject,
+                body=body,
+                from_email=from_email,
+                to=[coordinador.user.email],
+                reply_to=[request.user.email] if request.user.email else None,
+            )
+            try:
+                email.send(fail_silently=False)
+            except Exception:
+                messages.warning(
+                    request,
+                    "Se guardó tu mensaje, pero no se pudo enviar el correo. Revisa la configuración de email.",
+                )
+            else:
+                messages.success(request, "Tu mensaje fue enviado al coordinador pedagógico.")
+
+            return redirect("hechos:escuelas_disponibles")
+    else:
+        form = QuejaReclamoForm()
+
+    return render(
+        request,
+        "hechos/quejas_reclamos_form.html",
+        {"form": form, "user_sede": user_sede, "coordinador_pedagogico": coordinador},
+    )
 
 
 @login_required
@@ -1472,6 +1758,103 @@ def notas_profesor(request):
     }
     
     return render(request, 'hechos/notas_profesor_modern.html', context)
+
+
+@login_required
+def ofrendas_profesor(request):
+    """
+    Listado de ofrendas registradas por escuelas del maestro (profesor).
+    """
+    if not hasattr(request.user, "profesor_profile"):
+        messages.error(request, "Solo los profesores pueden acceder a esta página.")
+        return redirect("core:dashboard")
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, "No tienes una sede asignada. Contacta al administrador.")
+        return redirect("core:dashboard")
+
+    profesor = request.user.profesor_profile
+    escuelas_qs = Escuela.objects.filter(
+        sede=user_sede,
+        maestro=profesor,
+        is_active=True,
+    ).order_by("nombre")
+
+    ofrendas = (
+        Ofrenda.objects.filter(sede=user_sede, escuela__in=escuelas_qs)
+        .select_related("escuela", "registrado_por")
+        .order_by("-fecha", "-id")
+    )
+
+    return render(
+        request,
+        "hechos/ofrendas_list.html",
+        {
+            "user_sede": user_sede,
+            "profesor": profesor,
+            "escuelas": escuelas_qs,
+            "ofrendas": ofrendas,
+        },
+    )
+
+
+@login_required
+def registrar_ofrenda(request):
+    """
+    Formulario para que un maestro registre ofrendas de sus escuelas.
+    """
+    if not hasattr(request.user, "profesor_profile"):
+        messages.error(request, "Solo los profesores pueden acceder a esta página.")
+        return redirect("core:dashboard")
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, "No tienes una sede asignada. Contacta al administrador.")
+        return redirect("core:dashboard")
+
+    profesor = request.user.profesor_profile
+    escuelas_qs = Escuela.objects.filter(
+        sede=user_sede,
+        maestro=profesor,
+        is_active=True,
+    ).order_by("-updated_at", "-id")
+
+    if not escuelas_qs.exists():
+        messages.warning(
+            request,
+            "Aún no tienes escuelas asignadas como maestro, por eso no puedes registrar ofrendas.",
+        )
+        return redirect("hechos:dashboard")
+
+    varias_escuelas = escuelas_qs.count() > 1
+
+    if request.method == "POST":
+        form = OfrendaForm(request.POST, escuelas_qs=escuelas_qs, include_escuela=varias_escuelas)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.sede = user_sede
+            obj.escuela = form.cleaned_data["escuela"] if varias_escuelas else escuelas_qs.first()
+            obj.fecha = timezone.now().date()
+            obj.descripcion = ""
+            obj.registrado_por = request.user
+            obj.save()
+            messages.success(request, "Ofrenda registrada correctamente.")
+            return redirect("hechos:ofrendas_profesor")
+    else:
+        form = OfrendaForm(escuelas_qs=escuelas_qs, include_escuela=varias_escuelas)
+
+    return render(
+        request,
+        "hechos/ofrenda_form.html",
+        {
+            "user_sede": user_sede,
+            "profesor": profesor,
+            "escuela_auto": None if varias_escuelas else escuelas_qs.first(),
+            "varias_escuelas": varias_escuelas,
+            "form": form,
+        },
+    )
 
 
 @login_required

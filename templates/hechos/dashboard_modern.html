@@ -38,7 +38,7 @@
                 </div>
                 <div>
                     <h2 class="text-xl font-semibold text-gray-900">{{ user.get_full_name }}</h2>
-                    <p class="text-gray-600">Estudiante - {{ user.estudiante_profile.codigo }}</p>
+                    <p class="text-gray-600">Estudiante - {{ user.estudiante_profile.codigo_estudiante|default:"—" }}</p>
                 </div>
             </div>
 
@@ -118,7 +118,7 @@
                 </div>
                 <div>
                     <h2 class="text-xl font-semibold text-gray-900">{{ user.get_full_name }}</h2>
-                    <p class="text-gray-600">Profesor - {{ user.profesor_profile.codigo }}</p>
+                    <p class="text-gray-600">Profesor - {{ user.profesor_profile.codigo_profesor|default:"—" }}</p>
                 </div>
             </div>
 
@@ -196,6 +196,18 @@
                     <div>
                         <h3 class="font-semibold text-gray-900">Matricular Estudiante</h3>
                         <p class="text-sm text-gray-600">Inscribir en mis cursos</p>
+                    </div>
+                </div>
+            </a>
+
+            <a href="{% url 'hechos:registrar_ofrenda' %}" class="card p-6 hover:shadow-lg transition-shadow">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-hand-holding-dollar text-amber-700 text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900">Registrar Ofrenda</h3>
+                        <p class="text-sm text-gray-600">Guardar ofrendas de mi escuela</p>
                     </div>
                 </div>
             </a>

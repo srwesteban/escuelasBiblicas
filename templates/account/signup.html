@@ -116,6 +116,30 @@
                                    class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
                         </div>
                     </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="{{ form.genero.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+                                Genero <span class="text-red-600">*</span>
+                            </label>
+                            <select name="{{ form.genero.name }}" id="{{ form.genero.id_for_label }}"
+                                    class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                {% for val, label in form.genero.field.choices %}
+                                    <option value="{{ val }}" {% if form.genero.value == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="{{ form.estado_civil.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+                                Estado civil <span class="text-red-600">*</span>
+                            </label>
+                            <select name="{{ form.estado_civil.name }}" id="{{ form.estado_civil.id_for_label }}"
+                                    class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                {% for val, label in form.estado_civil.field.choices %}
+                                    <option value="{{ val }}" {% if form.estado_civil.value == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div class="md:col-span-2">
@@ -158,58 +182,6 @@
                                 {% endfor %}
                             </select>
                         </div>
-                    </div>
-                </section>
-
-                <section class="space-y-4">
-                    <div class="border-b border-stone-200 pb-2">
-                        <h2 class="text-sm font-semibold text-stone-800 tracking-wide">Contacto de Emergencia</h2>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="{{ form.contacto_emergencia.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Nombre del contacto</label>
-                            <input type="text" name="{{ form.contacto_emergencia.name }}" id="{{ form.contacto_emergencia.id_for_label }}"
-                                   value="{{ form.contacto_emergencia.value|default:'' }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none">
-                        </div>
-                        <div>
-                            <label for="{{ form.telefono_emergencia.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Celular de emergencia</label>
-                            <input type="text" name="{{ form.telefono_emergencia.name }}" id="{{ form.telefono_emergencia.id_for_label }}"
-                                   value="{{ form.telefono_emergencia.value|default:'' }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none">
-                        </div>
-                    </div>
-                </section>
-
-                <section class="space-y-4">
-                    <div class="border-b border-stone-200 pb-2">
-                        <h2 class="text-sm font-semibold text-stone-800 tracking-wide">Petición</h2>
-                    </div>
-                    <div>
-                        <select name="{{ form.peticion_area.name }}" id="{{ form.peticion_area.id_for_label }}"
-                                class="input w-full px-3 py-3 border rounded-xl focus:outline-none md:max-w-md"
-                                aria-label="Clasificación de la petición">
-                            {% for val, label in form.peticion_area.field.choices %}
-                                <option value="{{ val }}" {% if form.peticion_area.value == val %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                        {% if form.peticion_area.errors %}
-                            <p class="mt-1 text-sm text-red-600">{{ form.peticion_area.errors.0 }}</p>
-                        {% endif %}
-                    </div>
-                    <div id="peticion-texto-wrap" class="{% if form.peticion_area.value != 'otro' %}hidden{% endif %}">
-                        <label for="{{ form.peticion_texto.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
-                            {{ form.peticion_texto.label }}
-                        </label>
-                        {% if form.peticion_texto.help_text %}
-                            <p class="text-xs text-slate-600 mb-2">{{ form.peticion_texto.help_text }}</p>
-                        {% endif %}
-                        <textarea name="{{ form.peticion_texto.name }}" id="{{ form.peticion_texto.id_for_label }}"
-                                  class="input w-full px-3 py-3 border rounded-xl focus:outline-none"
-                                  rows="4">{{ form.peticion_texto.value|default:'' }}</textarea>
-                        {% if form.peticion_texto.errors %}
-                            <p class="mt-1 text-sm text-red-600">{{ form.peticion_texto.errors.0 }}</p>
-                        {% endif %}
                     </div>
                 </section>
 
@@ -337,16 +309,5 @@
     });
 })();
 
-(function () {
-    var pa = document.getElementById("{{ form.peticion_area.id_for_label }}");
-    var wrap = document.getElementById("peticion-texto-wrap");
-    if (!pa || !wrap) return;
-    function syncPeticionOtro() {
-        if (pa.value === "otro") wrap.classList.remove("hidden");
-        else wrap.classList.add("hidden");
-    }
-    pa.addEventListener("change", syncPeticionOtro);
-    syncPeticionOtro();
-})();
 </script>
 {% endblock %}

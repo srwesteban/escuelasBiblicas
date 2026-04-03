@@ -14,6 +14,22 @@ class Estudiante(models.Model):
     """
     Perfil de estudiante en el módulo Hechos
     """
+    class Genero(models.TextChoices):
+        NO_ESPECIFICADO = "no_especificado", _("No especificado")
+        FEMENINO = "femenino", _("Femenino")
+        MASCULINO = "masculino", _("Masculino")
+        OTRO = "otro", _("Otro")
+
+    class EstadoCivil(models.TextChoices):
+        NO_ESPECIFICADO = "no_especificado", _("No especificado")
+        SOLTERO = "soltero", _("Soltero(a)")
+        CASADO = "casado", _("Casado(a)")
+        UNION_LIBRE = "union_libre", _("Unión libre")
+        DIVORCIADO = "divorciado", _("Divorciado(a)")
+        VIUDO = "viudo", _("Viudo(a)")
+        SEPARADO = "separado", _("Separado(a)")
+        OTRO = "otro", _("Otro")
+
     class TipoDocumento(models.TextChoices):
         CC = "CC", _("Cedula de ciudadania")
         TI = "TI", _("Tarjeta de identidad")
@@ -31,6 +47,16 @@ class Estudiante(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='estudiante_profile')
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='estudiantes', null=True, blank=True)
     codigo_estudiante = models.CharField(max_length=20, blank=True, null=True)
+    genero = models.CharField(
+        max_length=20,
+        choices=Genero.choices,
+        default=Genero.NO_ESPECIFICADO,
+    )
+    estado_civil = models.CharField(
+        max_length=20,
+        choices=EstadoCivil.choices,
+        default=EstadoCivil.NO_ESPECIFICADO,
+    )
     tipo_documento = models.CharField(max_length=3, choices=TipoDocumento.choices, default=TipoDocumento.CC)
     numero_documento = models.CharField(max_length=30, blank=True, default="")
     fecha_nacimiento = models.DateField(blank=True, null=True)
@@ -313,6 +339,46 @@ class EdicionCurso(models.Model):
         return (self.estudiantes_inscritos / self.cupo_maximo) * 100
 
 
+class EdicionCursoHorario(models.Model):
+    """
+    Estructura interna (días + hora) de una edición de curso.
+    Permite calcular automáticamente cuántas clases hay entre fecha_inicio y fecha_fin.
+    """
+
+    class DiaSemana(models.IntegerChoices):
+        LUNES = 0, _("Lunes")
+        MARTES = 1, _("Martes")
+        MIERCOLES = 2, _("Miércoles")
+        JUEVES = 3, _("Jueves")
+        VIERNES = 4, _("Viernes")
+        SABADO = 5, _("Sábado")
+        DOMINGO = 6, _("Domingo")
+
+    edicion = models.ForeignKey(
+        EdicionCurso,
+        on_delete=models.CASCADE,
+        related_name="estructura_horarios",
+    )
+    dia_semana = models.IntegerField(choices=DiaSemana.choices)
+    hora = models.TimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Horario de edición"
+        verbose_name_plural = "Horarios de edición"
+        ordering = ["edicion", "dia_semana", "hora"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["edicion", "dia_semana"],
+                name="uniq_edicion_dia_semana",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.edicion} · {self.get_dia_semana_display()} {self.hora}"
+
+
 class SolicitudMatricula(models.Model):
     """
     Solicitud previa a la matrícula aprobada por el profesor.
@@ -412,6 +478,43 @@ class SolicitudEspecialEstudiante(models.Model):
 
     def __str__(self):
         return f"{self.estudiante.user.get_full_name()} - {self.asunto}"
+
+
+class QuejaReclamo(models.Model):
+    class Tipo(models.TextChoices):
+        QUEJA = "queja", _("Queja")
+        RECLAMO = "reclamo", _("Reclamo")
+        SUGERENCIA = "sugerencia", _("Sugerencia")
+
+    class Estado(models.TextChoices):
+        RECIBIDA = "recibida", _("Recibida")
+        EN_PROCESO = "en_proceso", _("En proceso")
+        CERRADA = "cerrada", _("Cerrada")
+
+    sede = models.ForeignKey("core.Sede", on_delete=models.CASCADE, related_name="quejas_reclamos")
+    estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE, related_name="quejas_reclamos")
+    tipo = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.QUEJA)
+    asunto = models.CharField(max_length=180)
+    mensaje = models.TextField()
+    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.RECIBIDA)
+    asignado_a = models.ForeignKey(
+        AdminEscuela,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quejas_reclamos_asignadas",
+        help_text=_("Coordinador pedagógico asignado en el momento de envío."),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Queja/Reclamo"
+        verbose_name_plural = "Quejas y reclamos"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.asunto}"
 
 
 class Matricula(models.Model):
@@ -552,3 +655,43 @@ class Nota(models.Model):
         if self.puntaje_maximo > 0:
             return (self.puntaje_obtenido / self.puntaje_maximo) * 100
         return 0
+
+
+class Ofrenda(models.Model):
+    """
+    Registro de ofrendas realizadas en el contexto de una escuela (maestro/profesor).
+    """
+
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="ofrendas_hechos",
+    )
+    escuela = models.ForeignKey(
+        Escuela,
+        on_delete=models.CASCADE,
+        related_name="ofrendas",
+        help_text=_("Escuela a la que corresponde la ofrenda."),
+    )
+    fecha = models.DateField(default=timezone.now)
+    valor = models.DecimalField(max_digits=12, decimal_places=2)
+    descripcion = models.CharField(max_length=220, blank=True, default="")
+    registrado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ofrendas_registradas",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Ofrenda"
+        verbose_name_plural = "Ofrendas"
+        ordering = ["-fecha", "-id"]
+        indexes = [
+            models.Index(fields=["sede", "escuela", "fecha"], name="hechos_ofre_sede_id_0dc687_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.escuela.nombre} · {self.fecha} · {self.valor}"

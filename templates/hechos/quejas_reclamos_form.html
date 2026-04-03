@@ -1,0 +1,78 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Quejas y reclamos - Hechos Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="card p-6 sm:p-8">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Quejas y reclamos</h1>
+                {% if user_sede %}
+                <p class="text-sm text-slate-600 mt-1">
+                    Sede: <span class="font-medium text-slate-900">{{ user_sede.nombre }}</span>
+                </p>
+                {% endif %}
+                {% if coordinador_pedagogico %}
+                <p class="text-sm text-slate-600 mt-1">
+                    Se enviará al coordinador pedagógico: <span class="font-medium text-slate-900">{{ coordinador_pedagogico.user.get_full_name|default:coordinador_pedagogico.user.email }}</span>
+                </p>
+                {% else %}
+                <p class="text-sm text-amber-700 mt-2">
+                    No hay coordinador pedagógico configurado para tu sede. No se podrá enviar el correo.
+                </p>
+                {% endif %}
+            </div>
+            <a href="{% url 'hechos:escuelas_disponibles' %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i>Volver
+            </a>
+        </div>
+
+        {% if form.errors %}
+            <div class="mt-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                        <div>{{ error }}</div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" class="mt-6 space-y-5">
+            {% csrf_token %}
+
+            <div>
+                <label for="{{ form.tipo.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+                    Tipo <span class="text-red-600">*</span>
+                </label>
+                {{ form.tipo }}
+            </div>
+
+            <div>
+                <label for="{{ form.asunto.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+                    Asunto <span class="text-red-600">*</span>
+                </label>
+                {{ form.asunto }}
+            </div>
+
+            <div>
+                <label for="{{ form.mensaje.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+                    Mensaje <span class="text-red-600">*</span>
+                </label>
+                {{ form.mensaje }}
+                <p class="mt-2 text-xs text-slate-500">Incluye detalles claros para que el coordinador pueda ayudarte.</p>
+            </div>
+
+            <div class="pt-2 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                <p class="text-xs text-slate-500">
+                    Tu correo se usará como “Responder a”.
+                </p>
+                <button type="submit" class="btn-primary inline-flex items-center justify-center px-5 py-3 text-sm font-medium">
+                    <i class="fas fa-paper-plane mr-2"></i>Enviar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

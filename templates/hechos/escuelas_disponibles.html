@@ -16,6 +16,36 @@
         </div>
     </div>
 
+    <div class="card p-5 sm:p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h2 class="text-base sm:text-lg font-semibold text-slate-900">Quejas y reclamos</h2>
+                {% if coordinador_pedagogico %}
+                    <p class="text-sm text-slate-600 mt-1">
+                        Coordinador pedagógico: <span class="font-medium text-slate-900">{{ coordinador_pedagogico.user.get_full_name|default:coordinador_pedagogico.user.email }}</span>
+                    </p>
+                {% else %}
+                    <p class="text-sm text-slate-600 mt-1">
+                        No hay coordinador pedagógico configurado para tu sede.
+                    </p>
+                {% endif %}
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <a href="{% url 'hechos:quejas_reclamos' %}" class="btn-primary inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                    <i class="fas fa-envelope mr-2"></i>Enviar queja o reclamo
+                </a>
+                {% if coordinador_pedagogico and coordinador_pedagogico.user.email %}
+                    <a
+                        href="mailto:{{ coordinador_pedagogico.user.email }}?subject={{ 'Contacto estudiante - ' |add:user_sede.nombre|urlencode }}"
+                        class="btn-outline inline-flex items-center justify-center px-4 py-3 text-sm font-medium"
+                    >
+                        <i class="fas fa-paper-plane mr-2"></i>Contactar coordinador pedagógico: {{ coordinador_pedagogico.user.first_name|default:'Nombre' }}
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <div class="space-y-6">
         {% for item in escuelas %}
             <div class="card p-6">

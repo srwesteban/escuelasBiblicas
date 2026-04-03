@@ -1,23 +1,86 @@
 {% extends "base_modern.html" %}
 {% load static %}
 
+{% block main_extra_class %}inicio-main-grid{% endblock %}
+
 {% block title %}Inicio - HechosHub{% endblock %}
+
+{% block body_start %}
+<canvas id="inicio-ogl-particles" class="inicio-ogl-canvas" aria-hidden="true"></canvas>
+{% endblock %}
 
 {% block extra_css %}
 <style>
-    .inicio-hero {
-        border: 1px solid #d4d4d4;
+    .inicio-ogl-canvas {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .inicio-ogl-canvas.inicio-ogl-canvas--hidden {
+        display: none;
+    }
+
+    body:has(#inicio-ogl-particles) {
+        background: #000000;
+    }
+
+    body:has(#inicio-ogl-particles) > .min-h-full {
+        position: relative;
+        z-index: 1;
+        background: transparent;
+    }
+
+    body:has(#inicio-ogl-particles) main.max-w-7xl:not(.inicio-main-grid) {
+        background: transparent;
+    }
+
+    body:has(#inicio-ogl-particles) .topbar {
+        position: relative;
+        z-index: 2;
+        background: #ffffff;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 1),
+            0 4px 18px rgba(0, 0, 0, 0.07);
+    }
+
+    body:has(#inicio-ogl-particles) .topbar .nav-link {
+        color: #57534e;
+    }
+
+    body:has(#inicio-ogl-particles) .topbar .nav-link:hover,
+    body:has(#inicio-ogl-particles) .topbar .nav-link.active {
+        color: #1c1917;
+    }
+
+    body:has(#inicio-ogl-particles) .topbar .text-slate-700 {
+        color: #334155 !important;
+    }
+
+    body:has(#inicio-ogl-particles) .topbar .user-avatar {
+        background: #f4f4f5;
+        color: #3f3f46;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    }
+
+    .inicio-hero-copy.inicio-hero-panel {
+        border: 1px solid rgba(63, 63, 70, 0.9);
         border-radius: 2rem;
-        background: #DDDDDD;
+        background: rgba(9, 9, 11, 0.72);
     }
 
     .inicio-kicker {
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
-        border: 1px solid #ece7df;
-        background: #faf7f1;
-        color: #57534e;
+        border: 1px solid #3f3f46;
+        background: rgba(39, 39, 42, 0.85);
+        color: #d4d4d8;
         border-radius: 9999px;
         padding: 0.6rem 1rem;
         font-size: 0.75rem;
@@ -27,103 +90,309 @@
     }
 
     .inicio-card {
-        border: 1px solid #d1d1d1;
-        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid #3f3f46;
+        background: rgba(24, 24, 27, 0.55);
     }
 
     .inicio-illustration {
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 100%;
+        min-height: 0;
+        flex: 1 1 auto;
         padding: 1rem;
     }
 
-    .inicio-illustration img {
+    .inicio-hero-video-wrap {
+        position: relative;
         width: 100%;
-        max-width: 34rem;
-        height: auto;
-        display: block;
+        max-width: 320px;
+        margin: 0 auto;
+        aspect-ratio: 9 / 16;
+        max-height: min(52dvh, 440px);
+        overflow: hidden;
+        border-radius: 1rem;
+        background: #09090b;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
     }
 
-    .inicio-footer-fixed {
-        border-top: 1px solid #e7e5e4;
-        background: rgba(255, 255, 255, 0.98);
+    .inicio-hero-video-wrap video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    @media (min-width: 640px) {
+        .inicio-hero-video-wrap {
+            max-width: 360px;
+            max-height: min(54dvh, 480px);
+        }
+    }
+
+    .inicio-footer {
+        width: 100%;
+        max-width: none;
+        margin-top: auto;
+        background: #ffffff;
+        border-top: 1px solid rgba(15, 23, 42, 0.07);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 1),
+            0 -6px 22px rgba(0, 0, 0, 0.06);
+        position: relative;
+        z-index: 1;
+    }
+
+    body:has(#inicio-ogl-particles) > .min-h-full {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    body:has(#inicio-ogl-particles) > .min-h-full > main.max-w-7xl {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    body:has(#inicio-ogl-particles) .inicio-footer .text-zinc-400,
+    body:has(#inicio-ogl-particles) .inicio-footer .text-slate-600 {
+        color: #57534e !important;
+    }
+
+    body:has(#inicio-ogl-particles) .inicio-footer .btn-outline {
+        border-color: rgba(15, 23, 42, 0.12);
+        color: #334155;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    body:has(#inicio-ogl-particles) .inicio-footer .btn-outline:hover {
+        background: #f4f4f5;
+        border-color: rgba(15, 23, 42, 0.18);
+        color: #0f172a;
+    }
+
+    body:has(#inicio-ogl-particles) .inicio-hero-copy .btn-outline {
+        border-color: #52525b;
+        color: #e4e4e7;
+    }
+
+    body:has(#inicio-ogl-particles) .inicio-hero-copy .btn-outline:hover {
+        background: #27272a;
+        color: #fafafa;
+    }
+
+    body:has(#inicio-ogl-particles) .inicio-hero-copy .btn-primary {
+        background: #fafafa;
+        color: #18181b;
+    }
+
+    body:has(#inicio-ogl-particles) .inicio-hero-copy .btn-primary:hover {
+        background: #e4e4e7;
     }
 
     main.max-w-7xl {
         max-width: 100%;
-        padding-top: 0.75rem;
-        padding-bottom: 0.75rem;
+    }
+
+    /* Solo main sin marco; bordes/redondeos vuelven en secciones internas */
+    body:has(#inicio-ogl-particles) > .min-h-full > main.inicio-main-grid {
+        box-sizing: border-box;
+        border: none;
+        border-radius: 0;
+        background: rgba(9, 9, 11, 0.55);
+        box-shadow: none;
+        padding: 0.75rem !important;
+        display: grid;
+        gap: 0.75rem;
+        align-items: stretch;
+    }
+
+    main.inicio-main-grid > section {
+        min-height: 0;
+        min-width: 0;
+    }
+
+    main.inicio-main-grid > section.inicio-hero-media {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    main.inicio-main-grid > section.inicio-below {
+        border-radius: 2rem;
+        border: 1px solid rgba(63, 63, 70, 0.9);
+        box-sizing: border-box;
+        overflow: hidden;
+        background: rgba(9, 9, 11, 0.35);
+    }
+
+    @media (max-width: 1023px) {
+        body:has(#inicio-ogl-particles) > .min-h-full > main.inicio-main-grid {
+            flex: 0 1 auto;
+            grid-template-columns: 1fr;
+            grid-auto-rows: auto;
+        }
+
+        main.inicio-main-grid:not(:has(> .mb-6)) > .inicio-hero-copy {
+            grid-column: 1;
+            grid-row: auto;
+        }
+
+        main.inicio-main-grid:not(:has(> .mb-6)) > .inicio-hero-media {
+            grid-column: 1;
+            grid-row: auto;
+        }
+
+        main.inicio-main-grid:not(:has(> .mb-6)) > .inicio-below {
+            grid-column: 1;
+            grid-row: auto;
+            min-height: clamp(10rem, 32dvh, 18rem);
+        }
+
+        main.inicio-main-grid:has(> .mb-6) {
+            grid-template-rows: auto;
+        }
+
+        main.inicio-main-grid:has(> .mb-6) > .mb-6 {
+            grid-column: 1 / -1;
+        }
+
+        main.inicio-main-grid:has(> .mb-6) > .inicio-hero-copy,
+        main.inicio-main-grid:has(> .mb-6) > .inicio-hero-media,
+        main.inicio-main-grid:has(> .mb-6) > .inicio-below {
+            grid-column: 1;
+            grid-row: auto;
+        }
+
+        main.inicio-main-grid:has(> .mb-6) > .inicio-below {
+            min-height: clamp(10rem, 32dvh, 18rem);
+        }
     }
 
     @media (min-width: 1024px) {
-        main.max-w-7xl {
-            height: calc(100dvh - 4rem);
-            min-height: calc(100dvh - 4rem);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+        body:has(#inicio-ogl-particles) > .min-h-full > main.max-w-7xl {
+            min-height: 0;
         }
 
-        .inicio-desktop-fit {
-            flex: 1;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+        body:has(#inicio-ogl-particles) > .min-h-full > main.inicio-main-grid {
+            flex: 1 1 0;
+            padding: 1rem 1.25rem !important;
+            grid-template-columns: minmax(0, 1.32fr) minmax(0, 0.68fr);
         }
 
-        .inicio-hero {
-            flex: 1;
-            min-height: 0;
+        /* Fila 1 = 50 %, fila 2 = 50 % (secciones 1 y 2 misma altura) */
+        main.inicio-main-grid:not(:has(> .mb-6)) {
+            grid-template-rows: 1fr 1fr;
+        }
+
+        main.inicio-main-grid:not(:has(> .mb-6)) > .inicio-hero-copy {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        main.inicio-main-grid:not(:has(> .mb-6)) > .inicio-hero-media {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        main.inicio-main-grid:not(:has(> .mb-6)) > .inicio-below {
+            grid-column: 1 / -1;
+            grid-row: 2;
+        }
+
+        /* Si hay mensajes flash, ocupan la primera fila auto */
+        main.inicio-main-grid:has(> .mb-6) {
+            grid-template-rows: auto 1fr 1fr;
+        }
+
+        main.inicio-main-grid:has(> .mb-6) > .mb-6 {
+            grid-column: 1 / -1;
+            grid-row: 1;
+        }
+
+        main.inicio-main-grid:has(> .mb-6) > .inicio-hero-copy {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        main.inicio-main-grid:has(> .mb-6) > .inicio-hero-media {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        main.inicio-main-grid:has(> .mb-6) > .inicio-below {
+            grid-column: 1 / -1;
+            grid-row: 3;
+        }
+
+        main.inicio-main-grid > section.inicio-hero-copy {
+            overflow: auto;
+        }
+
+        .inicio-hero-video-wrap {
+            max-height: min(100%, 48dvh);
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="inicio-desktop-fit min-h-[calc(100vh-8.5rem)] lg:min-h-0 flex flex-col">
-    <section class="inicio-hero flex-1 px-6 py-6 sm:px-10 sm:py-10 lg:px-14 lg:py-14">
-        <div class="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-            <div class="order-2 lg:order-1">
-                <span class="inicio-kicker">
-                    <i class="fas fa-church text-[#b28b4b]"></i>
+<section class="inicio-hero-copy inicio-hero-panel px-6 py-6 sm:px-8 sm:py-8" aria-labelledby="inicio-hero-heading">
+    <span class="inicio-kicker">
+        <i class="fas fa-church text-amber-400/90"></i>
 
-                </span>
+    </span>
 
-                <h1 class="mt-4 max-w-3xl text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900">
-                    Escuelas biblicas
-                </h1>
+    <h1 id="inicio-hero-heading" class="mt-4 max-w-3xl text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-zinc-50">
+        Escuelas biblicas
+    </h1>
 
-                <p class="mt-4 max-w-2xl text-base sm:text-lg leading-8 text-slate-600">
-                    HechosHub centraliza módulos como escuelas bíblicas y seguimiento de personas
-                    nuevas en una experiencia limpia, clara y enfocada.
-                </p>
+    <blockquote class="mt-4 max-w-2xl border-l-4 border-amber-500/50 pl-4 text-base sm:text-lg leading-8 text-zinc-300 italic">
+        <p>
+            “No solo escuchen la palabra de Dios; tienen que ponerla en práctica. De lo contrario,
+            solamente se engañan a sí mismos. Pues, si escuchas la palabra pero no la obedeces, sería
+            como ver tu cara en un espejo; te ves a ti mismo, luego te alejas y te olvidas cómo eres.
+            Pero si miras atentamente en la ley perfecta que te hace libre y la pones en práctica y no
+            olvidas lo que escuchaste, entonces Dios te bendecirá por tu obediencia.”
+        </p>
+        <p class="mt-2 not-italic text-sm sm:text-base text-zinc-500">
+            — Santiago 1:22–25
+        </p>
+    </blockquote>
 
-                <div class="mt-6 flex flex-col gap-4 sm:flex-row">
-                    <a href="{% url 'account_signup' %}" class="btn-primary inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold">
-                        <i class="fas fa-user-plus mr-2"></i>
-                        Registrase
-                    </a>
-                    <a href="https://hechosnorte.org/" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold">
-                        Hechos church
-                        <i class="fas fa-up-right-from-square ml-2 text-xs"></i>
-                    </a>
-                </div>
-            </div>
+    <div class="mt-6 flex flex-col gap-4 sm:flex-row">
+        <a href="{% url 'account_signup' %}" class="btn-primary inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold">
+            <i class="fas fa-user-plus mr-2"></i>
+            Registrase
+        </a>
+        <a href="https://hechosnorte.org/" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold">
+            Hechos church
+            <i class="fas fa-up-right-from-square ml-2 text-xs"></i>
+        </a>
+    </div>
+</section>
 
-            <div class="inicio-card inicio-illustration rounded-3xl order-1 lg:order-2">
-                <img src="{% static 'img/inicio/imginicio.svg' %}" alt="Escuelas bíblicas">
-            </div>
-        </div>
-    </section>
-</div>
+<section class="inicio-hero-media inicio-card inicio-illustration rounded-3xl" aria-label="Video de presentación">
+    <div class="inicio-hero-video-wrap">
+        <video autoplay muted loop playsinline controls preload="metadata" title="Hechos Norte Youth">
+            <source src="{% static 'videos/inicio-hero.mp4' %}" type="video/mp4">
+            Tu navegador no soporta reproducción de video HTML5.
+        </video>
+    </div>
+</section>
 
-<footer class="inicio-footer-fixed mt-2 lg:mt-2">
+<section class="inicio-below" role="region" aria-label="Sección inferior (reservada)"></section>
+{% endblock %}
+
+{% block page_footer %}
+<footer class="inicio-footer">
     <div class="w-full px-4 sm:px-6 lg:px-8 py-3">
         <div class="max-w-7xl mx-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-sm text-slate-600">Síguenos:</p>
+            <p class="text-sm text-zinc-400">Síguenos:</p>
             <div class="flex flex-wrap items-center gap-2">
                 <a href="https://www.tiktok.com/@hechosnorte" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center px-3 py-1.5 text-xs font-medium">
                     <i class="fab fa-tiktok mr-2"></i>TikTok
@@ -141,4 +410,8 @@
         </div>
     </div>
 </footer>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'js/inicio-ogl-particles.js' %}"></script>
 {% endblock %}

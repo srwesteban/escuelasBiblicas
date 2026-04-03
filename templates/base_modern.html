@@ -217,6 +217,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body class="h-full">
+    {% block body_start %}{% endblock %}
     <div class="min-h-full">
         {% block top_navigation %}
             <!-- Navigation -->
@@ -250,6 +251,10 @@
                                         <a href="{% url 'hechos:escuelas_disponibles' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'escuelas_disponibles' %}active{% endif %}">
                                             <i class="fas fa-school mr-2"></i>
                                             Escuelas
+                                        </a>
+                                        <a href="{% url 'hechos:quejas_reclamos' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'quejas_reclamos' %}active{% endif %}">
+                                            <i class="fas fa-comment-dots mr-2"></i>
+                                            Quejas y reclamos
                                         </a>
                                         <a href="{% url 'hechos:mis_solicitudes' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'mis_solicitudes' %}active{% endif %}">
                                             <i class="fas fa-list-check mr-2"></i>
@@ -305,6 +310,10 @@
                                                 Bandeja de entrada
                                             </a>
                                         {% elif t == 'pedagogico' %}
+                                            <a href="{% url 'hechos:estructura_ediciones' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'estructura_ediciones' %}active{% endif %}">
+                                                <i class="fas fa-calendar-days mr-2"></i>
+                                                Estructura
+                                            </a>
                                             <a href="{% url 'hechos:profesores_list' %}" class="nav-link px-3 py-2 text-sm font-medium {% if request.resolver_match.namespace == 'hechos' and 'profesor' in request.resolver_match.url_name %}active{% endif %}">
                                                 <i class="fas fa-chalkboard-teacher mr-2"></i>
                                                 Profesores
@@ -376,7 +385,7 @@
         {% endblock %}
 
         <!-- Main Content -->
-        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 {% block main_extra_class %}{% endblock %}">
             {% if messages %}
                 <div class="mb-6">
                     {% for message in messages %}
@@ -389,6 +398,7 @@
 
             {% block content %}{% endblock %}
         </main>
+        {% block page_footer %}{% endblock %}
     </div>
 
     <!-- JavaScript -->
