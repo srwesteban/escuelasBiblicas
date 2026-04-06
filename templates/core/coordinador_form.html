@@ -115,7 +115,7 @@
             <p class="text-gray-600 mt-1">Sede: {{ sede.nombre }}</p>
         </div>
 
-        <form method="post" enctype="multipart/form-data" class="space-y-5">
+        <form method="post" enctype="multipart/form-data" class="space-y-5" autocomplete="off">
             {% csrf_token %}
             {% if form.non_field_errors %}
                 <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

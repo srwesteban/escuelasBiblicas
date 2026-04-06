@@ -1,0 +1,22 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}{{ titulo_herramienta }} — {{ escuela.nombre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <a href="{{ volver_url }}" class="inline-flex items-center text-sm text-stone-600 hover:text-stone-900">
+        <i class="fas fa-arrow-left mr-2"></i>Volver a la escuela
+    </a>
+    <div class="card p-8">
+        <div class="w-14 h-14 rounded-2xl {{ icon_wrap_class|default:'bg-violet-100 text-violet-800' }} flex items-center justify-center mb-6">
+            <i class="fas {{ icon_fa|default:'fa-pen-to-square' }} text-2xl"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-slate-900">{{ titulo_herramienta }}</h1>
+        <p class="text-slate-600 mt-2">{{ escuela.nombre }}</p>
+        {% if escuela.titulo_tarjeta %}
+        <p class="text-sm text-slate-500 mt-1">{{ escuela.titulo_tarjeta }}</p>
+        {% endif %}
+        <p class="text-slate-700 mt-6 leading-relaxed">{{ texto_ayuda }}</p>
+    </div>
+</div>
+{% endblock %}

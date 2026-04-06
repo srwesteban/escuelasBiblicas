@@ -36,6 +36,7 @@ class User(AbstractUser):
         help_text='Rol global del usuario en el sistema'
     )
     phone = models.CharField(max_length=20, blank=True, null=True)
+    direccion = models.TextField(blank=True, default="", verbose_name=_("Dirección"))
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     sede = models.ForeignKey('Sede', on_delete=models.SET_NULL, null=True, blank=True, related_name='usuarios')

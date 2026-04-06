@@ -1,0 +1,118 @@
+{% extends 'base_modern.html' %}
+{% load money_extras %}
+{% block title %}Recaudos ocasionales — {{ user_sede.nombre }}{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <div class="card p-6 sm:p-8">
+        <h1 class="text-2xl font-bold text-gray-900">Recaudos ocasionales</h1>
+        <p class="text-stone-600 mt-3 max-w-3xl leading-relaxed">
+            Registra aquí <strong class="text-stone-800">dinero que entra fuera del flujo habitual de ofrendas en clase</strong>:
+            por ejemplo un <strong class="text-stone-800">extra</strong> que salió en una actividad, el <strong class="text-stone-800">sobrante</strong> después de un evento,
+            una <strong class="text-stone-800">donación puntual</strong> de alguien que no pasa por el registro del maestro, etc.
+        </p>
+        <p class="text-sm text-stone-500 mt-3">
+            Las ofrendas que anotan los maestros siguen en
+            <a href="{% url 'hechos:coordinador_recursos' %}" class="font-medium text-amber-800 hover:underline">Ingresos de la sede</a>
+            (ofrendas + recaudos ocasionales).
+            Lo que solo planeas gastar (presupuesto) va en
+            <a href="{% url 'hechos:coordinador_eventos_presupuesto' %}" class="font-medium text-amber-800 hover:underline">Eventos y presupuesto</a>.
+        </p>
+        <div class="mt-6 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-950">
+            <strong class="font-semibold">Total recaudado (ocasionales):</strong>
+            <span class="text-lg font-bold ml-2">{{ total_recaudado_ocasional|cop }}</span>
+        </div>
+    </div>
+
+    <div class="card p-6 sm:p-8 border border-stone-200">
+        <h2 class="text-lg font-semibold text-slate-900">Registrar un recaudo</h2>
+        <p class="text-sm text-stone-600 mt-1 mb-6">Indica fecha, monto y un concepto breve. El detalle es opcional.</p>
+
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                    <label for="{{ form.fecha.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.fecha.label }}</label>
+                    {{ form.fecha }}
+                    {% if form.fecha.errors %}<p class="text-sm text-red-600 mt-1">{{ form.fecha.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.monto.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.monto.label }}</label>
+                    {{ form.monto }}
+                    <p class="text-xs text-stone-500 mt-1">COP: el campo formatea miles solos (ej. 2000 → 2.000). Decimales con coma.</p>
+                    {% if form.monto.errors %}<p class="text-sm text-red-600 mt-1">{{ form.monto.errors|join:", " }}</p>{% endif %}
+                </div>
+            </div>
+            <div>
+                <label for="{{ form.concepto.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.concepto.label }}</label>
+                {{ form.concepto }}
+                {% if form.concepto.errors %}<p class="text-sm text-red-600 mt-1">{{ form.concepto.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="{{ form.detalle.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.detalle.label }}</label>
+                {{ form.detalle }}
+                {% if form.detalle.errors %}<p class="text-sm text-red-600 mt-1">{{ form.detalle.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div class="flex justify-end pt-2">
+                <button type="submit" class="btn-primary inline-flex items-center px-5 py-2.5 text-sm font-medium">
+                    <i class="fas fa-plus-circle mr-2"></i>Guardar recaudo
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card overflow-hidden border border-stone-200/80">
+        <div class="px-5 py-4 border-b border-stone-200 bg-stone-50/50">
+            <h2 class="text-lg font-semibold text-slate-900">Historial</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="border-b border-stone-200 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 bg-white">
+                        <th class="px-4 py-3">Fecha</th>
+                        <th class="px-4 py-3">Concepto</th>
+                        <th class="px-4 py-3">Monto (COP)</th>
+                        <th class="px-4 py-3">Detalle</th>
+                        <th class="px-4 py-3">Registró</th>
+                        <th class="px-4 py-3 w-24"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100">
+                    {% for r in recaudos %}
+                    <tr class="hover:bg-stone-50/80">
+                        <td class="px-4 py-3 text-stone-800 whitespace-nowrap">{{ r.fecha|date:"d/m/Y" }}</td>
+                        <td class="px-4 py-3 font-medium text-stone-900">{{ r.concepto }}</td>
+                        <td class="px-4 py-3 font-semibold text-stone-900 whitespace-nowrap">{{ r.monto|cop_short }}</td>
+                        <td class="px-4 py-3 text-stone-600 max-w-xs truncate" title="{{ r.detalle }}">{{ r.detalle|default:"—" }}</td>
+                        <td class="px-4 py-3 text-stone-600 text-xs">
+                            {% if r.registrado_por %}
+                                {{ r.registrado_por.get_full_name|default:r.registrado_por.email }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <form method="post" class="inline" onsubmit="return confirm('¿Eliminar este recaudo ocasional?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="eliminar_recaudo">
+                                <input type="hidden" name="recaudo_id" value="{{ r.id }}">
+                                <button type="submit" class="text-xs font-medium text-red-700 hover:underline">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-12 text-center text-stone-600">
+                            Aún no hay recaudos ocasionales. Usa el formulario de arriba cuando ingrese dinero extra o un sobrante, etc.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

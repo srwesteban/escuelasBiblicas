@@ -1,0 +1,122 @@
+{% extends 'base_modern.html' %}
+{% load money_extras %}
+{% block title %}Eventos y presupuesto — {{ user_sede.nombre }}{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <div class="card p-6 sm:p-8">
+        <h1 class="text-2xl font-bold text-gray-900">Eventos y presupuesto</h1>
+        <p class="text-stone-600 mt-3 max-w-3xl leading-relaxed">
+            Usa esta pantalla cuando quieras dejar escrito <strong class="text-stone-800">un evento o una partida de gasto</strong>
+            (retiro, celebración, materiales, transporte, etc.) y <strong class="text-stone-800">cuánto dinero planeas destinar</strong> a eso.
+            Es una <strong class="text-stone-800">planificación</strong> de la sede: no sustituye el registro de ofrendas que hacen los maestros.
+        </p>
+        <p class="text-sm text-stone-500 mt-3">
+            Las ofrendas que entran día a día están en
+            <a href="{% url 'hechos:coordinador_recursos' %}" class="font-medium text-amber-800 hover:underline">Ingresos de la sede</a>.
+            Los ingresos extra o sobrantes que quieras anotar aparte van en
+            <a href="{% url 'hechos:coordinador_recaudos_ocasionales' %}" class="font-medium text-amber-800 hover:underline">Recaudos ocasionales</a>.
+        </p>
+        <div class="mt-6 rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-amber-950 space-y-2">
+            <p>
+                <strong class="font-semibold">Ingresos de la sede</strong> (ofrendas + recaudos ocasionales):
+                <span class="text-lg font-bold ml-2">{{ total_ingresos_sede|cop }}</span>
+            </p>
+            <p>
+                <strong class="font-semibold">Suma destinada a eventos:</strong>
+                <span class="text-lg font-bold ml-2">{{ total_destinado_eventos|cop }}</span>
+            </p>
+            <p>
+                <strong class="font-semibold">Disponible para nuevos destinos:</strong>
+                <span class="text-lg font-bold ml-2">{{ disponible_para_eventos|cop }}</span>
+                <span class="text-amber-900/80">(no puedes asignar más de este monto en un nuevo registro sin superar los ingresos).</span>
+            </p>
+        </div>
+    </div>
+
+    <div class="card p-6 sm:p-8 border border-stone-200">
+        <h2 class="text-lg font-semibold text-slate-900">Registrar un evento o partida</h2>
+        <p class="text-sm text-stone-600 mt-1 mb-6">Completa el nombre, el monto a destinar y, si quieres, la fecha y notas.</p>
+
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div>
+                <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.nombre.label }}</label>
+                {{ form.nombre }}
+                {% if form.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ form.nombre.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                    <label for="{{ form.fecha_evento.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.fecha_evento.label }}</label>
+                    {{ form.fecha_evento }}
+                    {% if form.fecha_evento.errors %}<p class="text-sm text-red-600 mt-1">{{ form.fecha_evento.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.monto_destinado.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.monto_destinado.label }}</label>
+                    {{ form.monto_destinado }}
+                    <p class="text-xs text-stone-500 mt-1">COP: al escribir verás los miles con punto (ej. 2000 → 2.000). Decimales con coma.</p>
+                    {% if form.monto_destinado.errors %}<p class="text-sm text-red-600 mt-1">{{ form.monto_destinado.errors|join:", " }}</p>{% endif %}
+                </div>
+            </div>
+            <div>
+                <label for="{{ form.notas.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.notas.label }}</label>
+                {{ form.notas }}
+                {% if form.notas.errors %}<p class="text-sm text-red-600 mt-1">{{ form.notas.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div class="flex justify-end pt-2">
+                <button type="submit" class="btn-primary inline-flex items-center px-5 py-2.5 text-sm font-medium">
+                    <i class="fas fa-plus-circle mr-2"></i>Guardar evento
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card overflow-hidden border border-stone-200/80">
+        <div class="px-5 py-4 border-b border-stone-200 bg-stone-50/50">
+            <h2 class="text-lg font-semibold text-slate-900">Eventos y partidas registrados</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="border-b border-stone-200 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 bg-white">
+                        <th class="px-4 py-3">Nombre</th>
+                        <th class="px-4 py-3">Fecha evento</th>
+                        <th class="px-4 py-3">Monto destinado (COP)</th>
+                        <th class="px-4 py-3">Notas</th>
+                        <th class="px-4 py-3 w-24"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100">
+                    {% for e in eventos %}
+                    <tr class="hover:bg-stone-50/80">
+                        <td class="px-4 py-3 font-medium text-stone-900">{{ e.nombre }}</td>
+                        <td class="px-4 py-3 text-stone-700 whitespace-nowrap">
+                            {% if e.fecha_evento %}{{ e.fecha_evento|date:"d/m/Y" }}{% else %}—{% endif %}
+                        </td>
+                        <td class="px-4 py-3 font-semibold text-stone-900 whitespace-nowrap">{{ e.monto_destinado|cop_short }}</td>
+                        <td class="px-4 py-3 text-stone-600 max-w-xs truncate" title="{{ e.notas }}">{{ e.notas|default:"—" }}</td>
+                        <td class="px-4 py-3">
+                            <form method="post" class="inline" onsubmit="return confirm('¿Eliminar este registro de evento?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="eliminar_evento">
+                                <input type="hidden" name="evento_id" value="{{ e.id }}">
+                                <button type="submit" class="text-xs font-medium text-red-700 hover:underline">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-12 text-center text-stone-600">
+                            Aún no hay eventos ni partidas con monto destinado. Usa el formulario de arriba para crear el primero.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

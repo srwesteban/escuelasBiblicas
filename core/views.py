@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from core.colombia_geo import nombre_departamento
-from core.forms import CoordinadorForm, EscuelaSedeForm, PastorSedeFormSet, SedeForm
+from core.forms import CoordinadorForm, EscuelaSedeBasicaForm, PastorSedeFormSet, SedeForm
 from .models import AppModule, Sede, UserAppPermission
 from hechos.models import (
     AdminEscuela,
@@ -19,9 +19,19 @@ from hechos.models import (
     RutaEstudio,
     Curso,
     EdicionCurso,
+    Salon,
 )
 
 User = get_user_model()
+
+
+def _sync_cupo_ediciones_escuela(escuela, capacidad: int) -> None:
+    """Cupo de ediciones activas alineado a capacidad del salón (0 si no hay)."""
+    EdicionCurso.objects.filter(
+        curso__ruta_estudio__escuela=escuela,
+        is_active=True,
+        curso__is_active=True,
+    ).update(cupo_maximo=capacidad)
 
 
 def _user_has_hechos_profile(user):
@@ -77,6 +87,12 @@ def _home_redirect_response(user):
             if hasattr(user, 'estudiante_profile'):
                 return redirect('hechos:seleccionar_sede_estudiante')
             return redirect('core:profile')
+        if hasattr(user, 'estudiante_profile'):
+            return redirect('hechos:escuelas_disponibles')
+        if hasattr(user, 'profesor_profile'):
+            return redirect('hechos:mis_escuelas_profesor')
+        if p and p.tipo_coordinador == AdminEscuela.TipoCoordinador.ACADEMICO:
+            return redirect('hechos:estudiantes_list')
         return redirect('hechos:dashboard')
 
     user_permission = UserAppPermission.objects.filter(
@@ -347,13 +363,11 @@ def coordinador_sede_escuelas(request, sede_id):
         return redirect('core:dashboard')
 
     if request.method == 'POST' and request.POST.get('accion') == 'crear_escuela':
-        form = EscuelaSedeForm(sede, request.POST)
+        form = EscuelaSedeBasicaForm(sede, request.POST)
         if form.is_valid():
             escuela = form.save()
-            cupo_maximo = int(form.cleaned_data["cupo_maximo"])
 
-            # Creamos la estructura mínima para que el sistema tenga cupos
-            # visibles en "Escuelas disponibles" (se calcula desde EdicionCurso.cupo_maximo).
+            # Cupo lo define el salón asignado en logística; hasta entonces 0.
             from datetime import date, timedelta
             from django.utils import timezone
 
@@ -376,7 +390,7 @@ def coordinador_sede_escuelas(request, sede_id):
             ruta = RutaEstudio.objects.create(
                 sede=sede,
                 escuela=escuela,
-                nombre=f"Nivel {escuela.ciclo} · Grupo {escuela.grupo}",
+                nombre="Ruta base",
                 descripcion="",
                 duracion_semanas=12,
                 nivel="basico",
@@ -386,7 +400,7 @@ def coordinador_sede_escuelas(request, sede_id):
             curso = Curso.objects.create(
                 sede=sede,
                 ruta_estudio=ruta,
-                nombre=f"Curso {escuela.ciclo} · Grupo {escuela.grupo}",
+                nombre="Módulo 1",
                 descripcion="",
                 orden=1,
                 duracion_semanas=curso_duracion_semanas,
@@ -395,46 +409,26 @@ def coordinador_sede_escuelas(request, sede_id):
 
             EdicionCurso.objects.create(
                 curso=curso,
-                nombre_edicion=f"Grupo {escuela.grupo}",
+                nombre_edicion="Principal",
                 profesor=escuela.maestro,
                 fecha_inicio=fecha_inicio,
                 fecha_fin=fecha_fin,
                 horario="Horario por definir",
                 aula="",
-                cupo_maximo=cupo_maximo,
+                cupo_maximo=0,
                 is_active=True,
             )
 
             messages.success(request, 'Escuela creada correctamente.')
             return redirect('core:coordinador_sede_escuelas', sede_id=sede.id)
     else:
-        form = EscuelaSedeForm(sede)
+        form = EscuelaSedeBasicaForm(sede)
 
     escuelas = (
         Escuela.objects.filter(sede=sede, is_active=True)
         .select_related('maestro__user')
         .order_by('-anio', 'ciclo', 'grupo', 'nombre')
     )
-
-    # Para mostrar cupos en las tarjetas, calculamos cupo máximo desde la edición base.
-    escuela_ids = list(escuelas.values_list("id", flat=True))
-    cupos_por_escuela = {}
-    if escuela_ids:
-        ediciones = (
-            EdicionCurso.objects.filter(
-                is_active=True,
-                curso__is_active=True,
-                curso__ruta_estudio__is_active=True,
-                curso__ruta_estudio__escuela_id__in=escuela_ids,
-            )
-            .select_related("curso__ruta_estudio__escuela")
-            .order_by("id")
-        )
-        for ed in ediciones:
-            cupos_por_escuela[ed.curso.ruta_estudio.escuela_id] = ed.cupo_maximo
-
-    for e in escuelas:
-        e.cupo_maximo = cupos_por_escuela.get(e.id)
 
     return render(
         request,
@@ -468,10 +462,9 @@ def coordinador_sede_escuela_edit(request, sede_id, escuela_id):
     escuela = get_object_or_404(Escuela, id=escuela_id, sede=sede, is_active=True)
 
     if request.method == 'POST':
-        form = EscuelaSedeForm(sede, request.POST, instance=escuela)
+        form = EscuelaSedeBasicaForm(sede, request.POST, instance=escuela)
         if form.is_valid():
             escuela = form.save()
-            cupo_maximo = int(form.cleaned_data["cupo_maximo"])
 
             # Actualizar edición base si existe; si no, crearla.
             ed = (
@@ -485,10 +478,11 @@ def coordinador_sede_escuela_edit(request, sede_id, escuela_id):
                 .first()
             )
             if ed:
-                ed.cupo_maximo = cupo_maximo
                 ed.profesor = escuela.maestro
-                ed.nombre_edicion = f"Grupo {escuela.grupo}"
-                ed.save(update_fields=["cupo_maximo", "profesor", "nombre_edicion"])
+                ed.save(update_fields=["profesor"])
+                sal = Salon.objects.filter(sede=sede, escuela=escuela, is_active=True).first()
+                if sal:
+                    _sync_cupo_ediciones_escuela(escuela, sal.capacidad_plazas)
             else:
                 # Reutilizamos la misma lógica mínima que en creación.
                 from datetime import date, timedelta
@@ -510,7 +504,7 @@ def coordinador_sede_escuela_edit(request, sede_id, escuela_id):
                 ruta = RutaEstudio.objects.create(
                     sede=sede,
                     escuela=escuela,
-                    nombre=f"Nivel {escuela.ciclo} · Grupo {escuela.grupo}",
+                    nombre="Ruta base",
                     descripcion="",
                     duracion_semanas=12,
                     nivel="basico",
@@ -519,7 +513,7 @@ def coordinador_sede_escuela_edit(request, sede_id, escuela_id):
                 curso = Curso.objects.create(
                     sede=sede,
                     ruta_estudio=ruta,
-                    nombre=f"Curso {escuela.ciclo} · Grupo {escuela.grupo}",
+                    nombre="Módulo 1",
                     descripcion="",
                     orden=1,
                     duracion_semanas=curso_duracion_semanas,
@@ -527,20 +521,23 @@ def coordinador_sede_escuela_edit(request, sede_id, escuela_id):
                 )
                 EdicionCurso.objects.create(
                     curso=curso,
-                    nombre_edicion=f"Grupo {escuela.grupo}",
+                    nombre_edicion="Principal",
                     profesor=escuela.maestro,
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
                     horario="Horario por definir",
                     aula="",
-                    cupo_maximo=cupo_maximo,
+                    cupo_maximo=0,
                     is_active=True,
                 )
+                sal = Salon.objects.filter(sede=sede, escuela=escuela, is_active=True).first()
+                if sal:
+                    _sync_cupo_ediciones_escuela(escuela, sal.capacidad_plazas)
 
             messages.success(request, 'Escuela actualizada correctamente.')
             return redirect('core:coordinador_sede_escuelas', sede_id=sede.id)
     else:
-        form = EscuelaSedeForm(sede, instance=escuela)
+        form = EscuelaSedeBasicaForm(sede, instance=escuela)
 
     return render(
         request,
@@ -754,6 +751,17 @@ def profile(request):
         )
 
     if request.method == 'POST':
+        if request.POST.get("profile_contact"):
+            request.user.phone = (request.POST.get("phone") or "").strip() or None
+            direccion = (request.POST.get("direccion") or "").strip()
+            request.user.direccion = direccion
+            request.user.save(update_fields=["phone", "direccion", "updated_at"])
+            if estudiante_profile:
+                estudiante_profile.direccion = direccion
+                estudiante_profile.save(update_fields=["direccion", "updated_at"])
+            messages.success(request, "Celular y dirección actualizados.")
+            return redirect("core:profile")
+
         avatar = request.FILES.get('avatar')
         if avatar:
             request.user.avatar = avatar
@@ -763,11 +771,16 @@ def profile(request):
         messages.warning(request, 'Selecciona una imagen para actualizar tu foto.')
         return redirect('core:profile')
 
+    direccion_perfil = (request.user.direccion or "").strip()
+    if not direccion_perfil and estudiante_profile:
+        direccion_perfil = (estudiante_profile.direccion or "").strip()
+
     context = {
         'estudiante_profile': estudiante_profile,
         'profesor_profile': profesor_profile,
         'admin_escuela_profile': admin_escuela_profile,
         'notificaciones_estudiante': notificaciones_estudiante,
+        'direccion_perfil': direccion_perfil,
     }
 
     return render(request, 'core/profile_modern.html', context)

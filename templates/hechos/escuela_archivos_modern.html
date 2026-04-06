@@ -1,0 +1,95 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Archivos y materiales — {{ escuela.nombre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-8 pb-10">
+    <a href="{{ volver_url }}" class="inline-flex items-center text-sm text-stone-600 hover:text-stone-900">
+        <i class="fas fa-arrow-left mr-2"></i>Volver a sesiones de la escuela
+    </a>
+
+    <div class="rounded-2xl bg-gradient-to-br from-sky-900 via-sky-800 to-cyan-900 px-5 py-6 text-white shadow-lg">
+        <p class="text-xs font-semibold uppercase tracking-wider text-sky-200/90">Recursos compartidos</p>
+        <h1 class="mt-1 text-2xl font-bold">Archivos para tus estudiantes</h1>
+        <p class="mt-2 text-sm text-sky-100/90 max-w-xl">
+            Lo que subas aquí lo verán los estudiantes matriculados en cualquier curso de esta escuela, desde su enlace «Recursos de la escuela».
+        </p>
+        <p class="mt-3 text-xs text-sky-200/80">{{ escuela.nombre }} · {{ user_sede.nombre }}</p>
+    </div>
+
+    <div class="card p-6 sm:p-8 border border-stone-200/80">
+        <h2 class="text-lg font-semibold text-slate-900 mb-1">Subir nuevo archivo</h2>
+        <p class="text-sm text-stone-600 mb-6">PDF, Word, Excel, PowerPoint, imágenes o ZIP (máx. 20 MB).</p>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-5">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ form.non_field_errors }}</div>
+            {% endif %}
+            <div>
+                <label for="{{ form.titulo.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.titulo.label }}</label>
+                {{ form.titulo }}
+                {% if form.titulo.errors %}<p class="text-sm text-red-600 mt-1">{{ form.titulo.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.descripcion.label }}</label>
+                {{ form.descripcion }}
+                {% if form.descripcion.errors %}<p class="text-sm text-red-600 mt-1">{{ form.descripcion.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="{{ form.archivo.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.archivo.label }}</label>
+                {{ form.archivo }}
+                {% if form.archivo.errors %}<p class="text-sm text-red-600 mt-1">{{ form.archivo.errors|join:", " }}</p>{% endif %}
+            </div>
+            <button type="submit" class="btn-primary inline-flex items-center px-5 py-2.5 text-sm font-medium">
+                <i class="fas fa-cloud-arrow-up mr-2"></i>Publicar recurso
+            </button>
+        </form>
+    </div>
+
+    <div class="card overflow-hidden border border-stone-200/80">
+        <div class="px-5 py-4 border-b border-stone-200 bg-stone-50/80 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-lg font-semibold text-slate-900">Archivos publicados</h2>
+            <span class="text-xs text-stone-500">{{ archivos|length }} archivo{{ archivos|length|pluralize }}</span>
+        </div>
+        {% if archivos %}
+        <ul class="divide-y divide-stone-100">
+            {% for ar in archivos %}
+            <li class="px-5 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 hover:bg-stone-50/60">
+                <div class="min-w-0">
+                    <p class="font-medium text-stone-900">{{ ar.titulo }}</p>
+                    {% if ar.descripcion %}
+                    <p class="text-sm text-stone-600 mt-1">{{ ar.descripcion }}</p>
+                    {% endif %}
+                    <p class="text-xs text-stone-500 mt-2">
+                        Subido el {{ ar.created_at|date:"d/m/Y H:i" }}
+                        {% if ar.subido_por %}
+                        · {{ ar.subido_por.user.get_full_name|default:ar.subido_por.user.email }}
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <a href="{% url 'hechos:descargar_archivo_recurso_escuela' escuela.id ar.id %}" class="btn-outline inline-flex items-center px-3 py-2 text-xs font-medium border-sky-200 text-sky-900 hover:bg-sky-50">
+                        <i class="fas fa-download mr-2"></i>Descargar
+                    </a>
+                    <form method="post" class="inline" onsubmit="return confirm('¿Quitar este recurso de la lista? Los estudiantes dejarán de verlo.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="eliminar">
+                        <input type="hidden" name="archivo_id" value="{{ ar.id }}">
+                        <button type="submit" class="btn-outline inline-flex items-center px-3 py-2 text-xs font-medium border-red-200 text-red-800 hover:bg-red-50">
+                            <i class="fas fa-trash-alt mr-2"></i>Quitar
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="px-5 py-12 text-center text-stone-500 text-sm">
+            <i class="fas fa-folder-open text-2xl text-stone-300 mb-2 block"></i>
+            Aún no hay archivos. Sube el primero con el formulario de arriba.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

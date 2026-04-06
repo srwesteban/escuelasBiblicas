@@ -1,0 +1,39 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Configurar escuela - Hechos{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-3xl mx-auto">
+    <div class="card p-6 sm:p-8">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Escuela</p>
+                <h1 class="text-2xl font-bold text-slate-900">{{ escuela.nombre }}</h1>
+                <p class="text-sm text-slate-600 mt-1">{{ escuela.titulo_tarjeta }}</p>
+                <p class="text-sm text-slate-600 mt-3">
+                    Esta escuela tiene varias ediciones. Elige cuál quieres configurar (días y horario de clases).
+                </p>
+            </div>
+            <a href="{% url 'hechos:estructura_ediciones' %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
+                <i class="fas fa-arrow-left mr-2"></i>Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="space-y-3">
+        {% for row in ediciones_feed %}
+        <div class="card p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="min-w-0">
+                <h2 class="font-semibold text-slate-900">{{ row.edicion.linea_identificacion_pedagogica }}</h2>
+                <p class="text-sm text-slate-700 mt-2">
+                    <span class="font-medium">Estructura:</span> {{ row.estructura_str }}
+                </p>
+            </div>
+            <a href="{% url 'hechos:estructura_configurar' row.edicion.id 1 %}" class="btn-primary inline-flex items-center justify-center px-4 py-3 text-sm font-medium shrink-0">
+                <i class="fas fa-sliders mr-2"></i>Configurar
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

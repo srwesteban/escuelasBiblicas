@@ -132,10 +132,10 @@
                     <div class="text-sm text-gray-600">Panel de control</div>
                 </a>
 
-                <a href="{% if user.admin_escuela_profile and user.admin_escuela_profile.tipo_coordinador == 'pedagogico' %}{% url 'hechos:profesores_list' %}{% else %}{% url 'hechos:dashboard' %}{% endif %}" class="btn-outline p-4 text-center hover:bg-gray-50 transition-colors">
+                <a href="{% if user.admin_escuela_profile and user.admin_escuela_profile.tipo_coordinador == 'pedagogico' %}{% url 'hechos:profesores_list' %}{% elif user.profesor_profile %}{% url 'hechos:mis_escuelas_profesor' %}{% elif user.estudiante_profile %}{% url 'hechos:escuelas_disponibles' %}{% elif user.admin_escuela_profile and user.admin_escuela_profile.tipo_coordinador == 'academico' %}{% url 'hechos:estudiantes_list' %}{% else %}{% url 'hechos:dashboard' %}{% endif %}" class="btn-outline p-4 text-center hover:bg-gray-50 transition-colors">
                     <i class="fas fa-graduation-cap text-2xl mb-2 text-gray-600"></i>
                     <div class="font-medium text-gray-900">Hechos</div>
-                    <div class="text-sm text-gray-600">{% if user.admin_escuela_profile and user.admin_escuela_profile.tipo_coordinador == 'pedagogico' %}Profesores{% else %}Escuelas Bíblicas{% endif %}</div>
+                    <div class="text-sm text-gray-600">{% if user.admin_escuela_profile and user.admin_escuela_profile.tipo_coordinador == 'pedagogico' %}Profesores{% elif user.profesor_profile %}Mis escuelas{% else %}Escuelas Bíblicas{% endif %}</div>
                 </a>
                 
                 <a href="{% url 'core:profile' %}" class="btn-outline p-4 text-center hover:bg-gray-50 transition-colors">

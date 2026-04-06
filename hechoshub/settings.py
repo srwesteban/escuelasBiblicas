@@ -89,6 +89,7 @@ INSTALLED_APPS = [
     # Local apps
     'core',
     'hechos',
+    'ofrendas',
     'guias',
 ]
 
@@ -117,6 +118,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.sede_actual',
+                'hechos.context_processors.profesor_entregas_pendientes',
             ],
         },
     },
@@ -179,7 +182,9 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Estáticos en producción: collectstatic al build + WhiteNoise (middleware arriba). No hace falta STORAGES custom.
 
-MEDIA_URL = 'media/'
+# Debe empezar con / para que {{ archivo.url }} apunte al sitio raíz, no bajo /hechos/...
+MEDIA_URL = '/media/'
+# Entregas de actividades: escuelasBiblicas/media/actividades/<año>/<mes>/ (ver FileField upload_to)
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type

@@ -1,7 +1,7 @@
 # Usuarios desde la base de datos
 
-Generado: 2026-03-30T04:57:49+00:00
-Total usuarios: 24
+Generado: 2026-04-06T20:15:47+00:00
+Total usuarios: 27
 
 Actualizar este archivo:
 
@@ -22,6 +22,8 @@ python manage.py export_usuarios_roles
 
 | Correo | Activo | staff | superuser | Perfil Hechos | Módulos (vista) |
 |--------|--------|-------|-----------|---------------|-----------------|
+| financierocentro@local.test | True | True | False | AdminEscuela (Coordinador financiero) | hechos |
+| logisticocentro@local.test | True | True | False | AdminEscuela (Coordinador logístico) | hechos |
 | coordinadorpedagogico@local.test | True | True | False | AdminEscuela (Coordinador pedagógico) | hechos |
 | coordinadorsedecentro@local.test | True | True | False | AdminEscuela (Coordinador de sede) | hechos |
 | pedagogico@local.test | False | True | False | AdminEscuela (Coordinador pedagógico) | hechos |
@@ -37,7 +39,8 @@ python manage.py export_usuarios_roles
 
 | Correo | Activo | staff | superuser | Perfil Hechos | Módulos (vista) |
 |--------|--------|-------|-----------|---------------|-----------------|
-| profesorhechonorte@local.test | True | False | False | Profesor | — |
+| uno@hotmail.com | True | False | False | Estudiante | hechos |
+| profesorhechoscentro@local.test | True | False | False | Profesor | — |
 | cinco@local.test | True | False | False | Estudiante | hechos |
 | cuatro@local.test | True | False | False | Estudiante | hechos |
 | estudiantetres@local.test | True | False | False | Estudiante | hechos |

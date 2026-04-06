@@ -1,0 +1,43 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Paso 2: Días de clase - Hechos{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="card p-6 sm:p-8">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-xs font-medium text-stone-500">Paso 2 de {{ total_steps }}</p>
+                <h1 class="text-2xl font-bold text-slate-900 mt-1">¿Qué días se darán clases?</h1>
+                <p class="text-sm text-slate-600 mt-2">
+                    {% if escuela %}{{ escuela.nombre }} — {% endif %}{{ edicion.linea_identificacion_pedagogica }}
+                </p>
+            </div>
+            <a href="{% url 'hechos:estructura_configurar' edicion.id 1 %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
+                <i class="fas fa-arrow-left mr-2"></i>Atrás
+            </a>
+        </div>
+
+        <form method="post" class="mt-8 space-y-6">
+            {% csrf_token %}
+            <div class="rounded-xl border border-stone-200 p-5">
+                <p class="text-sm text-slate-600">Marca todos los días en los que habrá clase para esta edición.</p>
+                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {% for row in day_checks %}
+                    <label class="flex items-center gap-3 rounded-xl border border-stone-200 px-4 py-3 cursor-pointer hover:bg-stone-50 transition-colors">
+                        <input type="checkbox" name="dia_{{ row.value }}" class="h-4 w-4 rounded border-stone-400 text-stone-800 focus:ring-stone-300" {% if row.checked %}checked{% endif %}>
+                        <span class="text-sm font-medium text-slate-900">{{ row.label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button type="submit" class="btn-primary inline-flex items-center justify-center px-6 py-3 text-sm font-medium">
+                    Siguiente
+                    <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

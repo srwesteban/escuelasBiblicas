@@ -154,12 +154,6 @@
                            class="text-purple-600 hover:text-purple-900 text-sm" title="Ver clases">
                             <i class="fas fa-calendar mr-1"></i>Clases
                         </a>
-                        {% if user.profesor_profile %}
-                            <a href="{% url 'hechos:notas_curso' curso.id %}" 
-                               class="text-orange-600 hover:text-orange-900 text-sm" title="Gestionar notas">
-                                <i class="fas fa-graduation-cap mr-1"></i>Notas
-                            </a>
-                        {% endif %}
                         {% if user.is_super_admin or user.admin_escuela_profile %}
                             <a href="{% url 'hechos:eliminar_curso' curso.id %}" 
                                class="text-red-600 hover:text-red-900 text-sm" title="Eliminar">

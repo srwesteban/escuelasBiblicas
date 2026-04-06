@@ -1,16 +1,16 @@
 {% extends 'base_modern.html' %}
 
-{% block title %}Registrar ofrenda - Hechos{% endblock %}
+{% block title %}Registrar ofrenda{% endblock %}
 
 {% block content %}
 <div class="space-y-6 max-w-3xl">
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Registrar Ofrenda</h1>
-            <p class="text-gray-600 mt-1">Ingresa el valor y guarda.</p>
+            <p class="text-gray-600 mt-1">Ingresa el valor en <strong>pesos colombianos (COP)</strong> y guarda.</p>
         </div>
         <div class="flex items-center space-x-3">
-            <a href="{% url 'hechos:ofrendas_profesor' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+            <a href="{% url 'ofrendas:list' %}" class="btn-outline px-4 py-2 text-sm font-medium">
                 <i class="fas fa-arrow-left mr-2"></i>Volver
             </a>
         </div>
@@ -41,10 +41,11 @@
             {% if form.valor.errors %}
                 <p class="text-sm text-red-600 mt-1">{{ form.valor.errors|striptags }}</p>
             {% endif %}
+            <p class="text-xs text-gray-500 mt-1">Al escribir se formatea solo (ej. 2000 → 2.000). Decimales con coma: 2.000,50.</p>
         </div>
 
         <div class="flex items-center justify-end gap-3 pt-2">
-            <a href="{% url 'hechos:ofrendas_profesor' %}" class="btn-outline px-5 py-2.5 text-sm font-medium">Cancelar</a>
+            <a href="{% url 'ofrendas:list' %}" class="btn-outline px-5 py-2.5 text-sm font-medium">Cancelar</a>
             <button type="submit" class="btn-primary px-5 py-2.5 text-sm font-medium">
                 <i class="fas fa-save mr-2"></i>Guardar
             </button>
@@ -52,4 +53,3 @@
     </form>
 </div>
 {% endblock %}
-

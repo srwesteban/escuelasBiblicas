@@ -1,0 +1,124 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Crear actividad — {{ escuela.nombre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-8">
+    <a href="{{ volver_url }}" class="inline-flex items-center text-sm text-stone-600 hover:text-stone-900">
+        <i class="fas fa-arrow-left mr-2"></i>Volver a sesiones
+    </a>
+
+    <div class="card p-6 sm:p-8">
+        <div class="flex gap-4 items-start">
+            <div class="w-14 h-14 rounded-2xl bg-violet-100 text-violet-800 flex items-center justify-center shrink-0">
+                <i class="fas fa-pen-to-square text-2xl"></i>
+            </div>
+            <div class="min-w-0">
+                <h1 class="text-2xl font-bold text-slate-900">Nueva actividad</h1>
+                <p class="text-stone-600 mt-2 text-sm leading-relaxed">
+                    Como en un aula virtual típica: defines el <strong class="text-stone-800">tipo</strong>, el <strong class="text-stone-800">título</strong>,
+                    las <strong class="text-stone-800">instrucciones</strong> y, si aplica, <strong class="text-stone-800">fecha límite</strong>,
+                    <strong class="text-stone-800">puntos</strong> y un <strong class="text-stone-800">archivo de apoyo</strong> (PDF, etc.).
+                </p>
+                <p class="text-xs text-stone-500 mt-2">{{ escuela.nombre }} · {{ escuela.titulo_tarjeta }}</p>
+            </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="mt-8 space-y-5">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div>
+                <label for="{{ form.tipo.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.tipo.label }}</label>
+                {{ form.tipo }}
+                {% if form.tipo.errors %}<p class="text-sm text-red-600 mt-1">{{ form.tipo.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="{{ form.titulo.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.titulo.label }}</label>
+                {{ form.titulo }}
+                {% if form.titulo.errors %}<p class="text-sm text-red-600 mt-1">{{ form.titulo.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="{{ form.instrucciones.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.instrucciones.label }}</label>
+                {{ form.instrucciones }}
+                {% if form.instrucciones.errors %}<p class="text-sm text-red-600 mt-1">{{ form.instrucciones.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                    <label for="{{ form.fecha_limite.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.fecha_limite.label }}</label>
+                    {{ form.fecha_limite }}
+                    {% if form.fecha_limite.errors %}<p class="text-sm text-red-600 mt-1">{{ form.fecha_limite.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.puntos_posibles.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.puntos_posibles.label }}</label>
+                    {{ form.puntos_posibles }}
+                    {% if form.puntos_posibles.errors %}<p class="text-sm text-red-600 mt-1">{{ form.puntos_posibles.errors|join:", " }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div>
+                <label for="{{ form.material_adjunto.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.material_adjunto.label }}</label>
+                {{ form.material_adjunto }}
+                <p class="text-xs text-stone-500 mt-1">Opcional. Documento que quieras compartir con la clase.</p>
+                {% if form.material_adjunto.errors %}<p class="text-sm text-red-600 mt-1">{{ form.material_adjunto.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div class="flex flex-wrap gap-3 pt-2">
+                <button type="submit" class="btn-primary inline-flex items-center px-5 py-2.5 text-sm font-medium">
+                    <i class="fas fa-paper-plane mr-2"></i>Publicar actividad
+                </button>
+                <a href="{{ volver_url }}" class="btn-outline inline-flex items-center px-5 py-2.5 text-sm font-medium">Cancelar</a>
+            </div>
+        </form>
+    </div>
+
+    {% if actividades %}
+    <div class="card overflow-hidden border border-stone-200/80" id="lista-actividades">
+        <div class="px-5 py-4 border-b border-stone-200 bg-stone-50/50">
+            <h2 class="text-lg font-semibold text-slate-900">Actividades publicadas en esta escuela</h2>
+            <p class="text-sm text-stone-500 mt-1">Orden: las más recientes primero.</p>
+        </div>
+        <ul class="divide-y divide-stone-100">
+            {% for a in actividades %}
+            <li class="px-5 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-violet-800/90">{{ a.get_tipo_display }}</p>
+                    <h3 class="font-semibold text-stone-900 mt-0.5">{{ a.titulo }}</h3>
+                    {% if a.instrucciones %}
+                    <p class="text-sm text-stone-600 mt-1 line-clamp-2">{{ a.instrucciones }}</p>
+                    {% endif %}
+                    <p class="text-xs text-stone-500 mt-2">
+                        Creada {{ a.created_at|date:"d/m/Y H:i" }}
+                        {% if a.fecha_limite %}
+                        <span class="text-stone-300 mx-1">·</span>
+                        Límite {{ a.fecha_limite|date:"d/m/Y H:i" }}
+                        {% endif %}
+                        {% if a.puntos_posibles %}
+                        <span class="text-stone-300 mx-1">·</span>
+                        Hasta {{ a.puntos_posibles }} pts
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="shrink-0 flex flex-col sm:items-end gap-2">
+                    <a href="{% url 'hechos:profesor_actividad_entregas' escuela.id a.id %}" class="inline-flex items-center gap-2 text-sm font-medium text-violet-800 hover:underline">
+                        <i class="fas fa-inbox"></i>Ver entregas{% if a.n_entregas %} ({{ a.n_entregas }}){% endif %}
+                    </a>
+                    {% if a.material_adjunto %}
+                    <a href="{{ a.material_adjunto.url }}" class="inline-flex items-center gap-2 text-sm font-medium text-sky-800 hover:underline" target="_blank" rel="noopener">
+                        <i class="fas fa-file-arrow-down"></i>Descargar material
+                    </a>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div class="card p-8 text-center text-stone-600 text-sm border border-dashed border-stone-200">
+        Aún no hay actividades publicadas en esta escuela. Completa el formulario de arriba para crear la primera.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

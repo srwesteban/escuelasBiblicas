@@ -70,7 +70,7 @@ class SolicitudMatriculaFlowTests(TestCase):
 
         response = self.client.post(reverse("hechos:solicitar_matricula", args=[self.edicion.id]))
 
-        self.assertRedirects(response, reverse("hechos:mis_solicitudes"))
+        self.assertRedirects(response, reverse("hechos:mis_escuelas"))
         solicitud = SolicitudMatricula.objects.get(estudiante=self.estudiante, edicion_curso=self.edicion)
         self.assertEqual(solicitud.estado, "pendiente")
         self.assertEqual(solicitud.sede, self.sede)

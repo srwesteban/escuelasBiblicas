@@ -1,9 +1,238 @@
 {% extends 'base_modern.html' %}
 {% block title %}Logística — {{ user_sede.nombre }}{% endblock %}
 {% block content %}
-<div class="max-w-3xl mx-auto card p-8">
-    <h1 class="text-2xl font-bold text-gray-900">Organización logística</h1>
-    <p class="text-stone-600 mt-2">Coordinación logística de la sede <span class="font-medium text-stone-900">{{ user_sede.nombre }}</span>.</p>
-    <p class="text-sm text-stone-500 mt-6">Aquí podrás gestionar espacios, horarios y materiales cuando definamos los flujos concretos.</p>
+<div class="max-w-5xl mx-auto space-y-6 px-4 py-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Organización logística</h1>
+        <p class="text-stone-600 mt-2">Sede <span class="font-medium text-stone-900">{{ user_sede.nombre }}</span>.</p>
+    </div>
+
+    {# —— Crear salón (sidebar: ?tab=salones) —— #}
+    {% if logistica_tab == 'salones' %}
+    <section class="card p-6 md:p-8 ring-1 ring-stone-200/80" aria-labelledby="panel-salones-titulo">
+        <h2 id="panel-salones-titulo" class="text-lg font-semibold text-stone-900">Salones de la sede</h2>
+        <p class="text-sm text-stone-500 mt-1 mb-6">Alta y edición de espacios y plazas. Los inactivos no se asignan a escuelas. Para asignar salón a una escuela usa <strong>Escuelas</strong> en el menú lateral.</p>
+
+        {% if salon_editando and salon_edit_form %}
+        <div class="mb-8 rounded-xl border border-amber-200 bg-amber-50/50 p-5 md:p-6">
+            <h3 class="text-base font-semibold text-stone-900">Editar salón</h3>
+            <p class="text-sm text-stone-600 mt-1 mb-4">{{ salon_editando.nombre }}</p>
+            <form method="post" action="{% url 'hechos:coordinador_logistica' %}?tab=salones" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4 md:items-end">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="actualizar_salon">
+                <input type="hidden" name="salon_id" value="{{ salon_editando.id }}">
+                <div class="md:col-span-2">
+                    <label for="{{ salon_edit_form.nombre.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ salon_edit_form.nombre.label }}</label>
+                    {{ salon_edit_form.nombre }}
+                    {% if salon_edit_form.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ salon_edit_form.nombre.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ salon_edit_form.codigo.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ salon_edit_form.codigo.label }}</label>
+                    {{ salon_edit_form.codigo }}
+                </div>
+                <div>
+                    <label for="{{ salon_edit_form.capacidad_plazas.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ salon_edit_form.capacidad_plazas.label }}</label>
+                    {{ salon_edit_form.capacidad_plazas }}
+                    {% if salon_edit_form.capacidad_plazas.errors %}<p class="text-sm text-red-600 mt-1">{{ salon_edit_form.capacidad_plazas.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="md:col-span-2 lg:col-span-4 flex flex-wrap gap-3">
+                    <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-900 transition">
+                        Guardar cambios
+                    </button>
+                    <a href="{% url 'hechos:coordinador_logistica' %}?tab=salones" class="inline-flex items-center justify-center rounded-xl border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 transition">
+                        Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        <h3 class="text-sm font-semibold text-stone-800 mb-4">Nuevo salón</h3>
+        <form method="post" action="{% url 'hechos:coordinador_logistica' %}?tab=salones" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4 md:items-end">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="crear_salon">
+            <div class="md:col-span-2">
+                <label for="{{ salon_form.nombre.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ salon_form.nombre.label }}</label>
+                {{ salon_form.nombre }}
+                {% if salon_form.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ salon_form.nombre.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="{{ salon_form.codigo.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ salon_form.codigo.label }}</label>
+                {{ salon_form.codigo }}
+            </div>
+            <div>
+                <label for="{{ salon_form.capacidad_plazas.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ salon_form.capacidad_plazas.label }}</label>
+                {{ salon_form.capacidad_plazas }}
+                {% if salon_form.capacidad_plazas.errors %}<p class="text-sm text-red-600 mt-1">{{ salon_form.capacidad_plazas.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="md:col-span-2 lg:col-span-4">
+                <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-900 transition">
+                    Crear salón
+                </button>
+            </div>
+        </form>
+
+        <div class="mt-8 border-t border-stone-200 pt-6">
+            <h3 class="text-sm font-semibold text-stone-800 mb-4">Listado</h3>
+            {% if salones %}
+            <ul class="divide-y divide-stone-100">
+                {% for s in salones %}
+                <li class="flex flex-col gap-3 py-4 first:pt-0 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                        <p class="font-medium text-stone-900">{{ s.nombre }}{% if s.codigo %} <span class="text-stone-500 font-normal">({{ s.codigo }})</span>{% endif %}</p>
+                        <p class="text-sm text-stone-600">
+                            {{ s.capacidad_plazas }} plazas
+                            {% if s.escuela %}<span class="text-stone-500">· asignado a {{ s.escuela.nombre }}</span>{% endif %}
+                            {% if not s.is_active %}<span class="text-amber-700">· inactivo</span>{% endif %}
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 shrink-0">
+                        <a href="{% url 'hechos:coordinador_logistica' %}?tab=salones&editar={{ s.id }}"
+                           class="text-sm rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-stone-700 hover:bg-stone-50 inline-flex items-center justify-center">
+                            Editar
+                        </a>
+                        <form method="post" action="{% url 'hechos:coordinador_logistica' %}?tab=salones" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="toggle_salon">
+                            <input type="hidden" name="salon_id" value="{{ s.id }}">
+                            <button type="submit" class="text-sm rounded-lg border border-stone-300 px-3 py-1.5 text-stone-700 hover:bg-stone-50">
+                                {% if s.is_active %}Desactivar{% else %}Reactivar{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-stone-500">Aún no hay salones registrados en esta sede.</p>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    {# —— Escuelas (sidebar: ?tab=escuelas) —— #}
+    {% if logistica_tab == 'escuelas' %}
+    <section class="card p-6 md:p-8 ring-1 ring-stone-200/80" aria-labelledby="panel-escuelas-titulo">
+        <h2 id="panel-escuelas-titulo" class="text-lg font-semibold text-stone-900">Salón ↔ escuela</h2>
+        <p class="text-sm text-stone-500 mt-1">Cada escuela tiene <strong>como máximo un salón</strong>. Un salón activo solo puede estar en una escuela; si ya estaba en otra, al asignarlo aquí pasa a esta.</p>
+
+        {% if escuelas %}
+        <form method="get" action="{% url 'hechos:coordinador_logistica' %}" class="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <input type="hidden" name="tab" value="escuelas">
+            <div class="w-full sm:flex-1 sm:min-w-[12rem] sm:max-w-md">
+                <label for="id_escuela_logistica" class="block text-sm font-medium text-stone-700 mb-1">Escuela</label>
+                <select name="escuela" id="id_escuela_logistica" aria-label="Escuela"
+                        class="w-full rounded-xl border-2 border-stone-300 bg-white px-4 py-3 text-stone-900 shadow-sm focus:border-stone-500 focus:outline-none focus:ring-4 focus:ring-stone-200">
+                    <option value="">—</option>
+                    {% for e in escuelas %}
+                    <option value="{{ e.id }}" {% if escuela_focus and escuela_focus.id == e.id %}selected{% endif %}>
+                        {{ e.nombre }} · {{ e.anio }} · Ciclo {{ e.ciclo }} · G{{ e.grupo }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-stone-800 px-5 py-3 text-sm font-medium text-white hover:bg-stone-900 transition sm:py-2.5">
+                Mostrar
+            </button>
+        </form>
+
+        {% if escuela_focus and salon_asignado_escuela %}
+        <p class="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
+            Esta escuela ya tiene un salón asignado: <span class="text-red-950">«{{ salon_asignado_escuela.nombre }}»</span>.
+        </p>
+        {% endif %}
+
+        {% else %}
+        <p class="mt-6 text-sm text-stone-500">No hay escuelas activas en esta sede.</p>
+        {% endif %}
+
+        {% if escuela_focus %}
+        <div class="mt-8 space-y-6 border-t border-stone-200 pt-8">
+            <div>
+                <h3 class="text-base font-semibold text-stone-900">{{ escuela_focus.nombre }}</h3>
+                <p class="text-sm text-stone-500">{{ escuela_focus.anio }} · Ciclo {{ escuela_focus.ciclo }} · Grupo {{ escuela_focus.grupo }}</p>
+            </div>
+
+            {% if salon_asignado_escuela %}
+            <div>
+                <p class="text-sm font-medium text-stone-700 mb-2">Salón de esta escuela</p>
+                <ul class="rounded-xl border border-stone-200 bg-white">
+                    <li class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="text-sm text-stone-800">
+                            <span class="font-medium">{{ salon_asignado_escuela.nombre }}</span>{% if salon_asignado_escuela.codigo %} <span class="text-stone-500">({{ salon_asignado_escuela.codigo }})</span>{% endif %}
+                            <span class="text-stone-600"> · {{ salon_asignado_escuela.capacidad_plazas }} pl.</span>
+                            {% if not salon_asignado_escuela.is_active %}<span class="text-amber-700"> · inactivo</span>{% endif %}
+                        </div>
+                        <form method="post" action="{% url 'hechos:coordinador_logistica' %}?tab=escuelas&escuela={{ escuela_focus.id }}" class="shrink-0">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="quitar_salon_escuela">
+                            <input type="hidden" name="escuela_id" value="{{ escuela_focus.id }}">
+                            <input type="hidden" name="salon_id" value="{{ salon_asignado_escuela.id }}">
+                            <button type="submit" class="text-sm text-stone-600 underline hover:text-stone-900">Quitar salón</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+
+            <div>
+                {% if salon_asignado_escuela %}
+                <p class="text-sm font-semibold text-stone-800 mb-1">Cambiar salón</p>
+                <p class="text-xs text-stone-500 mb-3">Solo puede haber uno: si eliges otro, <strong>sustituye</strong> al que está arriba.</p>
+                {% else %}
+                <p class="text-sm font-semibold text-stone-800 mb-1">Asignar salón</p>
+                <p class="text-xs text-stone-500 mb-3">Elige un salón activo (libre o de otra escuela).</p>
+                {% endif %}
+                {% if salones_elegibles_asignar %}
+                <form id="form-asignar-salon-logistica" method="post" action="{% url 'hechos:coordinador_logistica' %}?tab=escuelas&escuela={{ escuela_focus.id }}" class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="asignar_salon_escuela">
+                    <input type="hidden" name="escuela_id" value="{{ escuela_focus.id }}">
+                    <div class="w-full sm:flex-1 sm:min-w-[12rem] sm:max-w-xl">
+                        <select name="salon_id" id="id_salon_asignar" required aria-label="Salón a asignar"
+                                class="w-full rounded-xl border-2 border-stone-300 bg-white px-4 py-3 text-stone-900 shadow-sm focus:border-stone-500 focus:outline-none focus:ring-4 focus:ring-stone-200">
+                            <option value="" disabled selected>Salón…</option>
+                            {% for s in salones_elegibles_asignar %}
+                            <option value="{{ s.id }}"
+                                    {% if s.escuela %}data-salon-en-otra-escuela="1" data-escuela-origen="{{ s.escuela.nombre|escape }}"{% endif %}>
+                                {{ s.nombre }}{% if s.codigo %} ({{ s.codigo }}){% endif %} · {{ s.capacidad_plazas }} pl.{% if s.escuela %} · {{ s.escuela.nombre }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-medium text-white hover:bg-emerald-800 transition sm:py-2.5">
+                        Asignar salón
+                    </button>
+                </form>
+                {% else %}
+                <p class="text-sm text-stone-600 rounded-lg bg-stone-50 px-4 py-3">
+                    No hay salones disponibles para asignar (o están inactivos). Usa <strong>Crear salón</strong> o quita uno de la lista de arriba.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const form = document.getElementById('form-asignar-salon-logistica');
+    const sel = document.getElementById('id_salon_asignar');
+    if (!form || !sel) return;
+    form.addEventListener('submit', function (e) {
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) return;
+        if (opt.getAttribute('data-salon-en-otra-escuela') !== '1') return;
+        const origen = opt.getAttribute('data-escuela-origen') || 'otra escuela';
+        const msg = 'Este salón ya está asignado a «' + origen + '». ¿Quieres pasarlo a la escuela que tienes abierta aquí?';
+        if (!window.confirm(msg)) {
+            e.preventDefault();
+        }
+    });
+})();
+</script>
 {% endblock %}

@@ -1,9 +1,85 @@
 {% extends 'base_modern.html' %}
-{% block title %}Recursos — {{ user_sede.nombre }}{% endblock %}
+{% load money_extras %}
+{% block title %}Ingresos de la sede — {{ user_sede.nombre }}{% endblock %}
 {% block content %}
-<div class="max-w-3xl mx-auto card p-8">
-    <h1 class="text-2xl font-bold text-gray-900">Administración de recursos</h1>
-    <p class="text-stone-600 mt-2">Coordinación financiera de la sede <span class="font-medium text-stone-900">{{ user_sede.nombre }}</span>.</p>
-    <p class="text-sm text-stone-500 mt-6">Aquí podrás gestionar presupuestos, cuotas y reportes cuando definamos los flujos concretos.</p>
+<div class="max-w-5xl mx-auto space-y-6">
+    <div class="card p-6 sm:p-8">
+        <h1 class="text-2xl font-bold text-gray-900">Ingresos de la sede</h1>
+        <p class="text-stone-600 mt-2 max-w-3xl">
+            Aquí ves en un solo listado las <strong class="text-stone-800">ofrendas</strong> que registran los maestros por escuela
+            y los <strong class="text-stone-800">recaudos ocasionales</strong> que anotas como coordinador financiero (extras, sobrantes, donaciones puntuales, etc.).
+            Todo es <strong class="text-stone-800">solo de {{ user_sede.nombre }}</strong>.
+            Los presupuestos de eventos siguen en
+            <a href="{% url 'hechos:coordinador_eventos_presupuesto' %}" class="font-medium text-amber-800 hover:underline">Eventos y presupuesto</a>;
+            para dar de alta un recaudo ocasional usa
+            <a href="{% url 'hechos:coordinador_recaudos_ocasionales' %}" class="font-medium text-amber-800 hover:underline">Recaudos ocasionales</a>.
+        </p>
+        <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">Ofrendas</p>
+                <p class="text-xl font-bold text-stone-900 mt-1">{{ total_ofrendado|cop }}</p>
+                <p class="text-xs text-stone-500 mt-1">{{ num_ofrendas }} registro{{ num_ofrendas|pluralize:"s" }}</p>
+            </div>
+            <div class="rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-emerald-800">Recaudos ocasionales</p>
+                <p class="text-xl font-bold text-emerald-950 mt-1">{{ total_recaudos_ocasionales|cop }}</p>
+                <p class="text-xs text-emerald-800/80 mt-1">{{ num_recaudos }} registro{{ num_recaudos|pluralize:"s" }}</p>
+            </div>
+            <div class="rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-amber-900">Total ingresos</p>
+                <p class="text-xl font-bold text-amber-950 mt-1">{{ total_ingresos_sede|cop }}</p>
+                <p class="text-xs text-amber-900/80 mt-1">{{ num_movimientos }} movimiento{{ num_movimientos|pluralize:"s" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card overflow-hidden border border-stone-200/80">
+        <div class="px-5 py-4 border-b border-stone-200 bg-stone-50/50">
+            <h2 class="text-lg font-semibold text-slate-900">Detalle unificado</h2>
+            <p class="text-sm text-stone-600 mt-1">Hasta 500 movimientos más recientes (ofrendas + recaudos ocasionales).</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="border-b border-stone-200 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 bg-white">
+                        <th class="px-4 py-3">Fecha</th>
+                        <th class="px-4 py-3">Origen</th>
+                        <th class="px-4 py-3">Escuela / concepto</th>
+                        <th class="px-4 py-3">Valor (COP)</th>
+                        <th class="px-4 py-3">Registró</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100">
+                    {% for m in movimientos %}
+                    <tr class="hover:bg-stone-50/80">
+                        <td class="px-4 py-3 text-stone-800 whitespace-nowrap">{{ m.fecha|date:"d/m/Y" }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            {% if m.kind == 'recaudo' %}
+                                <span class="inline-flex items-center rounded-full bg-emerald-100 text-emerald-900 px-2.5 py-0.5 text-xs font-medium">Recaudo ocasional</span>
+                            {% else %}
+                                <span class="inline-flex items-center rounded-full bg-stone-100 text-stone-800 px-2.5 py-0.5 text-xs font-medium">Ofrenda</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-stone-800">{{ m.detalle }}</td>
+                        <td class="px-4 py-3 font-medium text-stone-900 whitespace-nowrap">{{ m.valor|cop_short }}</td>
+                        <td class="px-4 py-3 text-stone-600">
+                            {% if m.registrado_por %}
+                                {{ m.registrado_por.get_full_name|default:m.registrado_por.email }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-12 text-center text-stone-600">
+                            Aún no hay ofrendas ni recaudos ocasionales registrados para esta sede.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}

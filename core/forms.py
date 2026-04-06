@@ -4,7 +4,7 @@ from allauth.account.forms import SignupForm
 
 from core.colombia_geo import ciudad_choices_for_departamento, departamento_choices, nombre_departamento
 from core.models import AppModule, PastorSede, Sede, User, UserAppPermission, generate_unique_username
-from hechos.models import AdminEscuela, Estudiante, Escuela, Profesor
+from hechos.models import AdminEscuela, Estudiante, Escuela, default_anio_escuela
 
 
 class StudentSignupForm(SignupForm):
@@ -275,27 +275,15 @@ PastorSedeFormSet = inlineformset_factory(
 )
 
 
-class EscuelaSedeForm(forms.ModelForm):
-    """Alta/edición de escuela desde coordinación de sede."""
-
-    cupo_maximo = forms.IntegerField(
-        min_value=1,
-        required=True,
-        initial=30,
-        label="Cupo máximo",
-        help_text="Capacidad inicial para la edición de esta escuela.",
-    )
+class EscuelaSedeBasicaForm(forms.ModelForm):
+    """Crear o editar escuela desde coordinación de sede: solo nombre y descripción."""
 
     class Meta:
         model = Escuela
-        fields = ("nombre", "descripcion", "anio", "ciclo", "grupo", "maestro")
+        fields = ("nombre", "descripcion")
         labels = {
             "nombre": "Nombre de la escuela",
             "descripcion": "Descripción",
-            "anio": "Año",
-            "ciclo": "Ciclo",
-            "grupo": "Grupo",
-            "maestro": "Maestro",
         }
 
     def __init__(self, sede, *args, **kwargs):
@@ -313,42 +301,9 @@ class EscuelaSedeForm(forms.ModelForm):
             attrs={
                 "class": input_class,
                 "rows": 3,
-                "placeholder": "Opcional — breve propósito o público",
+                "placeholder": "Propósito, público u objetivos de la escuela",
             }
         )
-        self.fields["anio"].widget.attrs.update(
-            {"class": input_class, "min": 2000, "max": 2100, "placeholder": "Año en curso"}
-        )
-        self.fields["ciclo"].widget.attrs.update({"class": input_class})
-        self.fields["grupo"].widget.attrs.update({"class": input_class, "min": 1})
-        self.fields["cupo_maximo"].widget.attrs.update({"class": input_class})
-        self.fields["maestro"].queryset = Profesor.objects.filter(
-            sede=sede,
-            is_active=True,
-            user__is_active=True,
-        ).select_related("user").order_by("user__first_name", "user__last_name")
-        self.fields["maestro"].required = False
-        self.fields["maestro"].empty_label = "Por asignar"
-        self.fields["maestro"].widget.attrs.update({"class": input_class})
-
-        # Si estamos editando, intentar precargar cupo desde la edición base existente.
-        try:
-            from hechos.models import EdicionCurso
-
-            if self.instance and getattr(self.instance, "pk", None):
-                ed = (
-                    EdicionCurso.objects.filter(
-                        curso__ruta_estudio__escuela=self.instance,
-                        is_active=True,
-                        curso__is_active=True,
-                    )
-                    .order_by("id")
-                    .first()
-                )
-                if ed:
-                    self.initial.setdefault("cupo_maximo", ed.cupo_maximo)
-        except Exception:
-            pass
 
     def clean_nombre(self):
         nombre = (self.cleaned_data.get("nombre") or "").strip()
@@ -361,11 +316,16 @@ class EscuelaSedeForm(forms.ModelForm):
         if self._errors:
             return cleaned
         nombre = (cleaned.get("nombre") or "").strip()
-        anio = cleaned.get("anio")
-        ciclo = cleaned.get("ciclo")
-        grupo = cleaned.get("grupo")
-        if not nombre or anio is None or not ciclo or grupo is None:
+        if not nombre:
             return cleaned
+        if self.instance.pk:
+            anio = self.instance.anio
+            ciclo = self.instance.ciclo
+            grupo = self.instance.grupo
+        else:
+            anio = default_anio_escuela()
+            ciclo = Escuela.Ciclo.A
+            grupo = 1
         qs = Escuela.objects.filter(
             sede=self.sede,
             nombre__iexact=nombre,
@@ -377,10 +337,14 @@ class EscuelaSedeForm(forms.ModelForm):
         if self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
-            self.add_error(
-                None,
-                "Ya existe una escuela con el mismo nombre, año, ciclo y grupo en esta sede.",
-            )
+            if self.instance.pk:
+                msg = "Ya existe otra escuela con el mismo nombre, año, ciclo y grupo en esta sede."
+            else:
+                msg = (
+                    "Ya existe una escuela con el mismo nombre para el año en curso, ciclo A y grupo 1. "
+                    "Usa otro nombre o revisa si la escuela anterior sigue activa."
+                )
+            self.add_error(None, msg)
         return cleaned
 
     def save(self, commit=True):
@@ -415,11 +379,17 @@ class CoordinadorForm(forms.Form):
             "focus:outline-none focus:ring-4 focus:ring-stone-200"
         )
         for _key in ("nombres", "apellidos"):
-            self.fields[_key].widget.attrs.update({"class": input_class})
-        self.fields["email"].widget.attrs.update({"class": input_class})
-        self.fields["avatar"].widget = forms.FileInput(attrs={"class": file_input_class, "accept": "image/*"})
-        self.fields["password1"].widget.attrs.update({"class": input_class})
-        self.fields["password2"].widget.attrs.update({"class": input_class})
+            self.fields[_key].widget.attrs.update({"class": input_class, "autocomplete": "off"})
+        self.fields["email"].widget.attrs.update({"class": input_class, "autocomplete": "off"})
+        self.fields["avatar"].widget = forms.FileInput(
+            attrs={"class": file_input_class, "accept": "image/*", "autocomplete": "off"}
+        )
+        self.fields["password1"].widget.attrs.update(
+            {"class": input_class, "autocomplete": "new-password"}
+        )
+        self.fields["password2"].widget.attrs.update(
+            {"class": input_class, "autocomplete": "new-password"}
+        )
         self.fields["is_active"].widget.attrs.update({"class": "h-4 w-4 rounded border-stone-400 text-stone-800 focus:ring-stone-300"})
 
         labels = dict(AdminEscuela.TipoCoordinador.choices)
@@ -434,7 +404,7 @@ class CoordinadorForm(forms.Form):
             self.fields["tipo_coordinador"] = forms.ChoiceField(
                 choices=choices,
                 label="Tipo de coordinador",
-                widget=forms.Select(attrs={"class": input_class}),
+                widget=forms.Select(attrs={"class": input_class, "autocomplete": "off"}),
             )
 
     def clean_email(self):

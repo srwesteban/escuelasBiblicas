@@ -1,3 +1,6 @@
+import re
+
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -8,6 +11,71 @@ User = get_user_model()
 
 def default_anio_escuela():
     return timezone.now().year
+
+
+def _collapse_ws_lower(s: str) -> str:
+    return " ".join((s or "").strip().split()).lower()
+
+
+def _texto_redundante_con_ciclo_escuela(texto: str, escuela: "Escuela") -> bool:
+    """True si el texto solo repite el ciclo (p. ej. 'Curso B', 'Ciclo B', 'B')."""
+    if not escuela or not texto:
+        return False
+    t = _collapse_ws_lower(texto)
+    c = (escuela.ciclo or "").strip().lower()
+    if not c:
+        return False
+    if t == c:
+        return True
+    if t in (f"ciclo {c}", f"curso {c}"):
+        return True
+    return False
+
+
+def _texto_redundante_con_grupo_escuela(texto: str, escuela: "Escuela") -> bool:
+    """True si el texto es solo 'Grupo N' con el mismo N que la escuela (tolerando ceros)."""
+    if not escuela or not texto:
+        return False
+    m = re.match(r"^grupo\s*0*(\d+)\s*$", texto.strip(), re.IGNORECASE)
+    if not m:
+        return False
+    try:
+        return int(m.group(1)) == int(escuela.grupo)
+    except (TypeError, ValueError):
+        return False
+
+
+def _dedupe_partes_visuales(partes: list[str]) -> list[str]:
+    """Evita repetir el mismo fragmento (p. ej. 'Grupo 1' dos veces por datos sucios)."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for p in partes:
+        k = _collapse_ws_lower(p)
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        out.append(p)
+    return out
+
+
+def _filtrar_texto_sin_redundancia_escuela(texto: str, escuela: "Escuela") -> str:
+    """
+    Quita fragmentos separados por «·» que solo repiten ciclo o grupo de la escuela.
+    Así corrige datos legados tipo «Curso B · Grupo 1» en Curso.nombre.
+    """
+    if not texto or not escuela:
+        return (texto or "").strip()
+    chunks = [p.strip() for p in texto.split("·") if p.strip()]
+    if not chunks:
+        return ""
+    kept: list[str] = []
+    for ch in chunks:
+        if _texto_redundante_con_ciclo_escuela(ch, escuela) or _texto_redundante_con_grupo_escuela(
+            ch, escuela
+        ):
+            continue
+        kept.append(ch)
+    return " · ".join(kept)
 
 
 class Estudiante(models.Model):
@@ -229,6 +297,60 @@ class Escuela(models.Model):
         return f'{self.nombre} — {self.anio} · Ciclo {self.ciclo} · Grupo {self.grupo}'
 
 
+class Salon(models.Model):
+    """
+    Espacio físico de la sede (aula, salón, auditorio) con cupo de plazas.
+    """
+
+    sede = models.ForeignKey(
+        'core.Sede',
+        on_delete=models.CASCADE,
+        related_name='salones',
+    )
+    nombre = models.CharField(max_length=200, verbose_name=_('Nombre'))
+    codigo = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name=_('Código'),
+        help_text=_('Opcional (ej. A-101).'),
+    )
+    capacidad_plazas = models.PositiveIntegerField(
+        verbose_name=_('Capacidad (plazas)'),
+        help_text=_('Número máximo de personas o asientos.'),
+    )
+    escuela = models.ForeignKey(
+        'Escuela',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='salones_asignados',
+        verbose_name=_('Escuela asignada'),
+        help_text=_('Como máximo un salón por escuela; escuela de la misma sede (opcional).'),
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('Salón')
+        verbose_name_plural = _('Salones')
+        ordering = ['sede', 'nombre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sede', 'nombre'],
+                name='uniq_hechos_salon_nombre_por_sede',
+            ),
+            models.UniqueConstraint(
+                fields=['escuela'],
+                condition=models.Q(escuela__isnull=False),
+                name='uniq_hechos_un_salon_por_escuela',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.nombre} ({self.capacidad_plazas} plazas)'
+
+
 class RutaEstudio(models.Model):
     """
     Niveles dinámicos que viven dentro de una escuela.
@@ -323,7 +445,46 @@ class EdicionCurso(models.Model):
     
     def __str__(self):
         return f"{self.curso.nombre} - {self.nombre_edicion}"
-    
+
+    def linea_identificacion_pedagogica(self) -> str:
+        """
+        Texto para UI: ciclo y grupo de la escuela (una sola vez) + nombre del curso
+        si aporta información nueva, + nombre de edición si no repite ciclo/grupo escuela.
+        """
+        curso = self.curso
+        esc = curso.escuela
+        parts: list[str] = []
+
+        if esc:
+            parts.append(esc.get_ciclo_display())
+            parts.append(f"Grupo {esc.grupo}")
+
+        cn = (curso.nombre or "").strip()
+        if cn and esc:
+            cn = _filtrar_texto_sin_redundancia_escuela(cn, esc)
+            if _texto_redundante_con_ciclo_escuela(cn, esc) or _texto_redundante_con_grupo_escuela(
+                cn, esc
+            ):
+                cn = ""
+        if cn:
+            parts.append(cn)
+
+        ne = (self.nombre_edicion or "").strip()
+        if ne and esc:
+            ne = _filtrar_texto_sin_redundancia_escuela(ne, esc)
+            if _texto_redundante_con_ciclo_escuela(ne, esc) or _texto_redundante_con_grupo_escuela(
+                ne, esc
+            ):
+                ne = ""
+        if ne:
+            parts.append(ne)
+
+        parts = _dedupe_partes_visuales(parts)
+        line = " · ".join(parts)
+        if line:
+            return line
+        return (self.nombre_edicion or curso.nombre or "").strip() or "—"
+
     @property
     def estudiantes_inscritos(self):
         return self.matriculas.filter(is_active=True).count()
@@ -472,8 +633,8 @@ class SolicitudEspecialEstudiante(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Solicitud especial'
-        verbose_name_plural = 'Solicitudes especiales'
+        verbose_name = _('Solicitud')
+        verbose_name_plural = _('Solicitudes')
         ordering = ['-fecha_solicitud']
 
     def __str__(self):
@@ -485,6 +646,7 @@ class QuejaReclamo(models.Model):
         QUEJA = "queja", _("Queja")
         RECLAMO = "reclamo", _("Reclamo")
         SUGERENCIA = "sugerencia", _("Sugerencia")
+        SOLICITUD = "solicitud", _("Solicitud")
 
     class Estado(models.TextChoices):
         RECIBIDA = "recibida", _("Recibida")
@@ -503,7 +665,7 @@ class QuejaReclamo(models.Model):
         null=True,
         blank=True,
         related_name="quejas_reclamos_asignadas",
-        help_text=_("Coordinador pedagógico asignado en el momento de envío."),
+        help_text=_("Coordinador académico asignado en el momento de envío."),
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -585,6 +747,214 @@ class Clase(models.Model):
         if self.edicion_curso:
             return self.edicion_curso.curso
         return None
+
+
+class ActividadEscuela(models.Model):
+    """
+    Actividad publicada por el docente para una escuela (patrón tipo tarea/assignment de LMS).
+    """
+
+    class Tipo(models.TextChoices):
+        TAREA = "tarea", _("Tarea o trabajo escrito")
+        ENTREGA_ARCHIVO = "entrega_archivo", _("Entrega de archivo")
+        CUESTIONARIO = "cuestionario", _("Cuestionario breve")
+        FORO = "foro", _("Foro o discusión")
+        LECTURA = "lectura", _("Lectura / material de estudio")
+        OTRO = "otro", _("Otro")
+
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="actividades_escuela",
+    )
+    escuela = models.ForeignKey(
+        Escuela,
+        on_delete=models.CASCADE,
+        related_name="actividades",
+    )
+    creada_por = models.ForeignKey(
+        Profesor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="actividades_publicadas",
+    )
+    tipo = models.CharField(
+        max_length=32,
+        choices=Tipo.choices,
+        default=Tipo.TAREA,
+    )
+    titulo = models.CharField(max_length=220)
+    instrucciones = models.TextField(blank=True)
+    fecha_limite = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Fecha límite"),
+        help_text=_("Opcional. Hasta cuándo deben entregar o completar el trabajo."),
+    )
+    puntos_posibles = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Puntos posibles"),
+        help_text=_("Opcional, si calificas esta actividad."),
+    )
+    material_adjunto = models.FileField(
+        upload_to="actividades_escuela/%Y/%m/",
+        blank=True,
+        null=True,
+        verbose_name=_("Material de apoyo"),
+        help_text=_("PDF u otro archivo para los estudiantes (opcional)."),
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = _("Actividad de escuela")
+        verbose_name_plural = _("Actividades de escuela")
+
+    def __str__(self):
+        return f"{self.titulo} ({self.escuela.nombre})"
+
+
+class EntregaActividad(models.Model):
+    """
+    Evidencia del estudiante para una actividad (texto y/o archivo), evaluable por el docente.
+    """
+
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="entregas_actividad",
+    )
+    actividad = models.ForeignKey(
+        ActividadEscuela,
+        on_delete=models.CASCADE,
+        related_name="entregas",
+    )
+    estudiante = models.ForeignKey(
+        Estudiante,
+        on_delete=models.CASCADE,
+        related_name="entregas_actividades",
+    )
+    texto = models.TextField(
+        blank=True,
+        verbose_name=_("Respuesta o comentario"),
+        help_text=_("Escribe aquí tu trabajo o explicación."),
+    )
+    archivo = models.FileField(
+        upload_to="actividades/%Y/%m/",
+        blank=True,
+        null=True,
+        verbose_name=_("Archivo de evidencia"),
+        help_text=_("PDF, Word u otro formato permitido (opcional si ya escribiste respuesta)."),
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=("pdf", "doc", "docx", "odt", "txt", "rtf", "png", "jpg", "jpeg", "webp"),
+            )
+        ],
+    )
+    enviado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+    puntaje_asignado = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Puntaje"),
+    )
+    comentario_docente = models.TextField(blank=True, verbose_name=_("Retroalimentación del docente"))
+    evaluado_en = models.DateTimeField(null=True, blank=True)
+    evaluado_por = models.ForeignKey(
+        Profesor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="entregas_evaluadas",
+    )
+
+    class Meta:
+        verbose_name = _("Entrega de actividad")
+        verbose_name_plural = _("Entregas de actividades")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("actividad", "estudiante"),
+                name="uniq_entrega_actividad_por_estudiante",
+            )
+        ]
+        ordering = ["-actualizado_en"]
+
+    def __str__(self):
+        return f"{self.estudiante} → {self.actividad.titulo}"
+
+
+class ArchivoRecursoEscuela(models.Model):
+    """
+    Material de apoyo que el docente de la escuela comparte con estudiantes matriculados en esa escuela.
+    """
+
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="archivos_recurso_escuela",
+    )
+    escuela = models.ForeignKey(
+        Escuela,
+        on_delete=models.CASCADE,
+        related_name="archivos_recurso",
+    )
+    titulo = models.CharField(max_length=220, verbose_name=_("Título"))
+    descripcion = models.TextField(
+        blank=True,
+        verbose_name=_("Descripción"),
+        help_text=_("Opcional. Indica para qué sirve el archivo."),
+    )
+    archivo = models.FileField(
+        upload_to="recursos_escuela/%Y/%m/",
+        verbose_name=_("Archivo"),
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=(
+                    "pdf",
+                    "doc",
+                    "docx",
+                    "odt",
+                    "txt",
+                    "rtf",
+                    "ppt",
+                    "pptx",
+                    "xls",
+                    "xlsx",
+                    "png",
+                    "jpg",
+                    "jpeg",
+                    "webp",
+                    "zip",
+                ),
+            )
+        ],
+    )
+    subido_por = models.ForeignKey(
+        Profesor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="archivos_recurso_publicados",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = _("Archivo recurso de escuela")
+        verbose_name_plural = _("Archivos recurso por escuela")
+
+    def __str__(self):
+        return f"{self.titulo} ({self.escuela_id})"
 
 
 class Asistencia(models.Model):
@@ -695,3 +1065,95 @@ class Ofrenda(models.Model):
 
     def __str__(self):
         return f"{self.escuela.nombre} · {self.fecha} · {self.valor}"
+
+
+class PresupuestoEvento(models.Model):
+    """
+    Plan de la sede: evento o partida y cuánto dinero se destina (presupuesto / asignación).
+    Distinto de las ofrendas que registran los maestros día a día.
+    """
+
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="presupuestos_evento",
+    )
+    nombre = models.CharField(
+        max_length=200,
+        help_text=_("Nombre del evento o del gasto previsto (ej. retiro, materiales, refrigerio)."),
+    )
+    fecha_evento = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Fecha del evento"),
+        help_text=_("Opcional. Fecha prevista en que ocurre o se liquida el gasto."),
+    )
+    monto_destinado = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name=_("Monto a destinar"),
+        help_text=_("Cuánto dinero de la sede planeas usar para este evento o partida."),
+    )
+    notas = models.TextField(blank=True, default="", verbose_name=_("Notas"))
+    creado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="presupuestos_evento_creados",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Presupuesto de evento")
+        verbose_name_plural = _("Presupuestos de eventos")
+        ordering = ["-fecha_evento", "-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.nombre} · {self.monto_destinado}"
+
+
+class RecaudoOcasional(models.Model):
+    """
+    Ingreso puntual que registra el coordinador financiero: donación extra, sobrante de evento,
+    venta ocasional, etc. No sustituye las ofrendas que anotan los maestros por escuela.
+    """
+
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="recaudos_ocasionales",
+    )
+    fecha = models.DateField(default=timezone.now, verbose_name=_("Fecha"))
+    monto = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name=_("Monto"),
+        help_text=_("Valor del ingreso recaudado."),
+    )
+    concepto = models.CharField(
+        max_length=200,
+        verbose_name=_("Concepto"),
+        help_text=_("En pocas palabras: qué es este dinero (ej. sobrante retiro, donación puntual)."),
+    )
+    detalle = models.TextField(blank=True, default="", verbose_name=_("Detalle"))
+    registrado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recaudos_ocasionales_registrados",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Recaudo ocasional")
+        verbose_name_plural = _("Recaudos ocasionales")
+        ordering = ["-fecha", "-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["sede", "fecha"], name="hechos_recaud_sede_fecha_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.concepto} · {self.fecha} · {self.monto}"

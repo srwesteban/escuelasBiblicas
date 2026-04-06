@@ -41,20 +41,27 @@
         transform: translateY(-1px);
         box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
     }
+    .docente-contactar > summary {
+        list-style: none;
+    }
+    .docente-contactar > summary::-webkit-details-marker {
+        display: none;
+    }
+    .docente-contactar[open] {
+        z-index: 50;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto space-y-8">
+    {% if not es_coordinador_pedagogico %}
     <nav class="text-sm text-stone-600" aria-label="Miga de pan">
-        {% if es_coordinador_pedagogico %}
-        <span class="text-stone-900 font-medium">Profesores</span>
-        {% else %}
         <a href="{% url 'hechos:dashboard' %}" class="hover:text-stone-900">Inicio</a>
         <span class="mx-2 text-stone-400">/</span>
         <span class="text-stone-900 font-medium">Cuerpo docente</span>
-        {% endif %}
     </nav>
+    {% endif %}
 
     <div class="docentes-hero flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div class="relative z-10 max-w-xl">
@@ -161,7 +168,7 @@
     <div class="grid gap-4 sm:grid-cols-2" id="docentes-grid">
         {% for profesor in profesores %}
         <article
-            class="card border border-stone-200/80 overflow-hidden hover:border-stone-300 transition-colors js-docente-card"
+            class="card border border-stone-200/80 overflow-visible hover:border-stone-300 transition-colors js-docente-card"
             data-search="{{ profesor.user.get_full_name|default:'' }} {{ profesor.user.email|default:'' }} {{ profesor.codigo_profesor|default:'' }} {{ profesor.especialidad|default:'' }} {{ profesor.user.phone|default:'' }}">
             <div class="p-5">
                 <div class="flex items-start gap-3">
@@ -193,10 +200,45 @@
                         {% endif %}
                         <div class="mt-3 space-y-1 text-sm text-stone-700">
                             <p class="truncate"><span class="text-stone-500">Correo:</span> {{ profesor.user.email|default:"—" }}</p>
-                            <p><span class="text-stone-500">Tel.:</span> {{ profesor.user.phone|default:"—" }}</p>
-                            <p><span class="text-stone-500">Experiencia:</span> {{ profesor.experiencia_anos }} año{{ profesor.experiencia_anos|pluralize:"s" }}</p>
+                            <p><span class="text-stone-500">Celular (WhatsApp):</span> {{ profesor.user.phone|default:"—" }}</p>
                         </div>
                         <div class="mt-4 flex flex-wrap gap-2">
+                            {% if es_coordinador_pedagogico %}
+                            <details class="relative inline-block text-left docente-contactar z-10">
+                                <summary class="btn-outline px-3 py-1.5 text-xs font-medium cursor-pointer select-none inline-flex items-center gap-1.5" aria-label="Opciones para contactar a este docente" aria-haspopup="menu">
+                                    <i class="fas fa-comments text-amber-700"></i>
+                                    Contactar
+                                    <i class="fas fa-chevron-down text-[0.6rem] opacity-50"></i>
+                                </summary>
+                                <div class="js-docente-contactar-menu absolute left-0 top-full z-50 mt-1 min-w-[12.5rem] rounded-lg border border-stone-200 bg-white py-1 shadow-lg ring-1 ring-black/5">
+                                    {% if profesor.user.phone %}
+                                    <button type="button"
+                                            class="js-docente-wa flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-800 hover:bg-stone-50"
+                                            data-phone="{{ profesor.user.phone|escape }}">
+                                        <i class="fab fa-whatsapp text-lg text-emerald-600"></i>
+                                        <span>WhatsApp</span>
+                                    </button>
+                                    {% else %}
+                                    <span class="flex cursor-not-allowed items-center gap-2 px-3 py-2 text-sm text-stone-400" title="Este docente no tiene celular registrado">
+                                        <i class="fab fa-whatsapp text-lg opacity-40"></i>
+                                        <span>WhatsApp</span>
+                                    </span>
+                                    {% endif %}
+                                    {% if profesor.user.email %}
+                                    <a href="mailto:{{ profesor.user.email }}"
+                                       class="js-docente-mailto flex items-center gap-2 px-3 py-2 text-sm text-stone-800 hover:bg-stone-50">
+                                        <i class="fas fa-envelope text-stone-500"></i>
+                                        <span>Correo</span>
+                                    </a>
+                                    {% else %}
+                                    <span class="flex cursor-not-allowed items-center gap-2 px-3 py-2 text-sm text-stone-400" title="Este docente no tiene correo">
+                                        <i class="fas fa-envelope opacity-40"></i>
+                                        <span>Correo</span>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </details>
+                            {% endif %}
                             <a href="{% url 'hechos:detalle_profesor' profesor.id %}" class="btn-outline px-3 py-1.5 text-xs font-medium">Ver</a>
                             <a href="{% url 'hechos:editar_profesor' profesor.id %}" class="btn-outline px-3 py-1.5 text-xs font-medium">Editar</a>
                             <a href="{% url 'hechos:eliminar_profesor' profesor.id %}" class="btn-outline px-3 py-1.5 text-xs font-medium text-red-700 border-red-200 hover:bg-red-50">Dar de baja</a>
@@ -253,6 +295,40 @@
 
     input.addEventListener('input', apply);
     apply();
+
+    function docenteWhatsappUrl(raw) {
+        var d = String(raw || '').replace(/\D/g, '');
+        if (!d) return null;
+        if (d.length === 10) d = '57' + d;
+        return 'https://wa.me/' + d;
+    }
+
+    grid.addEventListener('click', function (e) {
+        var waBtn = e.target.closest('.js-docente-wa');
+        if (waBtn && grid.contains(waBtn)) {
+            e.preventDefault();
+            var url = docenteWhatsappUrl(waBtn.getAttribute('data-phone'));
+            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+            var det = waBtn.closest('details');
+            if (det) det.removeAttribute('open');
+            return;
+        }
+        var mail = e.target.closest('a.js-docente-mailto');
+        if (mail && grid.contains(mail)) {
+            var det2 = mail.closest('details');
+            if (det2) window.setTimeout(function () { det2.removeAttribute('open'); }, 0);
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('details.docente-contactar')) {
+            return;
+        }
+        var abiertos = grid.querySelectorAll('details.docente-contactar[open]');
+        for (var j = 0; j < abiertos.length; j++) {
+            abiertos[j].removeAttribute('open');
+        }
+    });
 })();
 </script>
 {% endblock %}

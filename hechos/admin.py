@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
-    Estudiante, Profesor, AdminEscuela, RutaEstudio, Curso, EdicionCurso,
-    Matricula, Clase, Asistencia, Nota
+    Estudiante, Profesor, AdminEscuela, Salon, RutaEstudio, Curso, EdicionCurso,
+    Matricula, Clase, Asistencia, Nota, ActividadEscuela, EntregaActividad,
+    ArchivoRecursoEscuela,
 )
 
 
@@ -45,9 +46,17 @@ class AdminEscuelaAdmin(admin.ModelAdmin):
     ordering = ('user__first_name', 'user__last_name')
 
 
+@admin.register(Salon)
+class SalonAdmin(admin.ModelAdmin):
+    list_display = ('sede', 'nombre', 'codigo', 'capacidad_plazas', 'escuela', 'is_active', 'updated_at')
+    list_filter = ('sede', 'is_active')
+    search_fields = ('nombre', 'codigo', 'sede__nombre')
+    ordering = ('sede', 'nombre')
+
+
 @admin.register(RutaEstudio)
 class RutaEstudioAdmin(admin.ModelAdmin):
-    list_display = ('sede', 'nombre', 'nivel', 'duracion_semanas', 'is_active', 'created_at')
+    list_display = ('sede', 'escuela', 'nombre', 'nivel', 'duracion_semanas', 'is_active', 'created_at')
     list_filter = ('sede', 'nivel', 'is_active', 'created_at')
     search_fields = ('nombre', 'descripcion', 'sede__nombre')
     ordering = ('sede', 'nivel', 'nombre')
@@ -104,6 +113,42 @@ class AsistenciaAdmin(admin.ModelAdmin):
     list_filter = ('sede', 'estado', 'fecha_registro', 'clase__edicion_curso__curso')
     search_fields = ('estudiante__user__first_name', 'estudiante__user__last_name', 'clase__titulo', 'sede__nombre')
     ordering = ('-fecha_registro',)
+
+
+@admin.register(ActividadEscuela)
+class ActividadEscuelaAdmin(admin.ModelAdmin):
+    list_display = (
+        'titulo', 'escuela', 'tipo', 'fecha_limite', 'puntos_posibles', 'creada_por', 'created_at', 'is_active',
+    )
+    list_filter = ('sede', 'tipo', 'is_active', 'created_at')
+    search_fields = ('titulo', 'instrucciones', 'escuela__nombre', 'sede__nombre')
+    ordering = ('-created_at',)
+    raw_id_fields = ('escuela', 'creada_por')
+
+
+@admin.register(EntregaActividad)
+class EntregaActividadAdmin(admin.ModelAdmin):
+    list_display = (
+        'actividad', 'estudiante', 'evaluado_en', 'puntaje_asignado', 'actualizado_en', 'sede',
+    )
+    list_filter = ('sede', 'evaluado_en')
+    search_fields = (
+        'actividad__titulo', 'estudiante__user__first_name', 'estudiante__user__last_name',
+        'estudiante__user__email',
+    )
+    raw_id_fields = ('actividad', 'estudiante', 'evaluado_por')
+    ordering = ('-actualizado_en',)
+
+
+@admin.register(ArchivoRecursoEscuela)
+class ArchivoRecursoEscuelaAdmin(admin.ModelAdmin):
+    list_display = (
+        'titulo', 'escuela', 'subido_por', 'created_at', 'is_active', 'sede',
+    )
+    list_filter = ('sede', 'is_active', 'created_at')
+    search_fields = ('titulo', 'descripcion', 'escuela__nombre')
+    raw_id_fields = ('escuela', 'subido_por')
+    ordering = ('-created_at',)
 
 
 @admin.register(Nota)

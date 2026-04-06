@@ -1,78 +1,331 @@
 {% extends 'base_modern.html' %}
 
-{% block title %}Mi escuela - {{ curso.escuela.nombre }}{% endblock %}
+{% block title %}{{ curso.nombre }} — {{ curso.escuela.nombre|default:"Mi curso" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .aula-estudiante-hero {
+        background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 50%, #854d0e 130%);
+        border-radius: 1rem;
+        padding: 1.5rem 1.25rem;
+        color: #f8fafc;
+        position: relative;
+        overflow: hidden;
+    }
+    .aula-estudiante-hero::after {
+        content: "";
+        position: absolute;
+        right: -2rem;
+        top: -2rem;
+        width: 10rem;
+        height: 10rem;
+        border-radius: 50%;
+        background: rgba(248, 250, 252, 0.06);
+        pointer-events: none;
+    }
+    .curso-tab {
+        flex: 1 1 0;
+        min-width: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #57534e;
+        background: #fafaf9;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    .curso-tab:hover {
+        color: #1c1917;
+        background: #f5f5f4;
+    }
+    .curso-tab[aria-selected="true"] {
+        color: #1c1917;
+        background: #fff;
+        border-bottom-color: #b45309;
+    }
+    @media (max-width: 480px) {
+        .curso-tab { font-size: 0.8125rem; padding-left: 0.35rem; padding-right: 0.35rem; }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <section class="card p-6">
-        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-900">{{ curso.escuela.nombre }}</h1>
-                <p class="text-slate-600 mt-1">
-                    {% if curso.escuela %}
-                        {{ curso.escuela.anio }} · {{ curso.escuela.get_ciclo_display }} · Grupo {{ curso.escuela.grupo }}
-                    {% endif %}
-                </p>
-                {% if curso.descripcion %}
-                <p class="text-sm text-slate-700 mt-3 max-w-3xl">{{ curso.descripcion }}</p>
+<div class="max-w-4xl mx-auto space-y-8 pb-10">
+    <nav class="text-sm text-stone-600" aria-label="Miga de pan">
+        <a href="{% url 'hechos:mis_escuelas' %}" class="hover:text-stone-900">Mis escuelas</a>
+        <span class="mx-2 text-stone-400">/</span>
+        <span class="text-stone-900 font-medium">{{ curso.escuela.nombre|default:curso.nombre }}</span>
+    </nav>
+
+    <header class="aula-estudiante-hero">
+        <div class="relative z-10">
+            <p class="text-xs font-semibold uppercase tracking-wider text-sky-200/90">Tu curso matriculado</p>
+            <h1 class="mt-1 text-2xl font-bold text-white">{{ curso.nombre }}</h1>
+            {% if curso.escuela %}
+            <p class="mt-2 text-sm text-slate-200/95">
+                {{ curso.escuela.nombre }} · {{ curso.escuela.anio }} · {{ curso.escuela.get_ciclo_display }} · Grupo {{ curso.escuela.grupo }}
+            </p>
+            {% endif %}
+            <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 font-medium text-white/95">
+                    <i class="fas fa-location-dot text-amber-200"></i>{{ user_sede.nombre }}
+                </span>
+                {% if matricula.edicion_curso.profesor %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-white/90">
+                    <i class="fas fa-chalkboard-teacher text-sky-200"></i>{{ matricula.edicion_curso.profesor.user.get_full_name }}
+                </span>
                 {% endif %}
             </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="{% url 'hechos:notas_estudiante' %}" class="btn-outline px-4 py-2 text-sm font-medium">
-                    <i class="fas fa-chart-line mr-2"></i>Ver calificaciones
-                </a>
-                <a href="{% url 'hechos:clases_list' %}" class="btn-outline px-4 py-2 text-sm font-medium">
-                    <i class="fas fa-calendar mr-2"></i>Actividades y clases
-                </a>
-            </div>
         </div>
-    </section>
+    </header>
 
-    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="card p-4">
-            <p class="text-xs text-slate-500">Promedio</p>
-            <p class="text-2xl font-bold text-slate-900 mt-1">{{ promedio_general }}</p>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="card p-4 border border-stone-200/80">
+            <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Promedio</p>
+            <p class="text-xl font-bold text-slate-900 mt-0.5">{{ promedio_general }}</p>
         </div>
-        <div class="card p-4">
-            <p class="text-xs text-slate-500">Notas registradas</p>
-            <p class="text-2xl font-bold text-slate-900 mt-1">{{ total_notas }}</p>
+        <div class="card p-4 border border-stone-200/80">
+            <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Notas</p>
+            <p class="text-xl font-bold text-slate-900 mt-0.5">{{ total_notas }}</p>
         </div>
-        <div class="card p-4">
-            <p class="text-xs text-slate-500">Clases programadas</p>
-            <p class="text-2xl font-bold text-slate-900 mt-1">{{ total_clases }}</p>
+        <div class="card p-4 border border-stone-200/80">
+            <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Sesiones</p>
+            <p class="text-xl font-bold text-slate-900 mt-0.5">{{ total_clases }}</p>
         </div>
-    </section>
+        <div class="card p-4 border border-stone-200/80">
+            <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Actividades</p>
+            <p class="text-xl font-bold text-slate-900 mt-0.5">{{ actividades_escuela|length }}</p>
+        </div>
+    </div>
 
-    <section class="card p-6">
-        <h2 class="text-lg font-semibold text-slate-900 mb-3">Información de la escuela</h2>
-        <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-                <dt class="text-slate-500">Año</dt>
-                <dd class="font-medium text-slate-900">{{ curso.escuela.anio }}</dd>
+    <div class="card border border-stone-200/80 overflow-hidden rounded-xl">
+        <div class="flex border-b border-stone-200 bg-stone-100/80" role="tablist" aria-label="Contenido del curso">
+            <button type="button" class="curso-tab" role="tab" id="tab-curso-notas" aria-selected="true" aria-controls="panel-curso-notas" data-curso-tab="notas">
+                <i class="fas fa-clipboard-list text-amber-700 shrink-0" aria-hidden="true"></i>
+                <span>Calificaciones</span>
+            </button>
+            <button type="button" class="curso-tab" role="tab" id="tab-curso-actividades" aria-selected="false" aria-controls="actividades" data-curso-tab="actividades">
+                <i class="fas fa-list-check text-violet-700 shrink-0" aria-hidden="true"></i>
+                <span>Actividades</span>
+            </button>
+            <button type="button" class="curso-tab" role="tab" id="tab-curso-archivos" aria-selected="false" aria-controls="materiales" data-curso-tab="archivos">
+                <i class="fas fa-folder-open text-sky-700 shrink-0" aria-hidden="true"></i>
+                <span>Archivos</span>
+            </button>
+        </div>
+
+        <div id="panel-curso-notas" class="curso-tab-panel" role="tabpanel" aria-labelledby="tab-curso-notas" data-curso-panel="notas">
+        <div class="border-b border-stone-100 bg-stone-50/40 px-5 py-3">
+            <h2 class="text-base font-semibold text-slate-900">Mis calificaciones</h2>
+            <p class="text-sm text-stone-600 mt-0.5">Evaluaciones de <strong class="text-stone-800">{{ curso.nombre }}</strong> en tu sede.</p>
+        </div>
+        <div class="p-0">
+            {% if notas_curso %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-stone-200 text-sm">
+                    <thead class="bg-stone-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-semibold text-stone-500">Evaluación</th>
+                            <th class="px-4 py-3 text-left font-semibold text-stone-500">Tipo</th>
+                            <th class="px-4 py-3 text-left font-semibold text-stone-500">Fecha</th>
+                            <th class="px-4 py-3 text-right font-semibold text-stone-500">Puntaje</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-stone-100">
+                        {% for n in notas_curso %}
+                        <tr class="hover:bg-stone-50/60">
+                            <td class="px-4 py-3 font-medium text-slate-900">{{ n.titulo }}</td>
+                            <td class="px-4 py-3 text-stone-600">{{ n.get_tipo_display }}</td>
+                            <td class="px-4 py-3 text-stone-600 tabular-nums">{{ n.fecha_evaluacion|date:"d/m/Y" }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-slate-900 tabular-nums">{{ n.puntaje_obtenido }} / {{ n.puntaje_maximo }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            <div>
-                <dt class="text-slate-500">Ciclo</dt>
-                <dd class="font-medium text-slate-900">{{ curso.escuela.get_ciclo_display }}</dd>
+            {% else %}
+            <div class="px-5 py-12 text-center text-stone-600 text-sm">
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-400 mb-3">
+                    <i class="fas fa-clipboard-list text-xl"></i>
+                </div>
+                <p class="font-medium text-slate-900">Aún no hay calificaciones</p>
+                <p class="mt-1 max-w-sm mx-auto">Cuando el docente registre notas de este curso, aparecerán aquí.</p>
             </div>
-            <div>
-                <dt class="text-slate-500">Grupo</dt>
-                <dd class="font-medium text-slate-900">{{ curso.escuela.grupo }}</dd>
-            </div>
-            <div>
-                <dt class="text-slate-500">Profesor</dt>
-                <dd class="font-medium text-slate-900">
-                    {% if matricula.edicion_curso.profesor %}
-                        {{ matricula.edicion_curso.profesor.user.get_full_name }}
-                    {% else %}
-                        Por asignar
+            {% endif %}
+        </div>
+        <div class="border-t border-stone-100 px-5 py-3 bg-stone-50/40">
+            <a href="{% url 'hechos:notas_estudiante' %}" class="text-sm font-medium text-amber-800 hover:text-amber-950 hover:underline">
+                Ver todas mis notas en otros cursos <i class="fas fa-arrow-right ml-1 text-xs"></i>
+            </a>
+        </div>
+        </div>
+
+        <div id="actividades" class="curso-tab-panel hidden" role="tabpanel" aria-labelledby="tab-curso-actividades" data-curso-panel="actividades" hidden>
+        <div class="border-b border-stone-100 bg-stone-50/40 px-5 py-3">
+            <h2 class="text-base font-semibold text-slate-900">Actividades del profesor</h2>
+            <p class="text-sm text-stone-600 mt-0.5">Tareas, lecturas y consignas para tu escuela.</p>
+        </div>
+        <div class="p-4 sm:p-5 space-y-4">
+            {% for row in actividades_con_entrega %}
+            {% with a=row.actividad entrega=row.entrega puede=row.puede_entregar plazo_cerrado=row.plazo_vencido %}
+            <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                        <span class="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-900 ring-1 ring-violet-100">{{ a.get_tipo_display }}</span>
+                        <h3 class="mt-2 font-semibold text-slate-900">{{ a.titulo }}</h3>
+                    </div>
+                    {% if a.fecha_limite %}
+                    <p class="text-xs font-medium text-stone-500 tabular-nums shrink-0">
+                        <i class="fas fa-clock mr-1 text-stone-400"></i>Límite {{ a.fecha_limite|date:"d/m/Y H:i" }}
+                    </p>
                     {% endif %}
-                </dd>
+                </div>
+                {% if a.instrucciones %}
+                <div class="mt-3 text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">{{ a.instrucciones }}</div>
+                {% endif %}
+                {% if a.puntos_posibles %}
+                <p class="mt-2 text-xs text-stone-500">Puntos posibles: <span class="font-semibold text-stone-700">{{ a.puntos_posibles }}</span></p>
+                {% endif %}
+                {% if a.material_adjunto %}
+                <a href="{{ a.material_adjunto.url }}" class="mt-3 inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-900 hover:bg-sky-100" target="_blank" rel="noopener">
+                    <i class="fas fa-file-arrow-down"></i>Descargar material adjunto
+                </a>
+                {% endif %}
+                <div class="mt-4 flex flex-wrap items-center gap-2">
+                    {% if puede %}
+                    <a href="{% url 'hechos:entregar_actividad_estudiante' curso.id a.id %}" class="inline-flex items-center gap-2 rounded-xl bg-violet-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-800">
+                        <i class="fas fa-upload"></i>
+                        {% if entrega and entrega.texto or entrega and entrega.archivo %}Actualizar evidencia{% else %}Entregar evidencia{% endif %}
+                    </a>
+                    {% elif entrega and entrega.evaluado_en %}
+                    <span class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
+                        <i class="fas fa-check-circle"></i>
+                        Evaluado{% if entrega.puntaje_asignado is not None %}: {{ entrega.puntaje_asignado }} pts{% endif %}
+                    </span>
+                    {% if entrega.comentario_docente %}
+                    <p class="w-full text-sm text-stone-600 mt-1"><span class="font-medium text-stone-800">Comentario del docente:</span> {{ entrega.comentario_docente }}</p>
+                    {% endif %}
+                    {% elif entrega and entrega.texto or entrega and entrega.archivo %}
+                    <span class="text-sm text-stone-700 bg-stone-100 border border-stone-200 rounded-lg px-3 py-2">
+                        Evidencia enviada{% if plazo_cerrado %} (plazo cerrado; no puedes modificarla){% endif %}
+                    </span>
+                    {% elif plazo_cerrado %}
+                    <span class="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">Plazo de entrega vencido</span>
+                    {% endif %}
+                </div>
+                {% if entrega and not entrega.evaluado_en %}
+                    {% if entrega.texto or entrega.archivo %}
+                    <p class="mt-2 text-xs text-stone-500"><i class="fas fa-paper-plane mr-1"></i>Evidencia enviada; pendiente de evaluación del docente.</p>
+                    {% endif %}
+                {% endif %}
+            </article>
+            {% endwith %}
+            {% empty %}
+            <div class="text-center py-10 text-stone-600 text-sm">
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-400 mb-3">
+                    <i class="fas fa-inbox text-xl"></i>
+                </div>
+                <p class="font-medium text-slate-900">No hay actividades publicadas</p>
+                <p class="mt-1">Tu profesor aún no ha creado actividades para esta escuela.</p>
             </div>
-            <div>
-                <dt class="text-slate-500">Sede</dt>
-                <dd class="font-medium text-slate-900">{{ user_sede.nombre }}</dd>
-            </div>
-        </dl>
-    </section>
+            {% endfor %}
+        </div>
+        </div>
+
+        <div id="materiales" class="curso-tab-panel hidden" role="tabpanel" aria-labelledby="tab-curso-archivos" data-curso-panel="archivos" hidden>
+        <div class="border-b border-stone-100 bg-stone-50/40 px-5 py-3">
+            <h2 class="text-base font-semibold text-slate-900">Archivos y recursos</h2>
+            <p class="text-sm text-stone-600 mt-0.5">Materiales de la escuela y adjuntos de actividades.</p>
+        </div>
+        {% if curso.escuela %}
+        <div class="px-5 py-4 bg-sky-50/80 border-b border-sky-100">
+            <a href="{% url 'hechos:estudiante_escuela_recursos' curso.escuela.id %}" class="inline-flex items-center gap-2 text-sm font-semibold text-sky-900 hover:underline">
+                <i class="fas fa-book-open text-sky-700"></i>
+                Ver todos los recursos de {{ curso.escuela.nombre }}
+            </a>
+            <p class="text-xs text-sky-800/80 mt-1">Incluye PDF y documentos que el docente suba desde «Archivos» de la escuela.</p>
+        </div>
+        {% endif %}
+        <ul class="divide-y divide-stone-100">
+            {% for ar in archivos_recurso_escuela %}
+            <li class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 hover:bg-stone-50/50">
+                <div class="min-w-0">
+                    <p class="font-medium text-slate-900 truncate">{{ ar.titulo }}</p>
+                    {% if ar.descripcion %}<p class="text-sm text-stone-600 mt-0.5">{{ ar.descripcion }}</p>{% endif %}
+                    <p class="text-xs text-stone-500 mt-0.5">Recurso de escuela · {{ ar.created_at|date:"d/m/Y" }}</p>
+                </div>
+                <a href="{% url 'hechos:descargar_archivo_recurso_escuela' curso.escuela.id ar.id %}" class="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-900 hover:bg-sky-100">
+                    <i class="fas fa-download"></i>Descargar
+                </a>
+            </li>
+            {% endfor %}
+            {% for r in recursos_con_archivo %}
+            <li class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 hover:bg-stone-50/50">
+                <div class="min-w-0">
+                    <p class="font-medium text-slate-900 truncate">{{ r.titulo }}</p>
+                    <p class="text-xs text-stone-500 mt-0.5">{{ r.get_tipo_display }} · {{ r.created_at|date:"d/m/Y" }}</p>
+                </div>
+                <a href="{{ r.material_adjunto.url }}" class="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-900 hover:bg-violet-100" target="_blank" rel="noopener">
+                    <i class="fas fa-download"></i>Descargar
+                </a>
+            </li>
+            {% endfor %}
+            {% if not archivos_recurso_escuela and not recursos_con_archivo %}
+            <li class="px-5 py-12 text-center text-stone-600 text-sm">
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-400 mb-3">
+                    <i class="fas fa-folder-open text-xl"></i>
+                </div>
+                <p class="font-medium text-slate-900">Sin archivos por ahora</p>
+                <p class="mt-1">Cuando el profesor suba materiales en la escuela o adjuntos en actividades, aparecerán aquí.</p>
+            </li>
+            {% endif %}
+        </ul>
+        </div>
+    </div>
+
+    <div class="flex justify-center">
+        <a href="{% url 'hechos:mis_escuelas' %}" class="btn-outline inline-flex items-center px-5 py-2.5 text-sm font-medium">
+            <i class="fas fa-arrow-left mr-2"></i>Volver a mis escuelas
+        </a>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var tabs = document.querySelectorAll('[data-curso-tab]');
+    var panels = document.querySelectorAll('[data-curso-panel]');
+    if (!tabs.length || !panels.length) return;
+
+    function showPanel(id) {
+        tabs.forEach(function (btn) {
+            var on = btn.getAttribute('data-curso-tab') === id;
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        panels.forEach(function (panel) {
+            var on = panel.getAttribute('data-curso-panel') === id;
+            panel.hidden = !on;
+            panel.classList.toggle('hidden', !on);
+        });
+    }
+
+    tabs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            showPanel(btn.getAttribute('data-curso-tab'));
+        });
+    });
+
+    var h = (location.hash || '').replace(/^#/, '').toLowerCase();
+    if (h === 'actividades') showPanel('actividades');
+    else if (h === 'archivos' || h === 'materiales') showPanel('archivos');
+    else if (h === 'notas') showPanel('notas');
+})();
+</script>
 {% endblock %}

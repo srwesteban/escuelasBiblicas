@@ -1,0 +1,99 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Paso 5: Resumen - Hechos{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="card p-6 sm:p-8">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-xs font-medium text-stone-500">Paso 5 de {{ total_steps }}</p>
+                <h1 class="text-2xl font-bold text-slate-900 mt-1">Resumen</h1>
+                <p class="text-sm text-slate-600 mt-2">
+                    Revisa toda la configuración. Si algo no coincide, vuelve atrás con el botón inferior.
+                </p>
+                <p class="text-sm font-medium text-slate-800 mt-3">
+                    {% if escuela %}{{ escuela.nombre }} — {% endif %}{{ edicion.linea_identificacion_pedagogica }}
+                </p>
+            </div>
+            <a href="{% url 'hechos:estructura_configurar' edicion.id 4 %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
+                <i class="fas fa-arrow-left mr-2"></i>Atrás
+            </a>
+        </div>
+
+        <div class="mt-8 space-y-6">
+            <section class="rounded-xl border border-stone-200 p-5 bg-white">
+                <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">Paso 1 · Período y ciclo</p>
+                <p class="text-sm text-slate-700">
+                    Del <span class="font-medium text-slate-900">{{ edicion.fecha_inicio|date:"d/m/Y" }}</span>
+                    al <span class="font-medium text-slate-900">{{ edicion.fecha_fin|date:"d/m/Y" }}</span>.
+                </p>
+                <p class="text-sm text-slate-700 mt-2">
+                    <span class="font-medium text-slate-900">{{ ciclo_label }}</span>
+                    · Grupo <span class="font-medium text-slate-900">{{ escuela.grupo }}</span>
+                    · Año de referencia <span class="font-medium text-slate-900">{{ escuela.anio }}</span>
+                </p>
+            </section>
+
+            <section class="rounded-xl border border-stone-200 p-5 bg-white">
+                <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">Paso 2 · Días de clase</p>
+                <p class="text-sm text-slate-600">Se impartirá en:</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    {% for d in dias_seleccionados %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-stone-100 border border-stone-200 text-slate-800">{{ d }}</span>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="rounded-xl border border-stone-200 p-5 bg-white">
+                <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">Paso 3 · Horario por día</p>
+                <ul class="mt-2 space-y-2">
+                    {% for fila in resumen_filas %}
+                    <li class="flex flex-wrap items-baseline justify-between gap-2 rounded-lg bg-stone-50 border border-stone-100 px-4 py-3">
+                        <span class="font-medium text-slate-900">{{ fila.dia }}</span>
+                        <span class="text-slate-700">{{ fila.hora_txt }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+
+            <section class="rounded-xl border border-stone-200 p-5 bg-white">
+                <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">Sesiones en el calendario</p>
+                <p class="text-sm text-slate-700">
+                    En el período indicado:
+                    <span class="font-semibold text-slate-900">{{ num_clases }} sesiones</span> según los días elegidos.
+                </p>
+                {% if fechas_preview %}
+                <p class="text-xs text-slate-500 mt-2">Primeras fechas:</p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                    {% for f in fechas_preview %}
+                    <span class="badge text-xs">{{ f|date:"D d/m" }}</span>
+                    {% endfor %}
+                    {% if num_clases > fechas_preview|length %}
+                    <span class="text-xs text-slate-500 self-center">…</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </section>
+
+            <section class="rounded-xl border border-stone-200 p-5 bg-white">
+                <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">Paso 4 · Profesor asignado</p>
+                <p class="text-base font-medium text-slate-900">{{ profesor_resumen.nombre }}</p>
+                {% if profesor_resumen.codigo %}
+                <p class="text-sm text-slate-600 mt-1">Código: {{ profesor_resumen.codigo }}</p>
+                {% endif %}
+            </section>
+        </div>
+
+        <form method="post" class="mt-8 flex flex-col sm:flex-row gap-3 sm:justify-end">
+            {% csrf_token %}
+            <a href="{% url 'hechos:estructura_ediciones' %}" class="btn-outline inline-flex items-center justify-center px-5 py-3 text-sm font-medium order-2 sm:order-1">
+                Cancelar
+            </a>
+            <button type="submit" class="btn-primary inline-flex items-center justify-center px-6 py-3 text-sm font-medium order-1 sm:order-2">
+                <i class="fas fa-check mr-2"></i>Guardar y finalizar
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

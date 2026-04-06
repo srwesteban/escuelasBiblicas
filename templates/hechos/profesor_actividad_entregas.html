@@ -1,0 +1,86 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Entregas — {{ actividad.titulo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+    <a href="{{ volver_url }}" class="inline-flex items-center text-sm text-stone-600 hover:text-stone-900">
+        <i class="fas fa-arrow-left mr-2"></i>Volver a actividades
+    </a>
+
+    <div class="card p-6 sm:p-8">
+        <h1 class="text-2xl font-bold text-slate-900">Entregas de estudiantes</h1>
+        <p class="text-stone-600 mt-2 text-sm">{{ actividad.titulo }} · {{ escuela.nombre }}</p>
+        {% if actividad.puntos_posibles %}
+        <p class="text-xs text-stone-500 mt-1">Puntos posibles de la actividad: <span class="font-semibold text-stone-700">{{ actividad.puntos_posibles }}</span></p>
+        {% endif %}
+    </div>
+
+    {% if entregas_rows %}
+    <ul class="space-y-6">
+        {% for row in entregas_rows %}
+        {% with e=row.entrega form=row.form %}
+        <li class="card p-5 sm:p-6 border border-stone-200/80">
+            <div class="flex flex-wrap items-start justify-between gap-2 border-b border-stone-100 pb-3 mb-4">
+                <div>
+                    <p class="font-semibold text-slate-900">{{ e.estudiante.user.get_full_name }}</p>
+                    <p class="text-xs text-stone-500 mt-0.5">Actualizado {{ e.actualizado_en|date:"d/m/Y H:i" }}</p>
+                </div>
+                {% if e.evaluado_en %}
+                <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-900 ring-1 ring-emerald-100">
+                    Evaluado {{ e.evaluado_en|date:"d/m/Y" }}
+                    {% if e.puntaje_asignado is not None %} · {{ e.puntaje_asignado }} pts{% endif %}
+                </span>
+                {% endif %}
+            </div>
+
+            {% if e.texto %}
+            <div class="text-sm text-stone-700 whitespace-pre-wrap rounded-lg bg-stone-50 px-4 py-3 mb-3">{{ e.texto }}</div>
+            {% else %}
+            <p class="text-sm text-stone-500 italic mb-3">Sin texto en la entrega.</p>
+            {% endif %}
+            {% if e.archivo.name %}
+            <div class="mb-4">
+                <a href="{% url 'hechos:profesor_descargar_entrega_archivo' escuela.id actividad.id e.id %}" class="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-900 hover:bg-sky-100">
+                    <i class="fas fa-download"></i>Descargar archivo del estudiante
+                </a>
+            </div>
+            {% else %}
+            <p class="text-xs text-stone-500 mb-4">Sin archivo adjunto (solo texto o el fichero no quedó guardado).</p>
+            {% endif %}
+
+            <form method="post" class="mt-4 pt-4 border-t border-stone-100 space-y-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="evaluar">
+                <input type="hidden" name="entrega_id" value="{{ e.id }}">
+                {% if form.non_field_errors %}
+                <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ form.non_field_errors }}</div>
+                {% endif %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="{{ form.puntaje_asignado.id_for_label }}" class="block text-xs font-medium text-stone-700 mb-1">{{ form.puntaje_asignado.label }}</label>
+                        {{ form.puntaje_asignado }}
+                        {% if form.puntaje_asignado.errors %}<p class="text-xs text-red-600 mt-1">{{ form.puntaje_asignado.errors|join:", " }}</p>{% endif %}
+                    </div>
+                </div>
+                <div>
+                    <label for="{{ form.comentario_docente.id_for_label }}" class="block text-xs font-medium text-stone-700 mb-1">{{ form.comentario_docente.label }}</label>
+                    {{ form.comentario_docente }}
+                    {% if form.comentario_docente.errors %}<p class="text-xs text-red-600 mt-1">{{ form.comentario_docente.errors|join:", " }}</p>{% endif %}
+                </div>
+                <button type="submit" class="btn-primary inline-flex items-center px-4 py-2 text-sm font-medium">
+                    <i class="fas fa-save mr-2"></i>Guardar evaluación
+                </button>
+            </form>
+        </li>
+        {% endwith %}
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="card p-10 text-center text-stone-600 text-sm border border-dashed border-stone-200">
+        <p class="font-medium text-slate-900">Aún no hay entregas</p>
+        <p class="mt-1">Cuando un estudiante abra el formulario de entrega o envíe evidencia, aparecerá aquí.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

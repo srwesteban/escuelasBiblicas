@@ -27,11 +27,6 @@
                         Volver a Cursos
                     </a>
                     {% if user.profesor_profile %}
-                    <a href="{% url 'hechos:notas_curso' curso.id %}" 
-                       class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
-                        <i class="fas fa-chart-line mr-2"></i>
-                        Gestionar Notas
-                    </a>
                     <a href="{% url 'hechos:tomar_asistencia_curso' curso.id %}" 
                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700">
                         <i class="fas fa-clipboard-check mr-2"></i>
@@ -222,20 +217,7 @@
                 <p class="text-sm text-gray-600 mt-1">Gestiona tu curso desde aquí</p>
             </div>
             <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <a href="{% url 'hechos:notas_curso' curso.id %}" 
-                       class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors">
-                        <div class="flex-shrink-0">
-                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-chart-line text-green-600"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4">
-                            <h4 class="text-sm font-medium text-gray-900">Gestionar Notas</h4>
-                            <p class="text-sm text-gray-500">Registrar y ver calificaciones</p>
-                        </div>
-                    </a>
-                    
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <a href="{% url 'hechos:tomar_asistencia_curso' curso.id %}" 
                        class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-orange-50 hover:border-orange-300 transition-colors">
                         <div class="flex-shrink-0">
@@ -393,84 +375,6 @@
                 {% endif %}
             </div>
         </div>
-
-        <!-- Notas Recientes -->
-        {% if notas_curso %}
-        <div class="bg-white shadow rounded-lg mb-8">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Notas Recientes ({{ notas_curso.count }})</h3>
-                <p class="text-sm text-gray-600 mt-1">Últimas evaluaciones registradas en el curso</p>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Estudiante
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Clase
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Nota
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Fecha
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Estado
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for nota in notas_curso|slice:":10" %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">
-                                    {{ nota.estudiante.user.get_full_name }}
-                                </div>
-                                <div class="text-sm text-gray-500">
-                                    {{ nota.estudiante.codigo_estudiante }}
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {{ nota.titulo }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="text-2xl font-bold {% if nota.puntaje_obtenido >= 70 %}text-green-600{% elif nota.puntaje_obtenido >= 50 %}text-yellow-600{% else %}text-red-600{% endif %}">
-                                    {{ nota.puntaje_obtenido }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {{ nota.fecha_evaluacion|date:"d/m/Y" }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                {% if nota.puntaje_obtenido >= 70 %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        <i class="fas fa-check mr-1"></i>Aprobado
-                                    </span>
-                                {% elif nota.puntaje_obtenido >= 50 %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                        <i class="fas fa-exclamation mr-1"></i>Regular
-                                    </span>
-                                {% else %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                        <i class="fas fa-times mr-1"></i>Reprobado
-                                    </span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% if notas_curso.count > 10 %}
-                <div class="px-6 py-3 bg-gray-50 text-center">
-                    <span class="text-sm text-gray-500">Mostrando las 10 notas más recientes de {{ notas_curso.count }} total</span>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
 
         <!-- Clases del Curso -->
         <div class="bg-white shadow rounded-lg">

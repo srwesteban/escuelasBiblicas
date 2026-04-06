@@ -1,4 +1,5 @@
 from datetime import datetime, date
+from itertools import groupby
 from django.utils import timezone
 
 
@@ -91,4 +92,44 @@ def get_period_stats():
         'current_year': current_year,
         'available_periods': get_period_choices()
     }
+
+
+_MESES_ES = (
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+)
+
+
+def sesiones_agrupadas_por_mes(clases):
+    """
+    Orden cronológico y bloques por mes/año (patrón habitual en LMS: vista tipo calendario por mes).
+    Cada elemento: { 'year', 'month', 'label', 'clases' }.
+    """
+    if not clases:
+        return []
+    ordered = sorted(clases, key=lambda c: (c.fecha_clase, getattr(c, "pk", c.id)))
+    out = []
+    for ym, iter_items in groupby(
+        ordered, key=lambda c: (c.fecha_clase.year, c.fecha_clase.month)
+    ):
+        y, m = ym
+        out.append(
+            {
+                "year": y,
+                "month": m,
+                "label": f"{_MESES_ES[m - 1].capitalize()} {y}",
+                "clases": list(iter_items),
+            }
+        )
+    return out
 

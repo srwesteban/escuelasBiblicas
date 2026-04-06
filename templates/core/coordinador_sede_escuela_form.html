@@ -8,6 +8,13 @@
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Editar escuela</h1>
             <p class="text-stone-600 mt-1">Sede: {{ sede.nombre }}</p>
+            <p class="text-sm text-stone-500 mt-2 max-w-xl">
+                Datos académicos actuales (solo lectura aquí):
+                <span class="font-medium text-stone-700">{{ escuela.anio }} · Ciclo {{ escuela.ciclo }} · Grupo {{ escuela.grupo }}</span>
+                · Maestro:
+                {% if escuela.maestro %}{{ escuela.maestro.user.get_full_name }}{% else %}<span class="text-amber-800/90 font-medium">Por asignar</span>{% endif %}
+                · El cupo lo define el salón en logística.
+            </p>
         </div>
         <a href="{% url 'core:coordinador_sede_escuelas' sede.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Volver</a>
     </div>
@@ -30,38 +37,8 @@
             <div>
                 <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.descripcion.label }}</label>
                 {{ form.descripcion }}
+                <p class="text-xs text-stone-500 mt-1">Opcional pero recomendable para que el equipo entienda el enfoque de la escuela.</p>
                 {% if form.descripcion.errors %}<p class="text-sm text-red-600 mt-1">{{ form.descripcion.errors|join:", " }}</p>{% endif %}
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                    <label for="{{ form.anio.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.anio.label }}</label>
-                    {{ form.anio }}
-                    {% if form.anio.errors %}<p class="text-sm text-red-600 mt-1">{{ form.anio.errors|join:", " }}</p>{% endif %}
-                </div>
-                <div>
-                    <label for="{{ form.ciclo.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.ciclo.label }}</label>
-                    {{ form.ciclo }}
-                    {% if form.ciclo.errors %}<p class="text-sm text-red-600 mt-1">{{ form.ciclo.errors|join:", " }}</p>{% endif %}
-                </div>
-                <div>
-                    <label for="{{ form.grupo.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.grupo.label }}</label>
-                    {{ form.grupo }}
-                    {% if form.grupo.errors %}<p class="text-sm text-red-600 mt-1">{{ form.grupo.errors|join:", " }}</p>{% endif %}
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                    <label for="{{ form.cupo_maximo.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.cupo_maximo.label }}</label>
-                    {{ form.cupo_maximo }}
-                    {% if form.cupo_maximo.errors %}<p class="text-sm text-red-600 mt-1">{{ form.cupo_maximo.errors|join:", " }}</p>{% endif %}
-                </div>
-                <div>
-                    <label for="{{ form.maestro.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.maestro.label }}</label>
-                    {{ form.maestro }}
-                    {% if form.maestro.errors %}<p class="text-sm text-red-600 mt-1">{{ form.maestro.errors|join:", " }}</p>{% endif %}
-                </div>
             </div>
 
             <div class="flex justify-end gap-2 pt-2 border-t border-stone-200">

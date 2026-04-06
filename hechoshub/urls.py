@@ -30,6 +30,8 @@ urlpatterns = [
     
     # Hechos Module URLs
     path('hechos/', include('hechos.urls')),
+
+    path('ofrendas/', include('ofrendas.urls')),
     
     # Guias Module URLs
     path('guias/', include('guias.urls')),

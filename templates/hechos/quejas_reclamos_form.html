@@ -1,32 +1,57 @@
 {% extends 'base_modern.html' %}
 
-{% block title %}Quejas y reclamos - Hechos Hub{% endblock %}
+{% block title %}Quejas, reclamos y solicitudes - Hechos Hub{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Quejas, reclamos y solicitudes</h1>
+            {% if user_sede %}
+            <p class="text-sm text-slate-600 mt-1">
+                Sede: <span class="font-medium text-slate-900">{{ user_sede.nombre }}</span>
+            </p>
+            {% endif %}
+            <p class="text-sm text-slate-600 mt-2 max-w-xl">
+                Elige el <strong>asunto</strong> en el menú (queja, reclamo, sugerencia o solicitud) y describe tu caso en el <strong>mensaje</strong>.
+                Si el asunto es <strong>Solicitud</strong>, quedará en la bandeja del coordinador académico; en los demás casos se envía por correo como queja, reclamo o sugerencia.
+            </p>
+        </div>
+        <a href="{% url 'hechos:escuelas_disponibles' %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
+            <i class="fas fa-arrow-left mr-2"></i>Volver
+        </a>
+    </div>
+
     <div class="card p-6 sm:p-8">
-        <div class="flex items-start justify-between gap-4">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-900">Quejas y reclamos</h1>
-                {% if user_sede %}
-                <p class="text-sm text-slate-600 mt-1">
-                    Sede: <span class="font-medium text-slate-900">{{ user_sede.nombre }}</span>
-                </p>
-                {% endif %}
-                {% if coordinador_pedagogico %}
-                <p class="text-sm text-slate-600 mt-1">
-                    Se enviará al coordinador pedagógico: <span class="font-medium text-slate-900">{{ coordinador_pedagogico.user.get_full_name|default:coordinador_pedagogico.user.email }}</span>
-                </p>
-                {% else %}
-                <p class="text-sm text-amber-700 mt-2">
-                    No hay coordinador pedagógico configurado para tu sede. No se podrá enviar el correo.
-                </p>
-                {% endif %}
-            </div>
-            <a href="{% url 'hechos:escuelas_disponibles' %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center">
-                <i class="fas fa-arrow-left mr-2"></i>Volver
+        {% if coordinador_academico %}
+        <p class="text-sm text-slate-600">
+            Coordinador académico de contacto:
+            <span class="font-medium text-slate-900">{{ coordinador_academico.user.get_full_name|default:coordinador_academico.user.email }}</span>
+        </p>
+        {% else %}
+        <p class="text-sm text-amber-700">
+            No hay coordinador académico configurado para tu sede. Las quejas, reclamos y sugerencias no podrán enviarse por correo;
+            las solicitudes sí quedan registradas en el sistema.
+        </p>
+        {% endif %}
+
+        {% if coordinador_whatsapp_url %}
+        <div class="mt-5 rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-4 py-4 sm:px-5">
+            <p class="text-sm font-medium text-slate-900">Contacto por WhatsApp</p>
+            <p class="text-sm text-slate-600 mt-1">
+                Escríbele al coordinador <span class="font-medium text-slate-800">académico</span> de tu sede.
+            </p>
+            <a href="{{ coordinador_whatsapp_url }}" target="_blank" rel="noopener noreferrer"
+               class="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-colors">
+                <i class="fab fa-whatsapp text-lg"></i>
+                Abrir WhatsApp
             </a>
         </div>
+        {% elif coordinador_academico %}
+        <div class="mt-5 rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3 text-sm text-slate-600">
+            El coordinador académico no tiene celular registrado en el sistema.
+        </div>
+        {% endif %}
 
         {% if form.errors %}
             <div class="mt-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
@@ -42,30 +67,24 @@
             {% csrf_token %}
 
             <div>
-                <label for="{{ form.tipo.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
-                    Tipo <span class="text-red-600">*</span>
-                </label>
-                {{ form.tipo }}
-            </div>
-
-            <div>
                 <label for="{{ form.asunto.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
                     Asunto <span class="text-red-600">*</span>
                 </label>
                 {{ form.asunto }}
+                <p class="mt-2 text-xs text-slate-500">El asunto indica la naturaleza del envío. <strong>Solicitud</strong> va a la bandeja del coordinador para seguimiento.</p>
             </div>
 
             <div>
                 <label for="{{ form.mensaje.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
-                    Mensaje <span class="text-red-600">*</span>
+                    {{ form.mensaje.label }} <span class="text-red-600">*</span>
                 </label>
                 {{ form.mensaje }}
-                <p class="mt-2 text-xs text-slate-500">Incluye detalles claros para que el coordinador pueda ayudarte.</p>
+                <p class="mt-2 text-xs text-slate-500">Explica tu situación con el mayor detalle posible.</p>
             </div>
 
             <div class="pt-2 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
                 <p class="text-xs text-slate-500">
-                    Tu correo se usará como “Responder a”.
+                    Tu correo se usará como “Responder a” cuando aplique el envío por correo.
                 </p>
                 <button type="submit" class="btn-primary inline-flex items-center justify-center px-5 py-3 text-sm font-medium">
                     <i class="fas fa-paper-plane mr-2"></i>Enviar

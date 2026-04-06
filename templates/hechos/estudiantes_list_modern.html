@@ -1,138 +1,175 @@
 {% extends 'base_modern.html' %}
 {% load static %}
 
-{% block title %}Estudiantes - Hechos{% endblock %}
+{% block title %}Estudiantes — {{ user_sede.nombre|default:"Hechos" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .estudiantes-hero {
+        background: linear-gradient(135deg, #1c1917 0%, #44403c 42%, #854d0e 120%);
+        border-radius: 1rem;
+        padding: 1.75rem 1.5rem;
+        color: #fafaf9;
+        position: relative;
+        overflow: hidden;
+    }
+    .estudiantes-hero::after {
+        content: "";
+        position: absolute;
+        right: -3rem;
+        top: -2rem;
+        width: 14rem;
+        height: 14rem;
+        border-radius: 50%;
+        background: rgba(250, 250, 249, 0.06);
+        pointer-events: none;
+    }
+    .estudiantes-fab {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.25rem;
+        border-radius: 9999px;
+        background: #fafaf9;
+        color: #1c1917;
+        font-weight: 600;
+        font-size: 0.875rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .estudiantes-fab:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900">Estudiantes</h1>
-            <p class="text-gray-600 mt-1">Gestión de estudiantes del sistema</p>
+<div class="max-w-6xl mx-auto space-y-8">
+    <nav class="text-sm text-stone-600" aria-label="Miga de pan">
+        <a href="{% url 'core:dashboard' %}" class="hover:text-stone-900">Inicio</a>
+        <span class="mx-2 text-stone-400">/</span>
+        <span class="text-stone-900 font-medium">Estudiantes</span>
+    </nav>
+
+    <div class="estudiantes-hero flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="relative z-10 max-w-xl">
+            <p class="text-xs font-semibold uppercase tracking-wider text-amber-200/90">Coordinación académica</p>
+            <h1 class="mt-1 text-2xl font-bold text-white">Estudiantes</h1>
+            <p class="mt-2 text-sm text-stone-200/95">Altas, búsqueda y seguimiento por sede. Misma línea visual que el resto del módulo.</p>
             {% if user_sede %}
-                <div class="mt-2">
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                        <i class="fas fa-building mr-2"></i>{{ user_sede.nombre }}
-                    </span>
-                </div>
+                <p class="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/95">
+                    <i class="fas fa-building text-amber-200"></i>{{ user_sede.nombre }}
+                </p>
             {% endif %}
         </div>
-        <div class="flex items-center space-x-3">
-            <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+        <div class="relative z-10 flex flex-wrap items-center gap-2">
+            <a href="{% url 'core:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium border-white/30 bg-white/10 text-white hover:bg-white/15">
                 <i class="fas fa-arrow-left mr-2"></i>Volver
             </a>
-            <a href="{% url 'hechos:crear_estudiante' %}" class="btn-primary px-4 py-2 text-sm font-medium">
-                <i class="fas fa-plus mr-2"></i>Nuevo Estudiante
+            <a href="{% url 'hechos:crear_estudiante' %}" class="estudiantes-fab">
+                <i class="fas fa-user-plus text-amber-700"></i>
+                Nuevo estudiante
             </a>
         </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="card p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-users text-blue-600"></i>
-                    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
+                    <i class="fas fa-users"></i>
                 </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Total Estudiantes</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ estudiantes_con_estadisticas|length }}</p>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Total</p>
+                    <p class="text-xl font-bold text-gray-900">{{ estudiantes_con_estadisticas|length }}</p>
                 </div>
             </div>
         </div>
-
-        <div class="card p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-check-circle text-green-600"></i>
-                    </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                    <i class="fas fa-check-circle"></i>
                 </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Activos</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ estudiantes_activos|length }}</p>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Activos</p>
+                    <p class="text-xl font-bold text-gray-900">{{ estudiantes_activos|length }}</p>
                 </div>
             </div>
         </div>
-
-        <div class="card p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-graduation-cap text-purple-600"></i>
-                    </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-800">
+                    <i class="fas fa-graduation-cap"></i>
                 </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Matriculados</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ estudiantes_matriculados|length }}</p>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Matriculados</p>
+                    <p class="text-xl font-bold text-gray-900">{{ estudiantes_matriculados|length }}</p>
                 </div>
             </div>
         </div>
-
-        <div class="card p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-chart-line text-orange-600"></i>
-                    </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80 col-span-2 lg:col-span-1">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
+                    <i class="fas fa-chart-line"></i>
                 </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Promedio General</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ promedio_general|default:"0.0" }}</p>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Promedio notas</p>
+                    <p class="text-xl font-bold text-gray-900">{{ promedio_general|default:"0.0" }}</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Students List -->
-    <div class="card">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-semibold text-gray-900">Lista de Estudiantes</h2>
-            </div>
-            
-            <!-- Formulario de Búsqueda y Filtros -->
-            <form method="get" class="flex items-center space-x-4">
-                <div class="relative flex-1 max-w-md">
-                    <input type="text" name="busqueda" value="{{ busqueda }}" 
-                           placeholder="Buscar por nombre, email, código o iglesia..." 
-                           class="input w-full pl-10">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i class="fas fa-search text-gray-400"></i>
+    <div class="card border border-stone-200/80 overflow-hidden">
+        <div class="px-4 py-4 sm:px-6 border-b border-stone-200 bg-stone-50/50">
+            <h2 class="text-base font-semibold text-gray-900">Lista de estudiantes</h2>
+            <p class="text-sm text-stone-600 mt-0.5">Filtra por nombre, correo, código o estado de matrícula.</p>
+
+            <form method="get" class="mt-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+                <div class="flex-1 min-w-[12rem]">
+                    <label for="id-busqueda-est" class="sr-only">Buscar</label>
+                    <div class="relative">
+                        <input type="text" id="id-busqueda-est" name="busqueda" value="{{ busqueda }}"
+                               placeholder="Nombre, email, código, iglesia…"
+                               class="w-full rounded-lg border border-stone-300 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-500/20">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-stone-400">
+                            <i class="fas fa-search text-sm"></i>
+                        </div>
                     </div>
                 </div>
-                
-                <select name="estado" class="input">
-                    <option value="">Todos los estudiantes</option>
-                    <option value="matriculados" {% if filtro_estado == 'matriculados' %}selected{% endif %}>Matriculados</option>
-                    <option value="no_matriculados" {% if filtro_estado == 'no_matriculados' %}selected{% endif %}>No matriculados</option>
-                </select>
-                
-                <button type="submit" class="btn-primary px-4 py-2">
-                    <i class="fas fa-search mr-2"></i>Buscar
-                </button>
-                
-                {% if busqueda or filtro_estado %}
-                <a href="{% url 'hechos:estudiantes_list' %}" class="btn-outline px-4 py-2">
-                    <i class="fas fa-times mr-2"></i>Limpiar
-                </a>
-                {% endif %}
+                <div class="w-full sm:w-auto min-w-[11rem]">
+                    <label for="id-estado-filtro" class="block text-xs font-medium text-stone-600 mb-1">Estado</label>
+                    <select id="id-estado-filtro" name="estado"
+                            class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-500/20">
+                        <option value="">Todos</option>
+                        <option value="matriculados" {% if filtro_estado == 'matriculados' %}selected{% endif %}>Matriculados</option>
+                        <option value="no_matriculados" {% if filtro_estado == 'no_matriculados' %}selected{% endif %}>No matriculados</option>
+                    </select>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="submit" class="btn-primary inline-flex items-center px-4 py-2.5 text-sm font-medium">
+                        <i class="fas fa-search mr-2"></i>Buscar
+                    </button>
+                    {% if busqueda or filtro_estado %}
+                    <a href="{% url 'hechos:estudiantes_list' %}" class="btn-outline inline-flex items-center px-4 py-2.5 text-sm font-medium">
+                        <i class="fas fa-times mr-2"></i>Limpiar
+                    </a>
+                    {% endif %}
+                </div>
             </form>
-            
+
             {% if busqueda or filtro_estado %}
-            <div class="mt-3 flex items-center space-x-2">
-                <span class="text-sm text-gray-600">Filtros activos:</span>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+                <span class="text-xs font-medium text-stone-500">Filtros:</span>
                 {% if busqueda %}
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    Búsqueda: "{{ busqueda }}"
+                <span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-100">
+                    «{{ busqueda }}»
                 </span>
                 {% endif %}
                 {% if filtro_estado %}
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Estado: {{ filtro_estado|title }}
+                <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-900 ring-1 ring-emerald-100">
+                    {{ filtro_estado|title }}
                 </span>
                 {% endif %}
             </div>
@@ -140,88 +177,76 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+            <table class="min-w-full divide-y divide-stone-200">
+                <thead class="bg-stone-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Estudiante
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Código
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Contacto
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Cursos
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Estado
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Acciones
-                        </th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Estudiante</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Código</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Contacto</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Cursos</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Estado</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Acciones</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="divide-y divide-stone-100 bg-white">
                     {% for estudiante_data in estudiantes_con_estadisticas %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <i class="fas fa-user text-blue-600"></i>
+                    <tr class="transition-colors hover:bg-stone-50/80">
+                        <td class="px-4 py-4 sm:px-6">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-600">
+                                    <i class="fas fa-user text-sm"></i>
                                 </div>
-                                <div class="ml-4">
-                                    <div class="text-sm font-medium text-gray-900">
-                                        {{ estudiante_data.estudiante.user.get_full_name }}
-                                    </div>
-                                    <div class="text-sm text-gray-500">{{ estudiante_data.estudiante.user.email }}</div>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-gray-900 truncate">{{ estudiante_data.estudiante.user.get_full_name }}</p>
+                                    <p class="text-xs text-stone-500 truncate">{{ estudiante_data.estudiante.user.email }}</p>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ estudiante_data.estudiante.codigo_estudiante }}</div>
+                        <td class="px-4 py-4 text-sm text-stone-800 tabular-nums sm:px-6">{{ estudiante_data.estudiante.codigo_estudiante|default:"—" }}</td>
+                        <td class="px-4 py-4 text-sm sm:px-6">
+                            <p class="text-stone-800">{{ estudiante_data.estudiante.telefono_emergencia|default:"—" }}</p>
+                            <p class="text-xs text-stone-500 truncate max-w-[12rem]">{{ estudiante_data.estudiante.contacto_emergencia|default:"" }}</p>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ estudiante_data.estudiante.telefono_emergencia|default:"No registrado" }}</div>
-                            <div class="text-sm text-gray-500">{{ estudiante_data.estudiante.contacto_emergencia|default:"Sin contacto de emergencia" }}</div>
+                        <td class="px-4 py-4 text-sm sm:px-6">
+                            <span class="font-medium text-gray-900">{{ estudiante_data.total_matriculas }}</span>
+                            <span class="text-stone-500"> · </span>
+                            <span class="text-stone-600">{{ estudiante_data.matriculas_activas }} activas</span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ estudiante_data.total_matriculas }} cursos</div>
-                            <div class="text-sm text-gray-500">{{ estudiante_data.matriculas_activas }} activos</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-4 py-4 sm:px-6">
                             {% if estudiante_data.estudiante.is_active %}
-                                <span class="badge badge-success">Activo</span>
+                                <span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-100">Activo</span>
                             {% else %}
-                                <span class="badge badge-secondary">Inactivo</span>
+                                <span class="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600 ring-1 ring-stone-200/80">Inactivo</span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div class="flex items-center space-x-2">
-                                <a href="{% url 'hechos:detalle_estudiante' estudiante_data.estudiante.id %}" 
-                                   class="text-blue-600 hover:text-blue-900" title="Ver detalles">
-                                    <i class="fas fa-eye"></i>
+                        <td class="px-4 py-4 text-right sm:px-6">
+                            <div class="inline-flex items-center justify-end gap-1">
+                                <a href="{% url 'hechos:detalle_estudiante' estudiante_data.estudiante.id %}"
+                                   class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 hover:text-amber-800 transition-colors"
+                                   title="Ver detalle">
+                                    <i class="fas fa-eye text-sm"></i>
                                 </a>
-                                <a href="{% url 'hechos:editar_estudiante' estudiante_data.estudiante.id %}" 
-                                   class="text-green-600 hover:text-green-900" title="Editar">
-                                    <i class="fas fa-edit"></i>
+                                <a href="{% url 'hechos:editar_estudiante' estudiante_data.estudiante.id %}"
+                                   class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 hover:text-emerald-800 transition-colors"
+                                   title="Editar">
+                                    <i class="fas fa-pen text-sm"></i>
                                 </a>
-                                <a href="{% url 'hechos:eliminar_estudiante' estudiante_data.estudiante.id %}" 
-                                   class="text-red-600 hover:text-red-900" title="Eliminar">
-                                    <i class="fas fa-trash"></i>
+                                <a href="{% url 'hechos:eliminar_estudiante' estudiante_data.estudiante.id %}"
+                                   class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors"
+                                   title="Eliminar">
+                                    <i class="fas fa-trash text-sm"></i>
                                 </a>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center">
-                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <i class="fas fa-users text-gray-400 text-2xl"></i>
+                        <td colspan="6" class="px-6 py-14 text-center">
+                            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-stone-100 text-stone-400">
+                                <i class="fas fa-users text-2xl"></i>
                             </div>
-                            <h3 class="text-lg font-medium text-gray-900 mb-2">No hay estudiantes</h3>
-                            <p class="text-gray-600">No se encontraron estudiantes en el sistema.</p>
+                            <p class="mt-4 text-base font-semibold text-gray-900">No hay estudiantes</p>
+                            <p class="mt-1 text-sm text-stone-600 max-w-sm mx-auto">Prueba otros filtros o registra un estudiante nuevo.</p>
                         </td>
                     </tr>
                     {% endfor %}

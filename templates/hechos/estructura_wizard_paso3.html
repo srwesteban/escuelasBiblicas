@@ -1,0 +1,65 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Paso 3: Horario - Hechos{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="card p-6 sm:p-8">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-xs font-medium text-stone-500">Paso 3 de {{ total_steps }}</p>
+                <h1 class="text-2xl font-bold text-slate-900 mt-1">Horario por día</h1>
+                <p class="text-sm text-slate-600 mt-2">
+                    {% if escuela %}{{ escuela.nombre }} — {% endif %}{{ edicion.linea_identificacion_pedagogica }}
+                </p>
+                <p class="text-sm text-slate-600 mt-2">
+                    Cada día puede tener su propia hora (formato de 12 horas).
+                </p>
+            </div>
+            <a href="{% url 'hechos:estructura_configurar' edicion.id 2 %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
+                <i class="fas fa-arrow-left mr-2"></i>Atrás
+            </a>
+        </div>
+
+        <form method="post" class="mt-8 space-y-5">
+            {% csrf_token %}
+            {% for row in dias_rows %}
+            <div class="rounded-xl border border-stone-200 p-5">
+                <p class="text-sm font-semibold text-slate-900 mb-4">{{ row.label }}</p>
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Hora</label>
+                        <select name="hora_12_{{ row.dia_int }}" class="rounded-xl border-2 border-stone-300 bg-stone-50 px-3 py-2.5 text-slate-900 text-sm min-w-[4.5rem]">
+                            {% for h in horas_12 %}
+                            <option value="{{ h }}" {% if h == row.sel_h12 %}selected{% endif %}>{{ h }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Minutos</label>
+                        <select name="minuto_{{ row.dia_int }}" class="rounded-xl border-2 border-stone-300 bg-stone-50 px-3 py-2.5 text-slate-900 text-sm min-w-[4.5rem]">
+                            {% for m in row.minutos_opts %}
+                            <option value="{{ m }}" {% if m == row.sel_mm %}selected{% endif %}>{{ m|stringformat:"02d" }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">&nbsp;</label>
+                        <select name="ampm_{{ row.dia_int }}" class="rounded-xl border-2 border-stone-300 bg-stone-50 px-3 py-2.5 text-slate-900 text-sm min-w-[5.5rem]">
+                            <option value="AM" {% if row.sel_ampm == "AM" %}selected{% endif %}>a. m.</option>
+                            <option value="PM" {% if row.sel_ampm == "PM" %}selected{% endif %}>p. m.</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            <div class="flex justify-end pt-2">
+                <button type="submit" class="btn-primary inline-flex items-center justify-center px-6 py-3 text-sm font-medium">
+                    Siguiente
+                    <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

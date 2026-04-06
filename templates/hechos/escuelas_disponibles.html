@@ -7,7 +7,6 @@
     <div>
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Escuelas disponibles</h1>
-            <p class="text-gray-600 mt-1">Explora las escuelas disponibles y solicita tu matrícula.</p>
             {% if user_sede %}
             <p class="text-sm text-stone-600 mt-2">
                 <i class="fas fa-location-dot mr-1"></i>Sede actual: {{ user_sede.nombre }}
@@ -16,39 +15,29 @@
         </div>
     </div>
 
-    <div class="card p-5 sm:p-6">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    {% if escuelas %}
+    <div class="card p-5 border border-stone-200/80">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h2 class="text-base sm:text-lg font-semibold text-slate-900">Quejas y reclamos</h2>
-                {% if coordinador_pedagogico %}
-                    <p class="text-sm text-slate-600 mt-1">
-                        Coordinador pedagógico: <span class="font-medium text-slate-900">{{ coordinador_pedagogico.user.get_full_name|default:coordinador_pedagogico.user.email }}</span>
-                    </p>
-                {% else %}
-                    <p class="text-sm text-slate-600 mt-1">
-                        No hay coordinador pedagógico configurado para tu sede.
-                    </p>
-                {% endif %}
+                <h2 class="text-base font-semibold text-gray-900">Buscar escuelas</h2>
+                <p class="text-sm text-stone-600 mt-0.5">Nombre de la escuela, nivel, curso, grupo o profesor.</p>
             </div>
-            <div class="flex flex-col sm:flex-row gap-2">
-                <a href="{% url 'hechos:quejas_reclamos' %}" class="btn-primary inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
-                    <i class="fas fa-envelope mr-2"></i>Enviar queja o reclamo
-                </a>
-                {% if coordinador_pedagogico and coordinador_pedagogico.user.email %}
-                    <a
-                        href="mailto:{{ coordinador_pedagogico.user.email }}?subject={{ 'Contacto estudiante - ' |add:user_sede.nombre|urlencode }}"
-                        class="btn-outline inline-flex items-center justify-center px-4 py-3 text-sm font-medium"
-                    >
-                        <i class="fas fa-paper-plane mr-2"></i>Contactar coordinador pedagógico: {{ coordinador_pedagogico.user.first_name|default:'Nombre' }}
-                    </a>
-                {% endif %}
+            <div class="text-sm text-stone-600">
+                <span class="font-semibold text-gray-900" id="escuelas-disponibles-visible">{{ escuelas|length }}</span>
+                <span> de {{ escuelas|length }}</span>
             </div>
         </div>
+        <div class="mt-4">
+            <label for="filtro-escuelas-disponibles" class="sr-only">Buscar escuelas</label>
+            <input type="search" id="filtro-escuelas-disponibles" placeholder="Ej. Primeros pasos, Juan Pérez, grupo A…"
+                   class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-500/20">
+        </div>
     </div>
+    {% endif %}
 
-    <div class="space-y-6">
+    <div class="space-y-6" id="escuelas-disponibles-grid">
         {% for item in escuelas %}
-            <div class="card p-6">
+            <div class="card p-6 js-escuela-disponible" data-search="{{ item.search_text|escape }}">
                 <div class="flex items-start mb-4">
                     <div class="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center">
                         <i class="fas fa-school text-stone-700 text-xl"></i>
@@ -70,9 +59,7 @@
                                     <h3 class="text-base font-semibold text-gray-900">Nivel {{ nivel_item.nivel.nombre }}</h3>
                                     <p class="text-sm text-gray-600 mt-1">{{ nivel_item.curso.nombre }}</p>
                                 </div>
-                                {% if nivel_item.ya_matriculado %}
-                                    <span class="badge badge-success">Activa</span>
-                                {% elif nivel_item.solicitud %}
+                                {% if nivel_item.solicitud %}
                                     {% if nivel_item.solicitud.estado == 'pendiente' %}
                                         <span class="badge badge-warning">Pendiente</span>
                                     {% elif nivel_item.solicitud.estado == 'aprobada' %}
@@ -109,11 +96,7 @@
                             </div>
 
                             <div class="mt-4">
-                                {% if nivel_item.ya_matriculado %}
-                                    <div class="btn-secondary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
-                                        <i class="fas fa-circle-check mr-2"></i>Matriculado · entra desde Mis matrículas
-                                    </div>
-                                {% elif nivel_item.puede_solicitar %}
+                                {% if nivel_item.puede_solicitar %}
                                     <form method="post" action="{% url 'hechos:solicitar_matricula' nivel_item.edicion.id %}">
                                         {% csrf_token %}
                                         <button type="submit" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
@@ -141,11 +124,52 @@
                     <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-school text-gray-400 text-2xl"></i>
                     </div>
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">No hay escuelas disponibles</h3>
-                    <p class="text-gray-600">Cuando existan grupos activos aparecerán aquí para solicitar matrícula.</p>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No hay escuelas nuevas para solicitar</h3>
+                    <p class="text-gray-600">O ya estás matriculado en todas las escuelas con grupos activos en tu sede, o aún no hay oferta. Revisa <strong>Mis escuelas</strong> para lo que ya tienes aprobado o activo.</p>
                 </div>
             </div>
         {% endfor %}
+        <div class="hidden card p-12 text-center border border-dashed border-stone-300 bg-stone-50/50" id="escuelas-disponibles-sin-coincidencias">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-search text-gray-400 text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Sin coincidencias</h3>
+            <p class="text-gray-600 text-sm">Prueba otro término o borra el buscador.</p>
+        </div>
     </div>
 </div>
+
+{% if escuelas %}
+<script>
+(function () {
+    var grid = document.getElementById('escuelas-disponibles-grid');
+    var input = document.getElementById('filtro-escuelas-disponibles');
+    var countEl = document.getElementById('escuelas-disponibles-visible');
+    var emptySearch = document.getElementById('escuelas-disponibles-sin-coincidencias');
+    if (!grid || !input) return;
+
+    var cards = Array.prototype.slice.call(grid.querySelectorAll('.js-escuela-disponible'));
+
+    function norm(s) {
+        return (s || '').toString().trim().toLowerCase();
+    }
+
+    function apply() {
+        var q = norm(input.value);
+        var n = 0;
+        for (var i = 0; i < cards.length; i++) {
+            var el = cards[i];
+            var hay = !q || norm(el.getAttribute('data-search')).indexOf(q) !== -1;
+            el.classList.toggle('hidden', !hay);
+            if (hay) n++;
+        }
+        if (countEl) countEl.textContent = String(n);
+        if (emptySearch) emptySearch.classList.toggle('hidden', n !== 0 || cards.length === 0);
+    }
+
+    input.addEventListener('input', apply);
+    apply();
+})();
+</script>
+{% endif %}
 {% endblock %}

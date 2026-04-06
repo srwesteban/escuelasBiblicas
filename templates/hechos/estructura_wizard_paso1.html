@@ -1,0 +1,74 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Paso 1: Período y ciclo - Hechos{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="card p-6 sm:p-8">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-xs font-medium text-stone-500">Paso 1 de {{ total_steps }}</p>
+                <h1 class="text-2xl font-bold text-slate-900 mt-1">Período, ciclo y grupo</h1>
+                <p class="text-sm text-slate-600 mt-2">
+                    {% if escuela %}{{ escuela.nombre }} — {% endif %}{{ edicion.linea_identificacion_pedagogica }}
+                </p>
+                <p class="text-sm text-slate-600 mt-2">
+                    Define las fechas de la edición y el ciclo escolar (A o B) con su número de grupo. El año académico se toma del año de la fecha de inicio.
+                </p>
+            </div>
+            <a href="{% url 'hechos:estructura_ediciones' %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
+                <i class="fas fa-xmark mr-2"></i>Salir
+            </a>
+        </div>
+
+        <form method="post" class="mt-8 space-y-6">
+            {% csrf_token %}
+            <div class="rounded-xl border border-stone-200 p-5 space-y-5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="fecha_inicio" class="block text-sm font-medium text-stone-800 mb-1">Fecha de inicio</label>
+                        <input type="date" name="fecha_inicio" id="fecha_inicio" required
+                               value="{{ w_fecha_inicio }}"
+                               class="w-full rounded-xl border-2 border-stone-300 bg-stone-50 px-4 py-3 text-slate-900 text-sm focus:border-stone-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200">
+                    </div>
+                    <div>
+                        <label for="fecha_fin" class="block text-sm font-medium text-stone-800 mb-1">Fecha de fin</label>
+                        <input type="date" name="fecha_fin" id="fecha_fin" required
+                               value="{{ w_fecha_fin }}"
+                               class="w-full rounded-xl border-2 border-stone-300 bg-stone-50 px-4 py-3 text-slate-900 text-sm focus:border-stone-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200">
+                    </div>
+                </div>
+
+                <div>
+                    <p class="block text-sm font-medium text-stone-800 mb-3">Ciclo</p>
+                    <div class="flex flex-wrap gap-3">
+                        <label class="flex items-center gap-2 rounded-xl border border-stone-200 px-4 py-3 cursor-pointer hover:bg-stone-50 has-[:checked]:border-amber-400 has-[:checked]:bg-amber-50/50">
+                            <input type="radio" name="ciclo" value="A" class="h-4 w-4 border-stone-400 text-amber-700 focus:ring-amber-500" {% if w_ciclo == 'A' %}checked{% endif %}>
+                            <span class="text-sm font-medium text-slate-900">Ciclo A</span>
+                        </label>
+                        <label class="flex items-center gap-2 rounded-xl border border-stone-200 px-4 py-3 cursor-pointer hover:bg-stone-50 has-[:checked]:border-amber-400 has-[:checked]:bg-amber-50/50">
+                            <input type="radio" name="ciclo" value="B" class="h-4 w-4 border-stone-400 text-amber-700 focus:ring-amber-500" {% if w_ciclo == 'B' %}checked{% endif %}>
+                            <span class="text-sm font-medium text-slate-900">Ciclo B</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="grupo" class="block text-sm font-medium text-stone-800 mb-1">Número de grupo</label>
+                    <input type="number" name="grupo" id="grupo" min="1" max="999" required
+                           value="{{ w_grupo }}"
+                           class="w-full max-w-[12rem] rounded-xl border-2 border-stone-300 bg-stone-50 px-4 py-3 text-slate-900 text-sm focus:border-stone-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200">
+                    <p class="text-xs text-stone-500 mt-1">Debe coincidir con la identificación del grupo en tu sede (1, 2, 3…).</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit" class="btn-primary inline-flex items-center justify-center px-6 py-3 text-sm font-medium">
+                    Siguiente
+                    <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

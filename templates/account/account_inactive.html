@@ -1,0 +1,81 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Cuenta inactiva - HechosHub{% endblock %}
+{% block top_navigation %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .inactive-shell {
+        background: #ffffff;
+    }
+
+    .inactive-brand {
+        height: 4.25rem;
+        width: auto;
+        margin: 0 auto;
+    }
+
+    .inactive-card {
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
+    }
+
+    .inactive-link {
+        color: #111827;
+    }
+
+    .inactive-link:hover {
+        color: #57534e;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="inactive-shell min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+        <div class="text-center">
+            <img src="{% static 'img/logos/logohechoshub.svg' %}" alt="HechosHub" class="inactive-brand">
+            <p class="mt-2 text-sm text-slate-600">Un lugar para todos.</p>
+        </div>
+
+        <div class="card inactive-card p-8 text-center">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+                <i class="fas fa-pause-circle text-2xl" aria-hidden="true"></i>
+            </div>
+            <h1 class="mt-5 text-xl font-semibold text-slate-900">Cuenta inactiva</h1>
+            <p class="mt-3 text-sm leading-relaxed text-slate-600">
+                Tu cuenta existe pero aún no está habilitada para iniciar sesión.
+                Si acabas de registrarte, un administrador puede necesitar aprobar tu acceso.
+            </p>
+            <div class="mt-6 rounded-xl border border-amber-100 bg-amber-50/80 px-4 py-3 text-left text-sm text-amber-900">
+                <p class="font-medium">¿Qué puedes hacer?</p>
+                <ul class="mt-2 list-disc space-y-1 pl-5 text-amber-900/90">
+                    <li>Espera la confirmación del equipo de tu sede o distrito.</li>
+                    <li>Si crees que es un error, contacta a quien coordina HechosHub en tu iglesia.</li>
+                </ul>
+            </div>
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <a href="{% url 'account_login' %}"
+                   class="btn-primary inline-flex justify-center items-center py-2.5 px-4 text-sm font-medium">
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    Volver a iniciar sesión
+                </a>
+                <a href="{% url 'core:inicio' %}"
+                   class="inline-flex justify-center items-center rounded-xl border border-slate-200 bg-white py-2.5 px-4 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 inactive-link">
+                    <i class="fas fa-home mr-2"></i>
+                    Ir al inicio
+                </a>
+            </div>
+            <p class="mt-6 text-sm text-slate-600">
+                ¿Necesitas otra cuenta?
+                <a href="{% url 'account_signup' %}" class="font-semibold inactive-link">Registrarse</a>
+            </p>
+        </div>
+
+        <div class="text-center">
+            <p class="text-sm text-slate-600">© 2026 HechosHub.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
