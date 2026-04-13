@@ -94,4 +94,34 @@ Credenciales de prueba: ver `CREDENCIALES_USUARIOS.md` y comentarios en `seed_lo
 
 ---
 
-Si algo falla al conectar, revisa en orden: URI del **Session pooler**, password codificada, `sslmode=require` en la URL, y que el proyecto Supabase esté activo.
+## 8. Si “falla” algo: git pull vs base de datos
+
+### `git pull`
+
+- Si el mensaje es **`Already up to date`**, está bien: no hay commits nuevos en el remoto.
+- Si falla el pull, suele ser por:
+  - **Cambios locales sin commitear** → `git status`; guarda o haz stash: `git stash -u`, luego `git pull`, luego `git stash pop`.
+  - **Rama distinta** → `git branch` y asegúrate de estar en `001-escuelas-biblicas`: `git checkout 001-escuelas-biblicas && git pull`.
+  - **HTTPS sin permisos** → GitHub pide token o SSH; configura credenciales o usa `git@github.com:...`.
+  - **Conflicto de merge** → Git indica archivos en conflicto; resuélvelos y `git commit`.
+
+### Error al arrancar Django (no es `git pull`)
+
+Mensajes como **`FATAL: Tenant or user not found`** al hacer `runserver` o `migrate` vienen del **pooler de Supabase**, no de Git.
+
+Significa casi siempre que el **`DATABASE_URL` no coincide con tu proyecto**:
+
+1. Abre el dashboard del proyecto → **Connect** → **Session pooler**.
+2. Copia la URI **entera** que muestra Supabase (host `aws-0-**REGION**.pooler.supabase.com`, usuario `postgres.**project_ref**`).
+3. **No** uses una región copiada de un ejemplo (`us-east-1`, etc.) si no es la que muestra **tu** panel: una región incorrecta produce exactamente `Tenant or user not found`.
+4. Vuelve a codificar la contraseña en la URL si tiene caracteres especiales (apartado 3).
+
+Mientras ajustas `.env`, puedes probar solo SQLite comentando o quitando `DATABASE_URL` y usando `DB_ENGINE=sqlite` / `DB_NAME=db.sqlite3` como en `.env.example`.
+
+### Aviso de Homebrew en la terminal (`/opt/homebrew/bin/brew`)
+
+Si aparece `no such file or directory: /opt/homebrew/bin/brew` en macOS Intel, Homebrew suele estar en `/usr/local/bin/brew`. Revisa tu `~/.zprofile` o `~/.zshrc` y corrige la ruta, o instala Homebrew en la ruta que espera el archivo.
+
+---
+
+Si algo falla al conectar, revisa en orden: URI del **Session pooler** (copiada del panel, región correcta), usuario `postgres.<ref>`, password codificada, `sslmode=require` en la URL, y que el proyecto Supabase esté activo.
