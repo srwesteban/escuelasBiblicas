@@ -24,6 +24,48 @@
         background: rgba(255, 255, 255, 0.06);
         pointer-events: none;
     }
+    .student-photo-trigger {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        cursor: zoom-in;
+    }
+    .student-photo-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.8);
+    }
+    .student-photo-modal[hidden] {
+        display: none !important;
+    }
+    .student-photo-modal__img {
+        max-width: min(92vw, 56rem);
+        max-height: 88vh;
+        border-radius: 0.75rem;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    }
+    .student-photo-modal__close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 9999px;
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        background: rgba(15, 23, 42, 0.5);
+        color: #fff;
+        font-size: 1.4rem;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
 </style>
 {% endblock %}
 
@@ -75,10 +117,30 @@
                     {% with e=row.estudiante %}
                     <tr class="hover:bg-stone-50/60">
                         <td class="px-4 py-3">
-                            <p class="font-medium text-stone-900">{{ e.user.get_full_name|default:e.user.email }}</p>
-                            {% if e.user.email %}
-                            <p class="text-xs text-stone-500">{{ e.user.email }}</p>
-                            {% endif %}
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="h-10 w-10 shrink-0 rounded-full overflow-hidden bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                    {% if e.user.avatar %}
+                                    <button
+                                        type="button"
+                                        class="student-photo-trigger h-full w-full"
+                                        data-photo-trigger
+                                        data-photo-src="{{ e.user.avatar.url }}"
+                                        data-photo-alt="{{ e.user.get_full_name|default:e.user.email }}">
+                                        <img src="{{ e.user.avatar.url }}" alt="{{ e.user.get_full_name|default:e.user.email }}" class="h-full w-full object-cover">
+                                    </button>
+                                    {% else %}
+                                    <span class="text-sm font-semibold">
+                                        {{ e.user.get_full_name|default:e.user.email|slice:":1"|upper }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="font-medium text-stone-900 truncate">{{ e.user.get_full_name|default:e.user.email }}</p>
+                                    {% if e.user.email %}
+                                    <p class="text-xs text-stone-500 truncate">{{ e.user.email }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </td>
                         <td class="px-4 py-3 text-right align-middle">
                             {% if row.promedio_pct is not None %}
@@ -110,4 +172,55 @@
         {% endif %}
     </div>
 </div>
+
+<div id="student-photo-modal" class="student-photo-modal" hidden aria-hidden="true">
+    <button type="button" class="student-photo-modal__close" data-photo-close aria-label="Cerrar imagen">&times;</button>
+    <img id="student-photo-modal-img" class="student-photo-modal__img" src="" alt="">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+    const modal = document.getElementById('student-photo-modal');
+    const modalImg = document.getElementById('student-photo-modal-img');
+    if (!modal || !modalImg) return;
+
+    function openModal(src, alt) {
+        modalImg.src = src;
+        modalImg.alt = alt || 'Foto de estudiante';
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeModal() {
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+        modalImg.src = '';
+        modalImg.alt = '';
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    document.querySelectorAll('[data-photo-trigger]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const src = btn.getAttribute('data-photo-src');
+            const alt = btn.getAttribute('data-photo-alt') || '';
+            if (src) openModal(src, alt);
+        });
+    });
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal || event.target.hasAttribute('data-photo-close')) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.hidden) {
+            closeModal();
+        }
+    });
+})();
+</script>
 {% endblock %}

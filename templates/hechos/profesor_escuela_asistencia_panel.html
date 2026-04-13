@@ -1,0 +1,13 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Asistencia — {{ escuela.nombre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="card p-8 flex items-center justify-center min-h-[18rem]">
+        <a href="{% url 'hechos:profesor_escuela_asistencia_excel' escuela.id %}" class="btn-primary inline-flex items-center px-5 py-2.5 text-sm font-medium">
+            <i class="fas fa-file-excel mr-2"></i>Descargar excel
+        </a>
+    </div>
+</div>
+{% endblock %}

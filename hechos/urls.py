@@ -128,6 +128,16 @@ urlpatterns = [
         name='profesor_escuela_estudiantes',
     ),
     path(
+        'profesor/escuelas/<int:escuela_id>/asistencia/',
+        views.profesor_escuela_asistencia_panel,
+        name='profesor_escuela_asistencia_panel',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/asistencia/excel/',
+        views.profesor_escuela_asistencia_excel,
+        name='profesor_escuela_asistencia_excel',
+    ),
+    path(
         'profesor/escuelas/<int:escuela_id>/estudiantes/<int:estudiante_id>/notas/',
         views.profesor_escuela_estudiante_notas,
         name='profesor_escuela_estudiante_notas',

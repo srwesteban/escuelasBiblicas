@@ -623,6 +623,10 @@
         margin-bottom: 0;
     }
 
+    .inicio-modal-prose ul {
+        margin: 0;
+    }
+
     @media (max-width: 1023px) {
         body:has(#inicio-ogl-particles) > .min-h-full > .flex.flex-1.min-h-0.min-w-0 > main > .inicio-main-grid {
             flex: 0 1 auto;
@@ -816,23 +820,23 @@
                 </button>
                 <button type="button"
                     class="inicio-school-card inicio-school-card--intermedia"
-                    data-school-title="Escuela intermedia"
+                    data-school-title="Escuelas de formación integral Hechos"
                     data-desc-template="inicio-desc-intermedia">
                     <span class="inicio-school-card__scrim" aria-hidden="true"></span>
                     <span class="inicio-school-card__text">
-                        <span class="inicio-school-card__title">Escuela intermedia</span>
-                        <span class="inicio-school-card__teaser">Profundiza en las Escrituras y en la vida en comunidad.</span>
+                        <span class="inicio-school-card__title">Formación integral Hechos</span>
+                        <span class="inicio-school-card__teaser">Sanidad, liderazgo y especialidades ministeriales en 4 niveles.</span>
                         <span class="inicio-school-card__hint">Toca para ver más</span>
                     </span>
                 </button>
                 <button type="button"
                     class="inicio-school-card inicio-school-card--avanzada"
-                    data-school-title="Escuela avanzada"
+                    data-school-title="Formación superior y concilio"
                     data-desc-template="inicio-desc-avanzada">
                     <span class="inicio-school-card__scrim" aria-hidden="true"></span>
                     <span class="inicio-school-card__text">
-                        <span class="inicio-school-card__title">Escuela avanzada</span>
-                        <span class="inicio-school-card__teaser">Formación más profunda para servir y enseñar.</span>
+                        <span class="inicio-school-card__title">Formación superior</span>
+                        <span class="inicio-school-card__teaser">Escuela de obreros, liderazgo global, seminario e ISUM.</span>
                         <span class="inicio-school-card__hint">Toca para ver más</span>
                     </span>
                 </button>
@@ -847,33 +851,82 @@
 <template id="inicio-desc-primeros-pasos">
     <div class="inicio-modal-prose">
         <p>
-            <strong>Primeros pasos</strong> es un espacio pensado para quienes dan sus primeros pasos en el seguimiento a Jesús.
-            Acompañamos con enseñanza clara, comunidad y el ejemplo de caminar hacia la luz, como enseña la Palabra.
+            <strong>Primeros pasos:</strong>
         </p>
-        <p>
-            Aquí encontrarás fundamentos de la fe, hábitos sencillos de oración y lectura bíblica, y un ambiente donde hacer preguntas y crecer sin juicio.
-        </p>
+        <ul class="list-disc pl-5 space-y-2">
+            <li>
+                <strong>Crecimiento espiritual:</strong> aquí aprenderás a desarrollar relaciones significativas, basadas en nuestra comunidad cristiana, descubrirás el fundamento bíblico para la transformación de nuestra vida y nuestro crecimiento espiritual en temas como: la oración, la Biblia, la iglesia, finanzas, etc.
+            </li>
+            <li>
+                <strong>Encuentro con Jesús:</strong> este es un tiempo maravilloso apartado de todo que nos pueda distraer, para poder experimentar la presencia y el poder de Dios a través de conferencias, talleres, administraciones. Que servirán como un camino hacia tu encuentro personal con Dios.
+            </li>
+        </ul>
     </div>
 </template>
 
 <template id="inicio-desc-intermedia">
     <div class="inicio-modal-prose">
         <p>
-            La <strong>escuela intermedia</strong> profundiza en la narrativa bíblica, doctrinas esenciales y vida práctica en la iglesia local.
+            <strong>ESCUELAS DE FORMACIÓN INTEGRAL HECHOS</strong>
         </p>
         <p>
-            Es el siguiente paso para afianzar lo aprendido y participar de manera más activa en el cuerpo de Cristo.
+            <strong>PRIMER NIVEL:</strong>
         </p>
+        <ul class="list-disc pl-5 space-y-2">
+            <li><strong>Sanidad integral:</strong> aprenderás a identificar y sanar las raíces espirituales y emocionales que debes sanar para tener una vida plena en Cristo.</li>
+            <li><strong>Liberación:</strong> principios espirituales para conocer nuestra posición en Cristo y la victoria ganada en la cruz del calvario, frente a todas las amenazas y asechanzas del enemigo.</li>
+            <li><strong>Transformación para jóvenes, mujeres y hombres:</strong> estas son tres escuelas distintas, que según tu género o edad podrás tomar para tener herramientas que te hagan corregir y desarrollar el carácter de Cristo en ti.</li>
+        </ul>
+        <p>
+            <strong>SEGUNDO NIVEL:</strong>
+        </p>
+        <ul class="list-disc pl-5 space-y-2">
+            <li><strong>Pasión por servir:</strong> principios bíblicos para desarrollar el espíritu de servicio que Dios desea en cada uno de nosotros.</li>
+            <li><strong>Visión grupos hechos:</strong> aprenderás a conocer la estructura, el manejo y el avance en nuestros grupos en las casas.</li>
+        </ul>
+        <p>
+            <strong>TERCER NIVEL:</strong>
+        </p>
+        <ul class="list-disc pl-5 space-y-2">
+            <li><strong>Nuevo lead:</strong> el llamado y la vida espiritual en un líder, características fundamentales para un líder espiritual y relacional, herramientas para trabajo en equipo.</li>
+            <li><strong>Liderazgo avanzado:</strong> liderazgo espiritual y transformador, herramientas prácticas para mentorear, supervisar, formar nuevos líderes y grupos para la multiplicación y expansión del reino.</li>
+        </ul>
+        <p>
+            <strong>NIVEL 4: ESPECIALIDADES MINISTERIALES</strong>
+        </p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>Intercesión</li>
+            <li>Worship</li>
+            <li>Youth</li>
+            <li>Guías espirituales</li>
+            <li>Maestros</li>
+            <li>Consejeria</li>
+            <li>Misiones y evangelismo</li>
+            <li>Generaciones</li>
+            <li>Staff: sonido, media, servidores.</li>
+        </ul>
     </div>
 </template>
 
 <template id="inicio-desc-avanzada">
     <div class="inicio-modal-prose">
         <p>
-            La <strong>escuela avanzada</strong> está orientada a formar líderes y sirvientes con mayor profundidad exegética y pastoral.
+            <strong>FORMACIÓN SUPERIOR</strong>
         </p>
+        <ul class="list-disc pl-5 space-y-2">
+            <li>Escuela de obreros</li>
+        </ul>
         <p>
-            Incluye estudio detallado de libros bíblicos, principios de enseñanza y preparación para servir en diferentes ministerios.
+            <strong>FORMACIÓN CONCILIO ASAMBLEAS DE DIOS:</strong>
+        </p>
+        <ul class="list-disc pl-5 space-y-2">
+            <li>Escuela de liderazgo global</li>
+            <li>Seminario bíblico</li>
+            <li>Licenciatura o ISUM</li>
+        </ul>
+        <p>
+            <strong>DURACIÓN DEL PROCESO</strong><br>
+            El proceso se desarrolla en ciclos (escuelas) con una duración aproximada de 4 meses cada uno, realizándose mínimo dos ciclos por año. Inspirados en el modelo de Jesús, quien formó a sus discípulos durante aproximadamente tres años, buscamos que cada persona sea equipada para liderar y cumplir su propósito en Dios.
         </p>
     </div>
 </template>

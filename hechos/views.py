@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 import os
 
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, JsonResponse, HttpResponse
 from django.db.models import Q, Count, Avg, Exists, OuterRef, Sum
 from django.db import IntegrityError
 from django.db import models
@@ -47,6 +47,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, date, time as dt_time
 from decimal import Decimal
 from urllib.parse import quote
+from django.utils.text import slugify
 
 User = get_user_model()
 
@@ -1914,6 +1915,12 @@ def clases_list(request):
 
         escuelas_feed = []
         for escuela in escuelas_asignadas:
+            ediciones_qs = EdicionCurso.objects.filter(
+                curso__ruta_estudio__escuela=escuela,
+                curso__sede=user_sede,
+                is_active=True,
+                curso__is_active=True,
+            )
             n_ed = EdicionCurso.objects.filter(
                 curso__ruta_estudio__escuela=escuela,
                 curso__sede=user_sede,
@@ -1935,12 +1942,44 @@ def clases_list(request):
                 .distinct()
                 .count()
             )
+            edicion_referencia = (
+                ediciones_qs.prefetch_related('estructura_horarios')
+                .order_by('-fecha_inicio')
+                .first()
+            )
+            horario_ui = ""
+            aula_ui = ""
+            if edicion_referencia:
+                horarios = list(edicion_referencia.estructura_horarios.all())
+                if horarios:
+                    horarios = sorted(horarios, key=lambda h: (h.dia_semana, h.hora))
+                    horario_ui = " · ".join(
+                        f"{h.get_dia_semana_display()} {h.hora.strftime('%I:%M %p').lstrip('0')}"
+                        for h in horarios
+                    )
+                elif edicion_referencia.horario:
+                    horario_ui = edicion_referencia.horario
+                aula_ui = (edicion_referencia.aula or "").strip()
+            if not aula_ui:
+                salon_asignado = (
+                    Salon.objects.filter(
+                        sede=user_sede,
+                        escuela=escuela,
+                        is_active=True,
+                    )
+                    .order_by('nombre')
+                    .first()
+                )
+                if salon_asignado:
+                    aula_ui = salon_asignado.nombre
             escuelas_feed.append(
                 {
                     'escuela': escuela,
                     'num_ediciones': n_ed,
                     'num_clases': n_clases,
                     'num_estudiantes': n_est,
+                    'horario_ui': horario_ui,
+                    'aula_ui': aula_ui,
                 }
             )
         return render(
@@ -2213,6 +2252,143 @@ def profesor_escuela_estudiante_notas(request, escuela_id, estudiante_id):
             'volver_escuela_url': volver_escuela,
         },
     )
+
+
+@login_required
+def profesor_escuela_asistencia_panel(request, escuela_id):
+    """Panel de asistencia por escuela (base para futuras utilidades como descarga Excel)."""
+    pack, redir = _profesor_escuela_docente(request, escuela_id)
+    if redir:
+        return redir
+    user_sede, escuela, _prof = pack
+    clases = list(
+        Clase.objects.filter(
+            sede=user_sede,
+            is_active=True,
+            edicion_curso__curso__ruta_estudio__escuela=escuela,
+        )
+        .select_related('edicion_curso')
+        .order_by('fecha_clase', 'numero_clase')
+    )
+    volver_url = f"{reverse('hechos:mis_escuelas_profesor')}?escuela={escuela.id}"
+    return render(
+        request,
+        'hechos/profesor_escuela_asistencia_panel.html',
+        {
+            'escuela': escuela,
+            'user_sede': user_sede,
+            'clases': clases,
+            'volver_url': volver_url,
+        },
+    )
+
+
+@login_required
+def profesor_escuela_asistencia_excel(request, escuela_id):
+    """Descarga plantilla Excel de asistencia para una escuela del docente."""
+    pack, redir = _profesor_escuela_docente(request, escuela_id)
+    if redir:
+        return redir
+    user_sede, escuela, prof = pack
+    estudiantes = list(
+        Estudiante.objects.filter(
+            sede=user_sede,
+            matriculas__sede=user_sede,
+            matriculas__is_active=True,
+            matriculas__edicion_curso__curso__ruta_estudio__escuela=escuela,
+        )
+        .select_related('user')
+        .distinct()
+        .order_by('user__last_name', 'user__first_name', 'user__email')
+    )
+
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    except Exception:
+        messages.error(request, "Falta la dependencia para generar Excel. Instala openpyxl.")
+        return redirect('hechos:profesor_escuela_asistencia_panel', escuela_id=escuela.id)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Asistencia"
+
+    # Columnas base + 24 columnas de asistencia (parecido al formato de referencia).
+    fixed_headers = ["No.", "NOMBRES Y APELLIDOS", "No. CODIGO", "TEL. O CEL"]
+    attendance_cols = 24
+    headers = fixed_headers + [str(i) for i in range(1, attendance_cols + 1)]
+
+    header_fill = PatternFill("solid", fgColor="22A9E1")
+    header_font = Font(color="FFFFFF", bold=True)
+    thin_side = Side(style="thin", color="7BC8E8")
+    border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+    center = Alignment(horizontal="center", vertical="center")
+    left = Alignment(horizontal="left", vertical="center")
+
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+    ws.cell(row=1, column=1, value="REGISTRO DE ASISTENCIA")
+    ws.cell(row=1, column=1).font = Font(size=18, bold=True, color="22A9E1")
+    ws.cell(row=1, column=1).alignment = center
+
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=2)
+    ws.merge_cells(start_row=3, start_column=3, end_row=3, end_column=4)
+    ws.merge_cells(start_row=3, start_column=5, end_row=3, end_column=7)
+    ws.merge_cells(start_row=3, start_column=8, end_row=3, end_column=10)
+    ws["A3"] = "MAESTRO:"
+    ws["C3"] = prof.user.get_full_name() or prof.user.username
+    ws["E3"] = "ESCUELA:"
+    ws["H3"] = escuela.nombre
+    ws["K3"] = "HORA:"
+    ws["L3"] = ""
+    for cell in ("A3", "C3", "E3", "H3", "K3", "L3"):
+        ws[cell].font = Font(bold=True)
+    for col in range(1, len(headers) + 1):
+        c = ws.cell(row=5, column=col)
+        c.value = headers[col - 1]
+        c.fill = header_fill
+        c.font = header_font
+        c.border = border
+        c.alignment = center
+
+    row = 6
+    for idx, est in enumerate(estudiantes, start=1):
+        ws.cell(row=row, column=1, value=f"{idx:02d}")
+        ws.cell(row=row, column=2, value=est.user.get_full_name() or est.user.email or "—")
+        ws.cell(row=row, column=3, value=est.codigo_estudiante or "")
+        ws.cell(row=row, column=4, value=est.telefono_emergencia or "")
+        for col in range(5, len(headers) + 1):
+            ws.cell(row=row, column=col, value="")
+        row += 1
+
+    # Mantener una altura visual similar aunque haya pocos estudiantes.
+    min_rows_visual = 14
+    while (row - 6) < min_rows_visual:
+        ws.cell(row=row, column=1, value=f"{(row - 5):02d}")
+        row += 1
+
+    for r in range(6, row):
+        for c in range(1, len(headers) + 1):
+            cell = ws.cell(row=r, column=c)
+            cell.border = border
+            cell.alignment = left if c == 2 else center
+
+    ws.column_dimensions["A"].width = 6
+    ws.column_dimensions["B"].width = 34
+    ws.column_dimensions["C"].width = 16
+    ws.column_dimensions["D"].width = 16
+    for col_idx in range(5, len(headers) + 1):
+        ws.column_dimensions[ws.cell(row=5, column=col_idx).column_letter].width = 4
+
+    # Nombre corto y descriptivo: asistencia + id escuela + nombre (recortado) + fecha
+    nombre_corto = (slugify(escuela.nombre) or "escuela")[:24].strip("-")
+    fecha = timezone.now().strftime("%Y%m%d")
+    filename = f"asis-e{escuela.id}-{nombre_corto}-{fecha}.xlsx"
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 @login_required
