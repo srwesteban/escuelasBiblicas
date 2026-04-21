@@ -8,6 +8,7 @@ urlpatterns = [
     path('', views.inicio, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('director/', views.director_dashboard, name='director_dashboard'),
+    path('director/programa-escuelas/', views.director_programa_escuelas, name='director_programa_escuelas'),
     path('direccion/sedes/crear/', views.sede_create, name='sede_create'),
     path('direccion/sedes/<int:sede_id>/editar/', views.sede_edit, name='sede_edit'),
     path('direccion/sedes/<int:sede_id>/eliminar/', views.sede_delete, name='sede_delete'),

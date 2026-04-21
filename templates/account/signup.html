@@ -96,10 +96,12 @@
                             </select>
                         </div>
                         <div>
-                            <label for="{{ form.numero_documento.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Numero de documento <span class="text-red-600">*</span></label>
-                            <input type="text" name="{{ form.numero_documento.name }}" id="{{ form.numero_documento.id_for_label }}"
-                                   value="{{ form.numero_documento.value|default:'' }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                            <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Numero de documento <span class="text-red-600">*</span></label>
+                            <input type="text" name="{{ form.username.name }}" id="{{ form.username.id_for_label }}"
+                                   value="{{ form.username.value|default:'' }}"
+                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none"
+                                   required autocomplete="username"
+                                   data-doc-input>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -183,22 +185,16 @@
                             </select>
                         </div>
                     </div>
-                </section>
 
-                <section class="space-y-4">
-                    <div class="border-b border-stone-200 pb-2">
-                        <h2 class="text-sm font-semibold text-stone-800 tracking-wide">Datos de Acceso</h2>
-                    </div>
                     <div>
-                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Correo electronico <span class="text-red-600">*</span></label>
+                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Correo electronico <span class="text-slate-500 font-normal">(opcional)</span></label>
                         <input type="email"
                                name="{{ form.email.name }}"
                                id="{{ form.email.id_for_label }}"
                                value="{{ form.email.value|default:'' }}"
                                class="input w-full px-3 py-3 border rounded-xl focus:outline-none"
                                placeholder="usuario@correo.com"
-                               autocomplete="off"
-                               required>
+                               autocomplete="email">
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -307,6 +303,49 @@
     document.addEventListener("DOMContentLoaded", function () {
         if (deptSel.value) fillCities(deptSel.value);
     });
+})();
+
+(function () {
+    const tipoSel = document.getElementById("{{ form.tipo_documento.id_for_label }}");
+    const docInput = document.querySelector("[data-doc-input]");
+    if (!tipoSel || !docInput) return;
+
+    function filterByTipo() {
+        const tipo = tipoSel.value;
+        let v = docInput.value;
+        if (tipo === "CC" || tipo === "TI") {
+            v = v.replace(/\D/g, "").slice(0, 10);
+        } else if (tipo === "CE") {
+            v = v.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
+        } else {
+            v = v.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 14);
+        }
+        docInput.value = v;
+    }
+
+    function applyTipoMode() {
+        const tipo = tipoSel.value;
+        if (tipo === "CC" || tipo === "TI") {
+            docInput.setAttribute("inputmode", "numeric");
+            docInput.setAttribute("maxlength", "10");
+        } else if (tipo === "CE") {
+            docInput.removeAttribute("inputmode");
+            docInput.setAttribute("maxlength", "12");
+        } else {
+            docInput.removeAttribute("inputmode");
+            docInput.setAttribute("maxlength", "14");
+        }
+        filterByTipo();
+    }
+
+    tipoSel.addEventListener("change", applyTipoMode);
+    docInput.addEventListener("input", filterByTipo);
+    docInput.addEventListener("blur", filterByTipo);
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", applyTipoMode);
+    } else {
+        applyTipoMode();
+    }
 })();
 
 </script>

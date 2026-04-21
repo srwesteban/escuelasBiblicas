@@ -113,6 +113,7 @@
             </div>
             <h1 class="mt-3 text-2xl font-bold text-gray-900">{{ page_title }}</h1>
             <p class="text-gray-600 mt-1">Sede: {{ sede.nombre }}</p>
+            <p class="text-sm text-stone-600 mt-3">Los campos marcados con <span class="text-red-600 font-semibold" aria-hidden="true">*</span> son obligatorios.</p>
         </div>
 
         <form method="post" enctype="multipart/form-data" class="space-y-5" autocomplete="off">
@@ -126,22 +127,55 @@
             <div class="coordinador-section">
                 <h2 class="coordinador-section-title">Información personal</h2>
                 <div class="mb-5 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
-                    El cargo se define con el <span class="font-medium text-stone-900">tipo de coordinador</span> para la sede <span class="font-semibold text-stone-900">{{ sede.nombre }}</span>.
+                    El <span class="font-medium text-stone-900">tipo</span> define el título y el cargo mostrado; las <span class="font-medium text-stone-900">tareas</span> indican qué puede hacer en el módulo Hechos (pueden combinarse).
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                        <label for="{{ form.nombres.id_for_label }}" class="coordinador-label">{{ form.nombres.label }}</label>
+                        <label for="{{ form.nombres.id_for_label }}" class="coordinador-label">{{ form.nombres.label }}{% if form.nombres.field.required %}<span class="text-red-600 font-semibold ml-0.5" aria-hidden="true">*</span>{% endif %}</label>
                         {{ form.nombres }}
                         {% if form.nombres.errors %}
                             <p class="coordinador-error">{{ form.nombres.errors|join:", " }}</p>
                         {% endif %}
                     </div>
                     <div>
-                        <label for="{{ form.apellidos.id_for_label }}" class="coordinador-label">{{ form.apellidos.label }}</label>
+                        <label for="{{ form.apellidos.id_for_label }}" class="coordinador-label">{{ form.apellidos.label }}{% if form.apellidos.field.required %}<span class="text-red-600 font-semibold ml-0.5" aria-hidden="true">*</span>{% endif %}</label>
                         {{ form.apellidos }}
                         {% if form.apellidos.errors %}
                             <p class="coordinador-error">{{ form.apellidos.errors|join:", " }}</p>
                         {% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ form.tipo_documento.id_for_label }}" class="coordinador-label">{{ form.tipo_documento.label }}{% if form.tipo_documento.field.required %}<span class="text-red-600 font-semibold ml-0.5" aria-hidden="true">*</span>{% endif %}</label>
+                        {{ form.tipo_documento }}
+                        {% if form.tipo_documento.errors %}
+                            <p class="coordinador-error">{{ form.tipo_documento.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ form.documento_identidad.id_for_label }}" class="coordinador-label">{{ form.documento_identidad.label }}{% if form.documento_identidad.field.required %}<span class="text-red-600 font-semibold ml-0.5" aria-hidden="true">*</span>{% endif %}</label>
+                        {{ form.documento_identidad }}
+                        <p class="coordinador-hint">{{ form.documento_identidad.help_text }}</p>
+                        {% if form.documento_identidad.errors %}
+                            <p class="coordinador-error">{{ form.documento_identidad.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="{{ form.celular.id_for_label }}" class="coordinador-label">{{ form.celular.label }}{% if form.celular.field.required %}<span class="text-red-600 font-semibold ml-0.5" aria-hidden="true">*</span>{% endif %}</label>
+                        {{ form.celular }}
+                        <p class="coordinador-hint">{{ form.celular.help_text }}</p>
+                        {% if form.celular.errors %}
+                            <p class="coordinador-error">{{ form.celular.errors|join:", " }}</p>
+                        {% endif %}
+                        <div class="mt-5">
+                            <label for="{{ form.email.id_for_label }}" class="coordinador-label">{{ form.email.label }}{% if form.email.field.required %}<span class="text-red-600 font-semibold ml-0.5" aria-hidden="true">*</span>{% endif %}</label>
+                            {{ form.email }}
+                            {% if form.email.help_text %}
+                            <p class="coordinador-hint">{{ form.email.help_text }}</p>
+                            {% endif %}
+                            {% if form.email.errors %}
+                                <p class="coordinador-error">{{ form.email.errors|join:", " }}</p>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -182,26 +216,66 @@
             <div class="coordinador-section">
                 <h2 class="coordinador-section-title">Rol y acceso</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {% if form.capacidades.field.choices %}
+                    <div class="md:col-span-2">
+                        <span class="coordinador-label">{{ form.capacidades.label }}</span>
+                        <p class="coordinador-hint mb-3">Marca lo que esta persona puede hacer en Hechos. Puedes arrastrar las filas para ordenar prioridades (visual).</p>
+                        {{ form.capacidades_orden }}
+                        <ul id="capacidades-sortable" class="space-y-2 rounded-xl border border-stone-200 bg-stone-50/80 p-3">
+                            {% for value, label in form.capacidades.field.choices %}
+                            <li class="cap-item flex cursor-grab items-start gap-3 rounded-lg border border-transparent bg-white px-3 py-2 shadow-sm active:cursor-grabbing" draggable="true" data-codigo="{{ value }}" data-fragment="{% if value == 'academico' %}académico{% elif value == 'pedagogico' %}pedagógico{% elif value == 'financiero' %}financiero{% elif value == 'logistico' %}logístico{% else %}{{ value }}{% endif %}">
+                                <span class="mt-1 text-stone-400 select-none" aria-hidden="true"><i class="fas fa-grip-vertical"></i></span>
+                                <label class="flex flex-1 items-start gap-2 text-sm text-slate-800">
+                                    <input type="checkbox" name="capacidades" value="{{ value }}" class="capacidad-check mt-1 rounded border-stone-300 text-stone-800 focus:ring-stone-300" {% if form.is_bound %}{% if value in form.capacidades.value %}checked{% endif %}{% else %}{% if form.capacidades.field.initial and value in form.capacidades.field.initial %}checked{% endif %}{% endif %}>
+                                    <span>{{ label }}</span>
+                                </label>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% if form.tipo_coordinador_automatico and 'sede' in form.allowed_tipos %}
+                        <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+                            <div class="font-medium text-amber-950 mb-2">Coordinación de sede</div>
+                            <label class="inline-flex cursor-pointer items-start gap-3">
+                                <input type="radio" name="tipo_coordinador" value="sede" class="mt-1 text-amber-800 focus:ring-amber-400" id="coord-tipo-sede"
+                                    {% if coordinador and coordinador.tipo_coordinador == 'sede' and not form.capacidades.field.initial %}checked{% endif %}>
+                                <span>Solo coordinador de sede (equipo y sede, sin tareas en Hechos). Si marcas esto, las casillas de arriba pueden quedar vacías.</span>
+                            </label>
+                            <label class="mt-2 inline-flex cursor-pointer items-start gap-3">
+                                <input type="radio" name="tipo_coordinador" value="" class="mt-1 text-amber-800 focus:ring-amber-400" id="coord-tipo-tareas"
+                                    {% if not coordinador or coordinador.tipo_coordinador != 'sede' or form.capacidades.field.initial %}checked{% endif %}>
+                                <span>Según las tareas marcadas abajo (recomendado para académico, pedagógico, etc.).</span>
+                            </label>
+                        </div>
+                        {% endif %}
+                        {% if form.tipo_coordinador_automatico %}
+                        <p class="coordinador-hint mt-2">El cargo y el tipo se generan automáticamente según las tareas que marques (por ejemplo, académico y pedagógico a la vez).</p>
+                        {% else %}
+                        <p class="coordinador-hint mt-2">Al <strong>editar</strong>, si quitas todas las tareas y ya estaban guardadas, esa persona queda sin permisos en Hechos salvo lo que indique el sistema.</p>
+                        {% endif %}
+                        {% if form.capacidades.errors %}
+                            <p class="coordinador-error">{{ form.capacidades.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if form.tipo_coordinador_automatico %}
+                    <div class="md:col-span-2 rounded-xl border border-stone-200 bg-white px-4 py-3">
+                        <div class="coordinador-label">Tipo de coordinador (automático)</div>
+                        <p id="tipo-coordinador-resumen" class="mt-1 text-sm font-medium text-slate-900" data-sede="{{ sede.nombre|escape }}">—</p>
+                    </div>
+                    {% elif 'tipo_coordinador' in form.fields %}
                     <div class="md:col-span-2">
                         {% if not form.tipo_coordinador.is_hidden %}
-                        <label for="{{ form.tipo_coordinador.id_for_label }}" class="coordinador-label">Tipo de coordinador</label>
-                        <p class="coordinador-hint mb-2">Académico, pedagógico, financiero o logístico.</p>
+                        <label for="{{ form.tipo_coordinador.id_for_label }}" class="coordinador-label">Tipo de coordinador{% if form.tipo_coordinador.field.required %}<span class="text-red-600 font-semibold ml-0.5" aria-hidden="true">*</span>{% endif %}</label>
+                        <p class="coordinador-hint mb-2">Solo coordinación de sede en este caso; el cargo sigue el tipo fijo.</p>
                         {% endif %}
                         {{ form.tipo_coordinador }}
                         {% if form.tipo_coordinador.errors %}
                             <p class="coordinador-error">{{ form.tipo_coordinador.errors|join:", " }}</p>
                         {% endif %}
                     </div>
-                    <div class="md:col-span-2">
-                        <label for="{{ form.email.id_for_label }}" class="coordinador-label">{{ form.email.label }}</label>
-                        {{ form.email }}
-                        <p class="coordinador-hint">El coordinador entra con este correo y su contraseña.</p>
-                        {% if form.email.errors %}
-                            <p class="coordinador-error">{{ form.email.errors|join:", " }}</p>
-                        {% endif %}
-                    </div>
+                    {% endif %}
                     <div>
-                        <label for="{{ form.password1.id_for_label }}" class="coordinador-label">Contraseña</label>
+                        <label for="{{ form.password1.id_for_label }}" class="coordinador-label">Contraseña{% if not coordinador %}<span class="text-red-600 font-semibold ml-0.5" aria-hidden="true">*</span>{% endif %}</label>
                         {{ form.password1 }}
                         <p class="coordinador-hint">{% if coordinador %}Déjalo vacío si no quieres cambiarla.{% else %}Obligatoria para crear el acceso.{% endif %}</p>
                         {% if form.password1.errors %}
@@ -209,19 +283,10 @@
                         {% endif %}
                     </div>
                     <div>
-                        <label for="{{ form.password2.id_for_label }}" class="coordinador-label">Confirmar contraseña</label>
+                        <label for="{{ form.password2.id_for_label }}" class="coordinador-label">Confirmar contraseña{% if not coordinador %}<span class="text-red-600 font-semibold ml-0.5" aria-hidden="true">*</span>{% endif %}</label>
                         {{ form.password2 }}
                         {% if form.password2.errors %}
                             <p class="coordinador-error">{{ form.password2.errors|join:", " }}</p>
-                        {% endif %}
-                    </div>
-                    <div class="md:col-span-2">
-                        <label for="{{ form.is_active.id_for_label }}" class="inline-flex items-center gap-3 text-sm font-medium text-gray-900">
-                            {{ form.is_active }}
-                            <span>Activo</span>
-                        </label>
-                        {% if form.is_active.errors %}
-                            <p class="coordinador-error">{{ form.is_active.errors|join:", " }}</p>
                         {% endif %}
                     </div>
                 </div>
@@ -293,6 +358,119 @@
             previewImage.src = objectUrl;
             showPhotoRect();
         });
+    })();
+
+    (function () {
+        const el = document.getElementById('id_celular');
+        if (!el) {
+            return;
+        }
+        function soloDigitos(s) {
+            return (s || '').replace(/\D/g, '').slice(0, 15);
+        }
+        el.addEventListener('input', function () {
+            const v = soloDigitos(this.value);
+            if (this.value !== v) {
+                this.value = v;
+            }
+        });
+        el.addEventListener('paste', function (e) {
+            e.preventDefault();
+            const t = (e.clipboardData || window.clipboardData).getData('text') || '';
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            const merged = (this.value || '').slice(0, start) + t + (this.value || '').slice(end);
+            this.value = soloDigitos(merged);
+        });
+    })();
+
+    (function () {
+        const list = document.getElementById('capacidades-sortable');
+        const ordenInput = document.getElementById('id_capacidades_orden');
+        if (!list || !ordenInput) {
+            return;
+        }
+
+        function cargoDesdeFragmentos(sedeNombre, frag) {
+            if (!frag.length) {
+                return 'Coordinador — ' + sedeNombre;
+            }
+            if (frag.length === 1) {
+                return 'Coordinador ' + frag[0] + ' — ' + sedeNombre;
+            }
+            if (frag.length === 2) {
+                return 'Coordinador ' + frag[0] + ' y ' + frag[1] + ' — ' + sedeNombre;
+            }
+            const body = frag.slice(0, -1).join(', ') + ' y ' + frag[frag.length - 1];
+            return 'Coordinador ' + body + ' — ' + sedeNombre;
+        }
+
+        function updateResumenTipo() {
+            const el = document.getElementById('tipo-coordinador-resumen');
+            if (!el) {
+                return;
+            }
+            const sedeNombre = el.getAttribute('data-sede') || '';
+            const frags = [];
+            list.querySelectorAll('li.cap-item').forEach(function (li) {
+                const cb = li.querySelector('input.capacidad-check');
+                if (cb && cb.checked) {
+                    frags.push(li.getAttribute('data-fragment') || '');
+                }
+            });
+            el.textContent = cargoDesdeFragmentos(sedeNombre, frags);
+        }
+
+        function syncOrden() {
+            const checked = new Set();
+            list.querySelectorAll('input.capacidad-check:checked').forEach(function (el) {
+                checked.add(el.value);
+            });
+            const ordered = [];
+            list.querySelectorAll('li.cap-item').forEach(function (li) {
+                const c = li.getAttribute('data-codigo');
+                if (c && checked.has(c)) {
+                    ordered.push(c);
+                }
+            });
+            ordenInput.value = ordered.join(',');
+            updateResumenTipo();
+        }
+
+        list.addEventListener('change', function (e) {
+            if (e.target && e.target.classList && e.target.classList.contains('capacidad-check')) {
+                syncOrden();
+            }
+        });
+
+        let dragEl = null;
+        list.querySelectorAll('li.cap-item').forEach(function (li) {
+            li.addEventListener('dragstart', function (e) {
+                dragEl = li;
+                li.classList.add('opacity-60');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            li.addEventListener('dragend', function () {
+                li.classList.remove('opacity-60');
+                dragEl = null;
+                syncOrden();
+            });
+            li.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                if (!dragEl || dragEl === li) {
+                    return;
+                }
+                const rect = li.getBoundingClientRect();
+                const before = e.clientY < rect.top + rect.height / 2;
+                if (before) {
+                    list.insertBefore(dragEl, li);
+                } else {
+                    list.insertBefore(dragEl, li.nextSibling);
+                }
+            });
+        });
+
+        syncOrden();
     })();
 </script>
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends 'base_modern.html' %}
+{% load money_extras %}
 {% block title %}Escuelas — {{ sede.nombre }}{% endblock %}
 
 {% block extra_css %}
@@ -22,34 +23,6 @@
         background: rgba(255, 255, 255, 0.06);
         pointer-events: none;
     }
-    .escuelas-fab {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.65rem 1.25rem;
-        border-radius: 9999px;
-        background: #fafaf9;
-        color: #1c1917;
-        font-weight: 600;
-        font-size: 0.875rem;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    .escuelas-fab:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.25);
-    }
-    dialog.escuela-dialog {
-        border: none;
-        border-radius: 1rem;
-        padding: 0;
-        max-width: 28rem;
-        width: calc(100% - 2rem);
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    }
-    dialog.escuela-dialog::backdrop {
-        background: rgba(28, 25, 23, 0.45);
-    }
 </style>
 {% endblock %}
 
@@ -58,246 +31,74 @@
     <div class="escuelas-hero flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="relative z-10">
             <p class="text-xs font-semibold uppercase tracking-wider text-stone-300/90">Sede · {{ sede.nombre }}</p>
-            <h1 class="mt-1 text-2xl font-bold text-white">Escuelas bíblicas</h1>
-            <p class="mt-2 text-sm text-stone-200/90 max-w-md">Cada escuela es un espacio de formación.</p>
+            <h1 class="mt-1 text-2xl font-bold text-white">Escuelas en la sede</h1>
+            <p class="mt-2 text-sm text-stone-200/90 max-w-2xl">
+                Consulta el <strong class="text-white">programa de formación</strong> heredado para esta sede. La definición global la gestiona el director.
+            </p>
         </div>
         <div class="relative z-10 shrink-0">
-            <button type="button" class="escuelas-fab" id="open-escuela-dialog" aria-haspopup="dialog">
-                <i class="fas fa-plus-circle text-amber-600"></i>
-                Agregar escuela
-            </button>
+            <a href="{% url 'core:director_programa_escuelas' %}" class="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/15 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/25">
+                <i class="fas fa-globe text-amber-200"></i>
+                Programa global (director)
+            </a>
         </div>
     </div>
 
-    <section class="card p-5 border border-stone-200/80">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-           
-        </div>
-        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-                <label for="filter-nombre" class="block text-xs font-semibold uppercase tracking-wide text-stone-600 mb-1">Nombre</label>
-                <input id="filter-nombre" type="search" placeholder="Ej: Hechos, Discipulado..."
-                       class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200">
-            </div>
-            <div>
-                <label for="filter-anio" class="block text-xs font-semibold uppercase tracking-wide text-stone-600 mb-1">Año / Fecha</label>
-                <input id="filter-anio" type="number" inputmode="numeric" min="1900" max="2200" placeholder="Ej: 2026"
-                       class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200">
-            </div>
-            <div>
-                <label for="filter-ciclo" class="block text-xs font-semibold uppercase tracking-wide text-stone-600 mb-1">Ciclo</label>
-                <select id="filter-ciclo"
-                        class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200">
-                    <option value="">Todos</option>
-                    <option value="A">A</option>
-                    <option value="B">B</option>
-                </select>
-            </div>
-            <div>
-                <label for="filter-grupo" class="block text-xs font-semibold uppercase tracking-wide text-stone-600 mb-1">Grupo</label>
-                <input id="filter-grupo" type="number" inputmode="numeric" min="1" placeholder="Ej: 1"
-                       class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200">
-            </div>
-        </div>
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-            <button type="button" class="btn-outline px-4 py-2 text-sm font-medium" id="filter-clear">
-                Limpiar filtros
-            </button>
-        </div>
-    </section>
-    
-    <div class="text-sm text-stone-600 m-2">
-        <p>Resultados: </p>
-        <span class="font-semibold text-gray-900" id="escuelas-visible-count">{{ escuelas|length }}</span>
-        <span>de {{ escuelas|length }}</span>
+    <div class="card p-5 border border-stone-200 bg-stone-50/80">
+        <p class="text-sm text-stone-800">
+            Para crear o editar <strong>niveles</strong> y <strong>escuelas del programa</strong> que aplican a <strong>todas las sedes</strong>, usa la pantalla del director.
+        </p>
     </div>
-    <div class="grid gap-4 sm:grid-cols-2" id="escuelas-grid">
-        {% for e in escuelas %}
-            <article
-                class="card p-5 border border-stone-200/80 hover:border-stone-300 transition-colors js-escuela-card"
-                data-nombre="{{ e.nombre|default:''|lower }}"
-                data-anio="{{ e.anio|default:'' }}"
-                data-ciclo="{{ e.ciclo|default:'' }}"
-                data-grupo="{{ e.grupo|default:'' }}"
-            >
-                <div class="flex items-start gap-3">
-                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
-                        <i class="fas fa-book-open"></i>
+
+    <section class="card p-5 border border-amber-200/90 bg-amber-50/40" aria-labelledby="programa-dinamico-titulo">
+        <h2 id="programa-dinamico-titulo" class="text-lg font-semibold text-stone-900">Escuelas del programa (esta sede)</h2>
+        {% if programa_por_nivel %}
+        <div class="mt-4 space-y-2">
+            {% for grupo in programa_por_nivel %}
+            <details class="group rounded-xl border border-stone-200 bg-white/90 open:shadow-sm">
+                <summary class="cursor-pointer list-none flex flex-wrap items-center gap-2 px-4 py-3 text-sm font-medium text-stone-900 marker:content-none">
+                    <span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600 group-open:bg-amber-100 group-open:text-amber-900" aria-hidden="true">
+                        <i class="fas fa-chevron-right text-xs transition-transform group-open:rotate-90"></i>
+                    </span>
+                    <span>{{ grupo.nivel_display }}</span>
+                </summary>
+                <div class="px-4 pb-4 pt-0 border-t border-stone-100">
+                    {% if grupo.nivel_programa.descripcion %}
+                    <div class="mt-3 text-sm text-stone-800 leading-relaxed whitespace-pre-line border-l-2 border-amber-300/80 pl-3">
+                        {{ grupo.nivel_programa.descripcion }}
                     </div>
-                    <div class="min-w-0 flex-1">
-                        <h2 class="text-lg font-semibold text-gray-900 leading-snug">
-                            <span class="text-gray-900">{{ e.nombre }}</span><span class="text-stone-600 font-medium text-[0.95rem]"> — {{ e.anio }} · Ciclo {{ e.ciclo }} · Grupo {{ e.grupo }}</span>
-                        </h2>
-                        {% if e.descripcion %}
-                            <p class="text-sm text-stone-600 mt-1">{{ e.descripcion|truncatewords:24 }}</p>
+                    {% endif %}
+                    {% if not grupo.escuelas %}
+                    <p class="text-sm text-stone-600 mt-3">No hay escuelas del programa en este nivel para esta sede.</p>
+                    {% endif %}
+                    {% for ep in grupo.escuelas %}
+                    <div class="mt-3 {% if not forloop.first %}pt-3 border-t border-stone-100{% endif %}">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">Escuela</p>
+                        <p class="text-sm font-medium text-stone-900">{{ ep.nombre }}</p>
+                        {% if ep.descripcion %}
+                        <div class="mt-2 text-sm text-stone-700 whitespace-pre-line">{{ ep.descripcion }}</div>
+                        {% else %}
+                        <p class="text-sm text-stone-500 mt-2">Sin descripción.</p>
                         {% endif %}
-                        <p class="mt-3 text-sm text-stone-700">
-                            <span class="font-medium text-stone-800">Maestro:</span>
-                            {% if e.maestro %}
-                                {{ e.maestro.user.get_full_name }}
+                        <p class="text-sm mt-2">
+                            {% if ep.tiene_matricula %}
+                            <span class="font-medium text-stone-800">Matrícula:</span>
+                            <span class="text-stone-700">{{ ep.costo_matricula_cop|cop_enteros }}</span>
                             {% else %}
-                                <span class="text-amber-800/90 font-medium">Por asignar</span>
+                            <span class="text-stone-600">Sin costo de matrícula.</span>
                             {% endif %}
                         </p>
-                        <div class="mt-4 flex flex-wrap gap-2">
-                            <a href="{% url 'core:coordinador_sede_escuela_edit' sede.id e.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Editar</a>
-                            <form method="post" action="{% url 'core:coordinador_sede_escuela_delete' sede.id e.id %}">
-                                {% csrf_token %}
-                                <button type="submit" class="btn-outline px-4 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50">Eliminar</button>
-                            </form>
-                        </div>
                     </div>
+                    {% endfor %}
                 </div>
-            </article>
-        {% empty %}
-            <div class="sm:col-span-2 card p-10 text-center border border-dashed border-stone-300 bg-stone-50/50">
-                <div class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-200/80 text-stone-500 mb-4">
-                    <i class="fas fa-school text-xl"></i>
-                </div>
-                <h2 class="text-lg font-semibold text-gray-900">Aún no hay escuelas</h2>
-                <p class="text-stone-600 text-sm mt-2 max-w-md mx-auto">Crea la primera con <strong>Agregar escuela</strong> (nombre y descripción).</p>
-            </div>
-        {% endfor %}
-        <div class="sm:col-span-2 card p-10 text-center border border-dashed border-stone-300 bg-stone-50/50 hidden" id="escuelas-no-results">
-            <div class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-200/80 text-stone-500 mb-4">
-                <i class="fas fa-filter text-xl"></i>
-            </div>
-            <h2 class="text-lg font-semibold text-gray-900">Sin resultados</h2>
-            <p class="text-stone-600 text-sm mt-2 max-w-md mx-auto">No hay escuelas que coincidan con los filtros actuales.</p>
+            </details>
+            {% endfor %}
         </div>
-    </div>
-</div>
-
-<dialog class="escuela-dialog" id="dialog-nueva-escuela" aria-labelledby="dialog-escuela-title">
-    <form method="post" class="p-6 space-y-5">
-        {% csrf_token %}
-        <input type="hidden" name="accion" value="crear_escuela">
-        <div class="flex items-start justify-between gap-3">
-            <div>
-                <h2 id="dialog-escuela-title" class="text-lg font-bold text-gray-900">Nueva escuela</h2>
-                <p class="text-sm text-stone-600 mt-1">Solo nombre y descripción. El cupo lo define el salón en <strong>logística</strong>. En <strong>Editar</strong> también solo cambias nombre y descripción; año, ciclo, grupo y maestro se ven allí como referencia.</p>
-            </div>
-            <button type="button" class="text-stone-400 hover:text-stone-700 p-1 rounded-lg" id="close-escuela-dialog" aria-label="Cerrar">
-                <i class="fas fa-times text-lg"></i>
-            </button>
+        {% else %}
+        <div class="mt-4 card p-8 text-center border border-dashed border-stone-300 bg-white/60">
+            <p class="text-stone-600 text-sm">Aún no hay programa de formación configurado para esta sede. El director debe definir el catálogo global.</p>
         </div>
-
-        {% if form.non_field_errors %}
-            <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {{ form.non_field_errors }}
-            </div>
         {% endif %}
-
-        <div>
-            <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.nombre.label }}</label>
-            {{ form.nombre }}
-            {% if form.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ form.nombre.errors|join:", " }}</p>{% endif %}
-        </div>
-        <div>
-            <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form.descripcion.label }}</label>
-            {{ form.descripcion }}
-            <p class="text-xs text-stone-500 mt-1">Opcional pero recomendable para que el equipo entienda el enfoque de la escuela.</p>
-            {% if form.descripcion.errors %}<p class="text-sm text-red-600 mt-1">{{ form.descripcion.errors|join:", " }}</p>{% endif %}
-        </div>
-
-        <div class="flex justify-end gap-2 pt-2 border-t border-stone-200">
-            <button type="button" class="btn-outline px-4 py-2 text-sm font-medium" id="cancel-escuela-dialog">Cancelar</button>
-            <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Guardar escuela</button>
-        </div>
-    </form>
-</dialog>
-
-<script>
-(function () {
-    var dlg = document.getElementById('dialog-nueva-escuela');
-    var openBtn = document.getElementById('open-escuela-dialog');
-    var closeBtn = document.getElementById('close-escuela-dialog');
-    var cancelBtn = document.getElementById('cancel-escuela-dialog');
-    if (!dlg || !openBtn) return;
-
-    function openDlg() { dlg.showModal(); }
-    function closeDlg() { dlg.close(); }
-
-    openBtn.addEventListener('click', openDlg);
-    if (closeBtn) closeBtn.addEventListener('click', closeDlg);
-    if (cancelBtn) cancelBtn.addEventListener('click', closeDlg);
-
-    dlg.addEventListener('click', function (ev) {
-        if (ev.target === dlg) closeDlg();
-    });
-})();
-</script>
-<script>
-(function () {
-    var grid = document.getElementById('escuelas-grid');
-    if (!grid) return;
-
-    var inputNombre = document.getElementById('filter-nombre');
-    var inputAnio = document.getElementById('filter-anio');
-    var selectCiclo = document.getElementById('filter-ciclo');
-    var inputGrupo = document.getElementById('filter-grupo');
-    var clearBtn = document.getElementById('filter-clear');
-    var cards = Array.prototype.slice.call(grid.querySelectorAll('.js-escuela-card'));
-    var noResults = document.getElementById('escuelas-no-results');
-    var visibleCount = document.getElementById('escuelas-visible-count');
-
-    function norm(s) {
-        return (s || '')
-            .toString()
-            .trim()
-            .toLowerCase();
-    }
-
-    function applyFilters() {
-        var qNombre = norm(inputNombre && inputNombre.value);
-        var qAnio = norm(inputAnio && inputAnio.value);
-        var qCiclo = (selectCiclo && (selectCiclo.value || '')).toString().trim().toUpperCase();
-        var qGrupo = norm(inputGrupo && inputGrupo.value);
-
-        var shown = 0;
-        for (var i = 0; i < cards.length; i++) {
-            var el = cards[i];
-            var nombre = norm(el.getAttribute('data-nombre'));
-            var anio = norm(el.getAttribute('data-anio'));
-            var ciclo = (el.getAttribute('data-ciclo') || '').toString().trim().toUpperCase();
-            var grupo = norm(el.getAttribute('data-grupo'));
-
-            var ok = true;
-            if (qNombre && nombre.indexOf(qNombre) === -1) ok = false;
-            if (ok && qAnio && anio.indexOf(qAnio) === -1) ok = false;
-            if (ok && qCiclo && ciclo !== qCiclo) ok = false;
-            if (ok && qGrupo && grupo.indexOf(qGrupo) === -1) ok = false;
-
-            el.classList.toggle('hidden', !ok);
-            if (ok) shown++;
-        }
-
-        if (visibleCount) visibleCount.textContent = String(shown);
-        if (noResults) noResults.classList.toggle('hidden', shown !== 0);
-    }
-
-    function clearFilters() {
-        if (inputNombre) inputNombre.value = '';
-        if (inputAnio) inputAnio.value = '';
-        if (selectCiclo) selectCiclo.value = '';
-        if (inputGrupo) inputGrupo.value = '';
-        applyFilters();
-        if (inputNombre) inputNombre.focus();
-    }
-
-    [inputNombre, inputAnio, selectCiclo, inputGrupo].forEach(function (el) {
-        if (!el) return;
-        el.addEventListener('input', applyFilters);
-        el.addEventListener('change', applyFilters);
-    });
-    if (clearBtn) clearBtn.addEventListener('click', clearFilters);
-
-    applyFilters();
-})();
-</script>
-{% if form.errors %}
-<script>
-    document.getElementById('dialog-nueva-escuela').showModal();
-</script>
-{% endif %}
+    </section>
+</div>
 {% endblock %}

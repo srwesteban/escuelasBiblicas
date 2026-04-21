@@ -2,6 +2,7 @@ import re
 
 from django.core.validators import FileExtensionValidator
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -215,6 +216,7 @@ class AdminEscuela(models.Model):
         PEDAGOGICO = 'pedagogico', _('Coordinador pedagógico')
         FINANCIERO = 'financiero', _('Coordinador financiero')
         LOGISTICO = 'logistico', _('Coordinador logístico')
+        COMBINADO = 'combinado', _('Coordinador (varias funciones)')
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_escuela_profile')
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='admins_escuela', null=True, blank=True)
@@ -223,6 +225,10 @@ class AdminEscuela(models.Model):
         max_length=20,
         choices=TipoCoordinador.choices,
         default=TipoCoordinador.ACADEMICO,
+    )
+    capacidades_explicitas = models.BooleanField(
+        default=False,
+        help_text='Si es verdadero, los permisos en Hechos vienen solo de las capacidades asignadas (no del respaldo por tipo).',
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -242,6 +248,129 @@ class AdminEscuela(models.Model):
         if label:
             return f"{label} — {sede_nombre}"
         return f"Coordinador — {sede_nombre}"
+
+    @classmethod
+    def cargo_para_capacidades(cls, codigos_ordenados: list[str], sede_nombre: str) -> str:
+        """Texto de cargo a partir de capacidades en orden (p. ej. académico y pedagógico)."""
+        frag = {
+            'academico': 'académico',
+            'pedagogico': 'pedagógico',
+            'financiero': 'financiero',
+            'logistico': 'logístico',
+        }
+        parts = [frag[c] for c in codigos_ordenados if c in frag]
+        if not parts:
+            return f'Coordinador — {sede_nombre}'
+        if len(parts) == 1:
+            return f'Coordinador {parts[0]} — {sede_nombre}'
+        if len(parts) == 2:
+            return f'Coordinador {parts[0]} y {parts[1]} — {sede_nombre}'
+        body = ', '.join(parts[:-1]) + f' y {parts[-1]}'
+        return f'Coordinador {body} — {sede_nombre}'
+
+    @classmethod
+    def tipo_coordinador_desde_capacidades(cls, codigos: list[str]) -> str:
+        """Un solo tipo enum a partir de la lista de códigos de capacidad."""
+        mapa = {
+            'academico': cls.TipoCoordinador.ACADEMICO,
+            'pedagogico': cls.TipoCoordinador.PEDAGOGICO,
+            'financiero': cls.TipoCoordinador.FINANCIERO,
+            'logistico': cls.TipoCoordinador.LOGISTICO,
+        }
+        tipos_unicos: list[str] = []
+        vistos: set[str] = set()
+        for c in codigos:
+            if c not in mapa:
+                continue
+            t = mapa[c]
+            if t not in vistos:
+                vistos.add(t)
+                tipos_unicos.append(t)
+        if len(tipos_unicos) == 0:
+            return cls.TipoCoordinador.ACADEMICO
+        if len(tipos_unicos) == 1:
+            return tipos_unicos[0]
+        return cls.TipoCoordinador.COMBINADO
+
+    def sync_capacidades(self, codigos_ordenados: list[str]) -> None:
+        """Reemplaza las capacidades asignadas por el orden indicado (solo códigos válidos)."""
+        AdminEscuelaCapacidad.objects.filter(admin_escuela=self).delete()
+        if codigos_ordenados:
+            caps = {
+                c.codigo: c
+                for c in CapacidadCoordinador.objects.filter(codigo__in=codigos_ordenados)
+            }
+            for orden, codigo in enumerate(codigos_ordenados):
+                cap = caps.get(codigo)
+                if cap:
+                    AdminEscuelaCapacidad.objects.create(
+                        admin_escuela=self,
+                        capacidad=cap,
+                        orden=orden,
+                    )
+        self.capacidades_explicitas = True
+        self.save(update_fields=['capacidades_explicitas'])
+
+
+class CapacidadCoordinador(models.Model):
+    """
+    Catálogo de tareas que puede tener un coordinador (módulo Hechos).
+    El código se usa en código Python para comprobar acceso.
+    """
+
+    codigo = models.SlugField(max_length=64, unique=True)
+    nombre = models.CharField(max_length=120)
+    descripcion = models.TextField(blank=True)
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Capacidad de coordinador'
+        verbose_name_plural = 'Capacidades de coordinador'
+        ordering = ['orden', 'nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
+class AdminEscuelaCapacidad(models.Model):
+    """Capacidades asignadas a un AdminEscuela, con orden personalizado."""
+
+    admin_escuela = models.ForeignKey(
+        AdminEscuela,
+        on_delete=models.CASCADE,
+        related_name='capacidad_asignaciones',
+    )
+    capacidad = models.ForeignKey(
+        CapacidadCoordinador,
+        on_delete=models.CASCADE,
+        related_name='asignaciones',
+    )
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['orden', 'capacidad__orden', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['admin_escuela', 'capacidad'],
+                name='hechos_adminescuela_capacidad_unique',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.admin_escuela_id} → {self.capacidad.codigo}'
+
+
+def capacidades_default_por_tipo(tipo: str) -> list[str]:
+    """Valores iniciales según tipo de coordinador (etiqueta)."""
+    m = {
+        AdminEscuela.TipoCoordinador.ACADEMICO: ['academico'],
+        AdminEscuela.TipoCoordinador.PEDAGOGICO: ['pedagogico'],
+        AdminEscuela.TipoCoordinador.FINANCIERO: ['financiero'],
+        AdminEscuela.TipoCoordinador.LOGISTICO: ['logistico'],
+        AdminEscuela.TipoCoordinador.SEDE: [],
+        AdminEscuela.TipoCoordinador.COMBINADO: [],
+    }
+    return list(m.get(tipo, []))
 
 
 class Escuela(models.Model):
@@ -295,6 +424,242 @@ class Escuela(models.Model):
 
     def titulo_tarjeta(self) -> str:
         return f'{self.nombre} — {self.anio} · Ciclo {self.ciclo} · Grupo {self.grupo}'
+
+
+class NivelProgramaPlantilla(models.Model):
+    """
+    Catálogo global de niveles del programa de formación.
+    Todas las sedes reciben copias (NivelPrograma) generadas desde aquí.
+    """
+
+    jerarquia = models.PositiveIntegerField(
+        verbose_name=_("Nivel"),
+        help_text=_(
+            "0 = Fundamentos; 1, 2, 3… ordenan el programa. Único en todo el sistema."
+        ),
+    )
+    nombre = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_("Nombre"),
+        help_text=_("Texto descriptivo mostrado como «Nivel N: nombre»."),
+    )
+    descripcion = models.TextField(
+        blank=True,
+        verbose_name=_("Descripción del nivel"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Nivel del programa (plantilla global)")
+        verbose_name_plural = _("Niveles del programa (plantillas globales)")
+        ordering = ["jerarquia", "nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["jerarquia"],
+                name="uniq_hechos_nivel_programa_plantilla_jerarquia",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.titulo_acordeon()
+
+    def titulo_acordeon(self) -> str:
+        j = self.jerarquia
+        base = (self.nombre or "").strip()
+        if j == 0:
+            label = base or "Fundamentos"
+            return f"Nivel {j}: {label}"
+        if base:
+            return f"Nivel {j}: {base}"
+        return f"Nivel {j}"
+
+
+class EscuelaProgramaPlantilla(models.Model):
+    """
+    Catálogo global de escuelas del programa (por nivel).
+    Cada sede recibe filas EscuelaPrograma alineadas a estas plantillas.
+    """
+
+    nivel_plantilla = models.ForeignKey(
+        NivelProgramaPlantilla,
+        on_delete=models.CASCADE,
+        related_name="escuelas",
+        verbose_name=_("Nivel"),
+    )
+    nombre = models.CharField(max_length=200)
+    descripcion = models.TextField(
+        blank=True,
+        verbose_name=_("Descripción"),
+    )
+    tiene_matricula = models.BooleanField(
+        default=False,
+        verbose_name=_("Tiene matrícula"),
+    )
+    costo_matricula_cop = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Costo de matrícula (COP)"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Escuela del programa (plantilla global)")
+        verbose_name_plural = _("Escuelas del programa (plantillas globales)")
+        ordering = ["nivel_plantilla__jerarquia", "nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["nivel_plantilla", "nombre"],
+                name="uniq_hechos_escuela_programa_plantilla_nivel_nombre",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.nivel_plantilla} — {self.nombre}"
+
+
+class NivelPrograma(models.Model):
+    """
+    Nivel del programa de formación por sede (número de nivel + nombre descriptivo).
+    El título mostrado es siempre «Nivel N: …» (p. ej. Nivel 0: Fundamentos).
+    """
+
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="niveles_programa",
+    )
+    plantilla = models.ForeignKey(
+        NivelProgramaPlantilla,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="niveles_en_sedes",
+        verbose_name=_("Plantilla global"),
+        help_text=_("Si existe, esta fila proviene del catálogo compartido por todas las sedes."),
+    )
+    jerarquia = models.PositiveIntegerField(
+        verbose_name=_("Nivel"),
+        help_text=_(
+            "Número entero: 0 = Fundamentos, 1, 2, 3… ordenan el programa. Debe ser único por sede."
+        ),
+    )
+    nombre = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_("Nombre"),
+        help_text=_(
+            "Texto descriptivo (ej. Sanos y Libres). Se muestra junto al número como «Nivel N: nombre»."
+        ),
+    )
+    descripcion = models.TextField(
+        blank=True,
+        verbose_name=_("Descripción del nivel"),
+        help_text=_(
+            "Texto opcional que se muestra en el acordeón de escuelas (enfoque, propósito del nivel)."
+        ),
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Nivel (programa)")
+        verbose_name_plural = _("Niveles (programa)")
+        ordering = ["jerarquia", "nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sede", "jerarquia"],
+                name="uniq_hechos_nivel_programa_sede_jerarquia",
+            ),
+            models.UniqueConstraint(
+                fields=["sede", "plantilla"],
+                condition=Q(plantilla__isnull=False),
+                name="uniq_hechos_nivel_programa_sede_plantilla",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.titulo_acordeon()
+
+    def titulo_acordeon(self) -> str:
+        j = self.jerarquia
+        base = (self.nombre or "").strip()
+        if j == 0:
+            label = base or "Fundamentos"
+            return f"Nivel {j}: {label}"
+        if base:
+            return f"Nivel {j}: {base}"
+        return f"Nivel {j}"
+
+
+class EscuelaPrograma(models.Model):
+    """
+    Definición de escuela en el programa de formación (nivel, nombre, descripción).
+    Distinto de Escuela: esa es la instancia por año, ciclo y grupo en la sede.
+    """
+
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="escuelas_programa",
+    )
+    nivel_programa = models.ForeignKey(
+        NivelPrograma,
+        on_delete=models.PROTECT,
+        related_name="escuelas",
+        verbose_name=_("Nivel"),
+    )
+    plantilla = models.ForeignKey(
+        EscuelaProgramaPlantilla,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="escuelas_en_sedes",
+        verbose_name=_("Plantilla global"),
+        help_text=_("Si existe, esta fila proviene del catálogo compartido por todas las sedes."),
+    )
+    nombre = models.CharField(max_length=200)
+    descripcion = models.TextField(
+        blank=True,
+        verbose_name=_("Descripción"),
+        help_text=_("Texto libre sobre esta escuela en el programa."),
+    )
+    tiene_matricula = models.BooleanField(
+        default=False,
+        verbose_name=_("Tiene matrícula"),
+        help_text=_("Si aplica cobro de matrícula para esta escuela."),
+    )
+    costo_matricula_cop = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Costo de matrícula (COP)"),
+        help_text=_("Pesos colombianos enteros. Obligatorio cuando «Tiene matrícula» está activo."),
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Escuela (programa)"
+        verbose_name_plural = "Escuelas (programa)"
+        ordering = ["nivel_programa__jerarquia", "nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sede", "nivel_programa", "nombre"],
+                name="uniq_hechos_escuela_programa_sede_nivel_prog_nombre",
+            ),
+            models.UniqueConstraint(
+                fields=["sede", "plantilla"],
+                condition=Q(plantilla__isnull=False),
+                name="uniq_hechos_escuela_programa_sede_plantilla",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.nivel_programa.titulo_acordeon()} — {self.nombre}"
 
 
 class Salon(models.Model):

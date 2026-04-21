@@ -99,7 +99,7 @@ def hechos_dashboard(request):
 
     if (
         hasattr(request.user, 'admin_escuela_profile')
-        and ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.PEDAGOGICO
+        and ca.has_capacidad(request.user, 'pedagogico')
     ):
         return redirect('hechos:profesores_list')
 
@@ -123,7 +123,7 @@ def hechos_dashboard(request):
     if hasattr(request.user, 'profesor_profile'):
         return redirect('hechos:mis_escuelas_profesor')
     if hasattr(request.user, 'admin_escuela_profile'):
-        if ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.ACADEMICO:
+        if ca.has_capacidad(request.user, 'academico'):
             return redirect('hechos:estudiantes_list')
     return redirect('core:dashboard')
 
@@ -213,7 +213,7 @@ def estudiantes_list(request):
         or hasattr(request.user, 'profesor_profile')
         or (
             hasattr(request.user, 'admin_escuela_profile')
-            and ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.ACADEMICO
+            and ca.has_capacidad(request.user, 'academico')
         )
     )
     if not allowed:
@@ -308,7 +308,7 @@ def profesores_list(request):
         request.user.is_super_admin()
         or (
             hasattr(request.user, 'admin_escuela_profile')
-            and ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.PEDAGOGICO
+            and ca.has_capacidad(request.user, 'pedagogico')
         )
     )
     if not allowed:
@@ -354,7 +354,7 @@ def profesores_list(request):
         .order_by('user__first_name', 'user__last_name')
     )
 
-    es_pedagogico = ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.PEDAGOGICO
+    es_pedagogico = ca.has_capacidad(request.user, 'pedagogico')
 
     context = {
         'profesores': profesores,
@@ -1235,12 +1235,23 @@ def quejas_reclamos(request):
         messages.info(request, "Selecciona tu sede para contactar al coordinador académico.")
         return redirect("hechos:seleccionar_sede_estudiante")
 
-    coordinador_academico = AdminEscuela.objects.filter(
+    base_coordinadores = AdminEscuela.objects.filter(
         sede=user_sede,
-        tipo_coordinador=AdminEscuela.TipoCoordinador.ACADEMICO,
         is_active=True,
         user__is_active=True,
-    ).select_related("user").first()
+    )
+    coordinador_academico = (
+        base_coordinadores.filter(capacidad_asignaciones__capacidad__codigo='academico')
+        .select_related('user')
+        .distinct()
+        .first()
+    )
+    if not coordinador_academico:
+        coordinador_academico = (
+            base_coordinadores.filter(tipo_coordinador=AdminEscuela.TipoCoordinador.ACADEMICO)
+            .select_related('user')
+            .first()
+        )
 
     wa_prefill = (
         f"Hola, soy {request.user.get_full_name() or request.user.email} "
@@ -3552,7 +3563,7 @@ def matricular_estudiante(request):
         or hasattr(request.user, 'profesor_profile')
         or (
             hasattr(request.user, 'admin_escuela_profile')
-            and ca.admin_tipo(request.user) == AdminEscuela.TipoCoordinador.ACADEMICO
+            and ca.has_capacidad(request.user, 'academico')
         )
     )
     if not allowed:
@@ -4053,11 +4064,7 @@ def detalle_curso(request, curso_id):
         or hasattr(request.user, 'profesor_profile')
         or (
             hasattr(request.user, 'admin_escuela_profile')
-            and ca.admin_tipo(request.user)
-            in (
-                AdminEscuela.TipoCoordinador.ACADEMICO,
-                AdminEscuela.TipoCoordinador.PEDAGOGICO,
-            )
+            and ca.has_any_capacidad(request.user, ('academico', 'pedagogico'))
         )
     )
     if not allowed:
@@ -4655,11 +4662,10 @@ def editar_edicion_curso(request, edicion_id):
 def _coordinador_financiero_gate(request):
     if request.user.is_super_admin():
         return None
-    p = getattr(request.user, 'admin_escuela_profile', None)
-    if not p or p.tipo_coordinador != AdminEscuela.TipoCoordinador.FINANCIERO:
-        messages.error(request, 'Solo el coordinador financiero puede acceder a esta sección.')
-        return redirect('core:dashboard')
-    return None
+    if ca.has_capacidad(request.user, 'financiero'):
+        return None
+    messages.error(request, 'Necesitas la función de recursos y finanzas para acceder a esta sección.')
+    return redirect('core:dashboard')
 
 
 @login_required
@@ -4858,12 +4864,8 @@ def coordinador_recaudos_ocasionales(request):
 def coordinador_logistica(request):
     if not request.user.is_super_admin():
         p = getattr(request.user, 'admin_escuela_profile', None)
-        if (
-            not p
-            or p.tipo_coordinador != AdminEscuela.TipoCoordinador.LOGISTICO
-            or not p.is_active
-        ):
-            messages.error(request, 'Solo el coordinador logístico puede acceder a esta sección.')
+        if not p or not p.is_active or not ca.has_capacidad(request.user, 'logistico'):
+            messages.error(request, 'Necesitas la función logística para acceder a esta sección.')
             return redirect('core:dashboard')
     user_sede = get_user_sede(request.user)
     if not user_sede:

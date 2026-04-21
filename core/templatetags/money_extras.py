@@ -52,3 +52,21 @@ def cop(value, arg=None) -> str:
 def cop_short(value) -> str:
     """Igual que cop pero sin el sufijo 'COP' (útil en tablas muy estrechas)."""
     return _format_cop(value, suffix=False)
+
+
+@register.filter(name="cop_enteros")
+def cop_enteros(value) -> str:
+    """
+    COP en pesos enteros, sin decimales. Separador de miles: punto.
+    Ej.: {{ 50000|cop_enteros }} → $ 50.000
+    """
+    if value is None or value == "":
+        return "—"
+    try:
+        n = int(Decimal(str(value)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    except (InvalidOperation, TypeError, ValueError):
+        return "—"
+    if n < 0:
+        return "—"
+    s = f"{n:,}".replace(",", ".")
+    return f"$ {s}"

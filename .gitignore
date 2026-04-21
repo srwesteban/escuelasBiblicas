@@ -38,6 +38,9 @@ Thumbs.db
 .env.local
 *.env
 
+# Volcados locales de migración de BD
+neon_migration_dump.json
+
 # Coverage
 htmlcov/
 .coverage

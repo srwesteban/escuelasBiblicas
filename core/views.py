@@ -3,16 +3,36 @@ from collections import OrderedDict
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import IntegrityError
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.html import json_script as html_json_script
 
 from core.colombia_geo import nombre_departamento
-from core.forms import CoordinadorForm, EscuelaSedeBasicaForm, PastorSedeFormSet, SedeForm
+from core.forms import (
+    CoordinadorForm,
+    EscuelaProgramaForm,
+    EscuelaProgramaPlantillaForm,
+    EscuelaProgramaPlantillaEditForm,
+    EscuelaSedeBasicaForm,
+    NivelProgramaEditForm,
+    NivelProgramaForm,
+    NivelProgramaPlantillaEditForm,
+    NivelProgramaPlantillaForm,
+    PastorSedeFormSet,
+    SedeForm,
+)
 from .models import AppModule, Sede, UserAppPermission
+from hechos import coordinador_access as ca
 from hechos.models import (
     AdminEscuela,
     Escuela,
+    EscuelaPrograma,
+    EscuelaProgramaPlantilla,
+    NivelPrograma,
+    NivelProgramaPlantilla,
     Estudiante,
     NotificacionEstudiante,
     Profesor,
@@ -21,8 +41,71 @@ from hechos.models import (
     EdicionCurso,
     Salon,
 )
+from hechos.programa_formacion_seed import propagar_catalogo_global_a_todas_las_sedes
 
 User = get_user_model()
+
+
+def _programa_agrupado_por_nivel(sede, escuelas_programa_qs):
+    """
+    Lista todos los niveles activos de la sede (orden por número de nivel) y,
+    para cada uno, las escuelas del programa asociadas (puede ser ninguna).
+    """
+    grupos = {}
+    for ep in escuelas_programa_qs.select_related("nivel_programa"):
+        np_id = ep.nivel_programa_id
+        grupos.setdefault(np_id, []).append(ep)
+    out = []
+    for np in (
+        NivelPrograma.objects.filter(sede=sede, is_active=True)
+        .order_by("jerarquia", "nombre")
+    ):
+        out.append(
+            {
+                "nivel_programa": np,
+                "nivel_display": np.titulo_acordeon(),
+                "escuelas": grupos.get(np.pk, []),
+            }
+        )
+    return out
+
+
+def _programa_agrupado_plantillas_global():
+    """Agrupa escuelas plantilla por nivel (catálogo global)."""
+    escuelas_qs = (
+        EscuelaProgramaPlantilla.objects.select_related("nivel_plantilla").order_by(
+            "nivel_plantilla__jerarquia",
+            "nombre",
+        )
+    )
+    grupos = {}
+    for ep in escuelas_qs:
+        np = ep.nivel_plantilla
+        grupos.setdefault(np.id, []).append(ep)
+    out = []
+    for np in NivelProgramaPlantilla.objects.order_by("jerarquia", "nombre"):
+        out.append(
+            {
+                "nivel_programa": np,
+                "nivel_display": np.titulo_acordeon(),
+                "escuelas": grupos.get(np.pk, []),
+            }
+        )
+    return out
+
+
+def _escuela_programa_plantilla_form_edit(*args, **kwargs):
+    return EscuelaProgramaPlantillaEditForm(*args, **kwargs)
+
+
+def _escuela_programa_form_edit(sede, *args, **kwargs):
+    return EscuelaProgramaForm(
+        *args,
+        sede=sede,
+        prefix="programa_edit",
+        checkbox_js_class="js-programa-edit-tiene-matricula",
+        **kwargs,
+    )
 
 
 def _sync_cupo_ediciones_escuela(escuela, capacidad: int) -> None:
@@ -70,17 +153,14 @@ def _home_redirect_response(user):
         if p.sede_id:
             if p.tipo_coordinador == AdminEscuela.TipoCoordinador.SEDE:
                 return redirect('core:coordinador_sede_equipo', sede_id=p.sede_id)
-            if p.tipo_coordinador == AdminEscuela.TipoCoordinador.FINANCIERO:
+            if ca.has_capacidad(user, 'financiero'):
                 return redirect('hechos:coordinador_recursos')
-            if p.tipo_coordinador == AdminEscuela.TipoCoordinador.LOGISTICO:
+            if ca.has_capacidad(user, 'logistico'):
                 return redirect('hechos:coordinador_logistica')
 
     if _user_has_hechos_profile(user):
         p = getattr(user, 'admin_escuela_profile', None)
-        if (
-            p
-            and p.tipo_coordinador == AdminEscuela.TipoCoordinador.PEDAGOGICO
-        ):
+        if p and ca.has_capacidad(user, 'pedagogico'):
             return redirect('hechos:profesores_list')
         # Estudiante sin sede: obligar a elegir sede (flujo post-registro).
         if not _user_has_sede_in_profile(user):
@@ -91,7 +171,7 @@ def _home_redirect_response(user):
             return redirect('hechos:escuelas_disponibles')
         if hasattr(user, 'profesor_profile'):
             return redirect('hechos:mis_escuelas_profesor')
-        if p and p.tipo_coordinador == AdminEscuela.TipoCoordinador.ACADEMICO:
+        if p and ca.has_capacidad(user, 'academico'):
             return redirect('hechos:estudiantes_list')
         return redirect('hechos:dashboard')
 
@@ -120,7 +200,11 @@ def _coordinador_sede_may_manage(request, sede):
 
 def _allowed_tipos_coordinador(request, sede, editing):
     if request.user.is_super_admin():
-        return [t[0] for t in AdminEscuela.TipoCoordinador.choices]
+        return [
+            t[0]
+            for t in AdminEscuela.TipoCoordinador.choices
+            if t[0] != AdminEscuela.TipoCoordinador.COMBINADO
+        ]
     if not _coordinador_sede_may_manage(request, sede):
         return []
     if editing:
@@ -351,92 +435,256 @@ def coordinador_sede_equipo(request, sede_id):
 
 
 @login_required
+def director_programa_escuelas(request):
+    if not _director_required(request):
+        return redirect("core:dashboard")
+
+    form_programa = EscuelaProgramaPlantillaForm()
+    form_programa_edit = _escuela_programa_plantilla_form_edit()
+    form_nivel = NivelProgramaPlantillaForm(prefix="np_nuevo")
+    form_nivel_edit = None
+    editar_nivel_id = None
+    editar_programa_id = None
+    abrir_dialog_editar_nivel = False
+    abrir_dialog_editar_programa = False
+
+    if request.method == "POST":
+        accion = (request.POST.get("accion") or "").strip()
+        if accion == "crear_nivel":
+            form_nivel = NivelProgramaPlantillaForm(
+                data=request.POST, prefix="np_nuevo"
+            )
+            form_programa = EscuelaProgramaPlantillaForm()
+            form_programa_edit = _escuela_programa_plantilla_form_edit()
+            if form_nivel.is_valid():
+                NivelProgramaPlantilla.objects.create(
+                    jerarquia=form_nivel.cleaned_data["jerarquia"],
+                    nombre=form_nivel.cleaned_data["nombre"],
+                    descripcion=form_nivel.cleaned_data.get("descripcion") or "",
+                )
+                propagar_catalogo_global_a_todas_las_sedes()
+                messages.success(request, "Nivel del programa global creado y replicado en las sedes.")
+                return redirect("core:director_programa_escuelas")
+        elif accion == "editar_nivel":
+            nid = (request.POST.get("nivel_id") or "").strip()
+            form_programa = EscuelaProgramaPlantillaForm()
+            form_programa_edit = _escuela_programa_plantilla_form_edit()
+            form_nivel = NivelProgramaPlantillaForm(prefix="np_nuevo")
+            np_obj = None
+            if nid.isdigit():
+                np_obj = NivelProgramaPlantilla.objects.filter(id=int(nid)).first()
+            if np_obj is None:
+                messages.error(request, "Nivel no encontrado.")
+                return redirect("core:director_programa_escuelas")
+            editar_nivel_id = np_obj.id
+            form_nivel_edit = NivelProgramaPlantillaEditForm(
+                data=request.POST,
+                prefix="np_edit",
+                nivel_plantilla_pk=np_obj.pk,
+            )
+            if form_nivel_edit.is_valid():
+                np_obj.jerarquia = form_nivel_edit.cleaned_data["jerarquia"]
+                np_obj.nombre = form_nivel_edit.cleaned_data["nombre"]
+                np_obj.descripcion = form_nivel_edit.cleaned_data.get("descripcion") or ""
+                np_obj.save(
+                    update_fields=["jerarquia", "nombre", "descripcion", "updated_at"],
+                )
+                propagar_catalogo_global_a_todas_las_sedes()
+                messages.success(request, "Nivel actualizado y replicado en las sedes.")
+                return redirect("core:director_programa_escuelas")
+            abrir_dialog_editar_nivel = True
+        elif accion == "eliminar_nivel":
+            nid = (request.POST.get("nivel_id") or "").strip()
+            if nid.isdigit():
+                np_obj = NivelProgramaPlantilla.objects.filter(id=int(nid)).first()
+                if np_obj is None:
+                    messages.error(request, "Nivel no encontrado.")
+                elif np_obj.escuelas.exists():
+                    messages.error(
+                        request,
+                        "No puedes eliminar este nivel: tiene escuelas del programa asignadas. "
+                        "Elimínalas primero.",
+                    )
+                else:
+                    np_obj.delete()
+                    propagar_catalogo_global_a_todas_las_sedes()
+                    messages.success(request, "Nivel eliminado.")
+            return redirect("core:director_programa_escuelas")
+        elif accion == "crear_programa":
+            form_programa = EscuelaProgramaPlantillaForm(data=request.POST)
+            form_programa_edit = _escuela_programa_plantilla_form_edit()
+            form_nivel = NivelProgramaPlantillaForm(prefix="np_nuevo")
+            form_nivel_edit = None
+            if form_programa.is_valid():
+                try:
+                    EscuelaProgramaPlantilla.objects.create(
+                        nivel_plantilla=form_programa.cleaned_data["nivel_plantilla"],
+                        nombre=form_programa.cleaned_data["nombre"],
+                        descripcion=form_programa.cleaned_data.get("descripcion") or "",
+                        tiene_matricula=bool(
+                            form_programa.cleaned_data.get("tiene_matricula")
+                        ),
+                        costo_matricula_cop=form_programa.cleaned_data.get(
+                            "costo_matricula_cop"
+                        ),
+                    )
+                    propagar_catalogo_global_a_todas_las_sedes()
+                    messages.success(
+                        request,
+                        "Escuela del programa global registrada y replicada en las sedes.",
+                    )
+                    return redirect("core:director_programa_escuelas")
+                except IntegrityError:
+                    form_programa.add_error(
+                        None,
+                        "Ya existe una escuela con este nivel y nombre en el programa global.",
+                    )
+        elif accion == "editar_programa":
+            form_programa = EscuelaProgramaPlantillaForm()
+            pid = (request.POST.get("programa_id") or "").strip()
+            ep = None
+            if pid.isdigit():
+                ep = EscuelaProgramaPlantilla.objects.filter(id=int(pid)).first()
+            if ep is None:
+                messages.error(request, "Escuela del programa no encontrada.")
+                return redirect("core:director_programa_escuelas")
+            form_programa_edit = _escuela_programa_plantilla_form_edit(
+                request.POST,
+                escuela_plantilla_pk=ep.pk,
+            )
+            form_nivel = NivelProgramaPlantillaForm(prefix="np_nuevo")
+            form_nivel_edit = None
+            editar_programa_id = ep.id
+            if form_programa_edit.is_valid():
+                np = form_programa_edit.cleaned_data["nivel_plantilla"]
+                new_nombre = form_programa_edit.cleaned_data["nombre"]
+                if (
+                    EscuelaProgramaPlantilla.objects.filter(
+                        nivel_plantilla=np,
+                        nombre=new_nombre,
+                    )
+                    .exclude(pk=ep.pk)
+                    .exists()
+                ):
+                    form_programa_edit.add_error(
+                        None,
+                        "Ya existe una escuela con este nivel y nombre en el programa global.",
+                    )
+                    abrir_dialog_editar_programa = True
+                else:
+                    ep.nivel_plantilla = np
+                    ep.nombre = new_nombre
+                    ep.descripcion = form_programa_edit.cleaned_data.get("descripcion") or ""
+                    ep.tiene_matricula = bool(
+                        form_programa_edit.cleaned_data.get("tiene_matricula")
+                    )
+                    ep.costo_matricula_cop = form_programa_edit.cleaned_data.get(
+                        "costo_matricula_cop"
+                    )
+                    ep.save()
+                    propagar_catalogo_global_a_todas_las_sedes()
+                    messages.success(
+                        request,
+                        "Escuela del programa global actualizada y replicada en las sedes.",
+                    )
+                    return redirect("core:director_programa_escuelas")
+            else:
+                abrir_dialog_editar_programa = True
+        elif accion == "eliminar_programa":
+            pid = request.POST.get("programa_id")
+            if pid and pid.isdigit():
+                EscuelaProgramaPlantilla.objects.filter(id=int(pid)).delete()
+                propagar_catalogo_global_a_todas_las_sedes()
+                messages.success(request, "Escuela del programa global eliminada.")
+            return redirect("core:director_programa_escuelas")
+
+    niveles_programa = NivelProgramaPlantilla.objects.annotate(
+        num_escuelas=Count("escuelas"),
+    ).order_by("jerarquia", "nombre")
+
+    escuelas_programa = EscuelaProgramaPlantilla.objects.select_related(
+        "nivel_plantilla"
+    ).order_by("nivel_plantilla__jerarquia", "nombre")
+
+    if form_nivel_edit is None:
+        form_nivel_edit = NivelProgramaPlantillaEditForm(
+            nivel_plantilla_pk=None,
+            prefix="np_edit",
+        )
+
+    niveles_edit_data = [
+        {
+            "id": np.id,
+            "jerarquia": np.jerarquia,
+            "nombre": np.nombre or "",
+            "descripcion": np.descripcion or "",
+        }
+        for np in niveles_programa
+    ]
+    niveles_edit_script = html_json_script(
+        niveles_edit_data, element_id="niveles-edit-payload"
+    )
+
+    escuelas_programa_edit_data = [
+        {
+            "id": ep.id,
+            "nivel_plantilla_id": ep.nivel_plantilla_id,
+            "nombre": ep.nombre,
+            "descripcion": ep.descripcion or "",
+            "tiene_matricula": ep.tiene_matricula,
+            "costo_matricula_cop": ep.costo_matricula_cop,
+        }
+        for ep in escuelas_programa
+    ]
+    escuelas_programa_edit_script = html_json_script(
+        escuelas_programa_edit_data,
+        element_id="escuelas-programa-edit-payload",
+    )
+
+    return render(
+        request,
+        "core/director_programa_escuelas.html",
+        {
+            "programa_por_nivel": _programa_agrupado_plantillas_global(),
+            "form_programa": form_programa,
+            "form_programa_edit": form_programa_edit,
+            "form_nivel": form_nivel,
+            "form_nivel_edit": form_nivel_edit,
+            "editar_nivel_id": editar_nivel_id,
+            "niveles_edit_script": niveles_edit_script,
+            "abrir_dialog_editar_nivel": abrir_dialog_editar_nivel,
+            "escuelas_programa_edit_script": escuelas_programa_edit_script,
+            "abrir_dialog_editar_programa": abrir_dialog_editar_programa,
+            "niveles_programa": niveles_programa,
+            "editar_programa_id": editar_programa_id,
+        },
+    )
+
+
+@login_required
 def coordinador_sede_escuelas(request, sede_id):
     sede = get_object_or_404(Sede, id=sede_id)
-    p = getattr(request.user, 'admin_escuela_profile', None)
+    p = getattr(request.user, "admin_escuela_profile", None)
     if (
         not p
         or p.sede_id != sede.id
         or p.tipo_coordinador != AdminEscuela.TipoCoordinador.SEDE
     ):
-        messages.error(request, 'Solo el coordinador de sede puede gestionar las escuelas.')
-        return redirect('core:dashboard')
+        messages.error(request, "Solo el coordinador de sede puede ver esta sección.")
+        return redirect("core:dashboard")
 
-    if request.method == 'POST' and request.POST.get('accion') == 'crear_escuela':
-        form = EscuelaSedeBasicaForm(sede, request.POST)
-        if form.is_valid():
-            escuela = form.save()
-
-            # Cupo lo define el salón asignado en logística; hasta entonces 0.
-            from datetime import date, timedelta
-            from django.utils import timezone
-
-            today = timezone.localdate()
-            anio = int(escuela.anio or today.year)
-
-            # Evita errores si el día no existe en el año destino (ej. 29 feb).
-            try:
-                fecha_base = today.replace(year=anio)
-            except ValueError:
-                fecha_base = date(anio, today.month, 28)
-
-            fecha_inicio = (
-                fecha_base if escuela.ciclo == "A" else fecha_base + timedelta(weeks=12)
-            )
-            # Por ahora usamos la duración por defecto del modelo de Curso.
-            curso_duracion_semanas = 4
-            fecha_fin = fecha_inicio + timedelta(weeks=curso_duracion_semanas)
-
-            ruta = RutaEstudio.objects.create(
-                sede=sede,
-                escuela=escuela,
-                nombre="Ruta base",
-                descripcion="",
-                duracion_semanas=12,
-                nivel="basico",
-                is_active=True,
-            )
-
-            curso = Curso.objects.create(
-                sede=sede,
-                ruta_estudio=ruta,
-                nombre="Módulo 1",
-                descripcion="",
-                orden=1,
-                duracion_semanas=curso_duracion_semanas,
-                is_active=True,
-            )
-
-            EdicionCurso.objects.create(
-                curso=curso,
-                nombre_edicion="Principal",
-                profesor=escuela.maestro,
-                fecha_inicio=fecha_inicio,
-                fecha_fin=fecha_fin,
-                horario="Horario por definir",
-                aula="",
-                cupo_maximo=0,
-                is_active=True,
-            )
-
-            messages.success(request, 'Escuela creada correctamente.')
-            return redirect('core:coordinador_sede_escuelas', sede_id=sede.id)
-    else:
-        form = EscuelaSedeBasicaForm(sede)
-
-    escuelas = (
-        Escuela.objects.filter(sede=sede, is_active=True)
-        .select_related('maestro__user')
-        .order_by('-anio', 'ciclo', 'grupo', 'nombre')
+    escuelas_programa = (
+        EscuelaPrograma.objects.filter(sede=sede, is_active=True)
+        .select_related("nivel_programa")
+        .order_by("nivel_programa__jerarquia", "nombre")
     )
 
     return render(
         request,
-        'core/coordinador_sede_escuelas.html',
+        "core/coordinador_sede_escuelas.html",
         {
-            'sede': sede,
-            'escuelas': escuelas,
-            'form': form,
+            "sede": sede,
+            "programa_por_nivel": _programa_agrupado_por_nivel(sede, escuelas_programa),
         },
     )
 
@@ -670,9 +918,14 @@ def coordinador_edit(request, sede_id, coordinador_id):
             initial={
                 'nombres': admin_profile.user.first_name,
                 'apellidos': admin_profile.user.last_name,
+                'tipo_documento': getattr(
+                    admin_profile.user, 'tipo_documento', None
+                )
+                or User.TipoDocumento.CC,
+                'documento_identidad': getattr(admin_profile.user, 'documento_identidad', None) or '',
+                'celular': (getattr(admin_profile.user, 'phone', None) or '').strip(),
                 'email': admin_profile.user.email,
                 'tipo_coordinador': admin_profile.tipo_coordinador,
-                'is_active': admin_profile.is_active and admin_profile.user.is_active,
             },
         )
 

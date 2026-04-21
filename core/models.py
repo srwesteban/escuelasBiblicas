@@ -22,13 +22,21 @@ class User(AbstractUser):
     """
     Modelo de usuario extendido para HechosHub
     """
+
+    class TipoDocumento(models.TextChoices):
+        """Mismos códigos que hechos.Estudiante.TipoDocumento (identificación)."""
+        CC = "CC", _("Cédula de ciudadanía")
+        TI = "TI", _("Tarjeta de identidad")
+        CE = "CE", _("Cédula de extranjería")
+        PAS = "PAS", _("Pasaporte")
+
     ROLES = [
         ('super_admin', 'Super Admin'),
         ('app_admin', 'Admin de Aplicación'),
         ('user', 'Usuario'),
     ]
     
-    email = models.EmailField(_('email address'), unique=True)
+    email = models.EmailField(_('email address'), unique=True, blank=True, null=True)
     role = models.CharField(
         max_length=20,
         choices=ROLES,
@@ -36,6 +44,22 @@ class User(AbstractUser):
         help_text='Rol global del usuario en el sistema'
     )
     phone = models.CharField(max_length=20, blank=True, null=True)
+    tipo_documento = models.CharField(
+        max_length=3,
+        choices=TipoDocumento.choices,
+        default=TipoDocumento.CC,
+        null=True,
+        blank=True,
+        verbose_name=_('Tipo de documento'),
+    )
+    documento_identidad = models.CharField(
+        max_length=32,
+        null=True,
+        blank=True,
+        unique=True,
+        verbose_name=_('Número de identificación'),
+        help_text=_('Número del documento; debe ser único en el sistema.'),
+    )
     direccion = models.TextField(blank=True, default="", verbose_name=_("Dirección"))
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     is_verified = models.BooleanField(default=False)
@@ -43,8 +67,8 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['first_name', 'last_name']
     
     class Meta:
         verbose_name = 'Usuario'
@@ -52,14 +76,17 @@ class User(AbstractUser):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.get_full_name()} ({self.email})"
+        ident = self.email or self.username
+        return f"{self.get_full_name()} ({ident})"
     
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}".strip() or self.username
 
     def save(self, *args, **kwargs):
         if not self.username:
-            self.username = generate_unique_username(self.__class__, self.email, exclude_pk=self.pk)
+            self.username = generate_unique_username(
+                self.__class__, self.email or "", exclude_pk=self.pk
+            )
         super().save(*args, **kwargs)
     
     def is_super_admin(self):

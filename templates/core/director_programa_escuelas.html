@@ -1,0 +1,632 @@
+{% extends 'base_modern.html' %}
+{% load money_extras %}
+{% block title %}Programa de formación — Director{% endblock %}
+
+{% block extra_css %}
+<style>
+    .escuelas-hero {
+        background: linear-gradient(135deg, #1c1917 0%, #44403c 45%, #78716c 100%);
+        border-radius: 1rem;
+        padding: 1.75rem 1.5rem;
+        color: #fafaf9;
+        position: relative;
+        overflow: hidden;
+    }
+    .escuelas-hero::after {
+        content: "";
+        position: absolute;
+        right: -2rem;
+        top: -2rem;
+        width: 12rem;
+        height: 12rem;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.06);
+        pointer-events: none;
+    }
+    .escuelas-fab {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.25rem;
+        border-radius: 9999px;
+        background: #fafaf9;
+        color: #1c1917;
+        font-weight: 600;
+        font-size: 0.875rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .escuelas-fab:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.25);
+    }
+    dialog.programa-dialog {
+        border: none;
+        border-radius: 1rem;
+        padding: 0;
+        max-width: 36rem;
+        width: calc(100% - 2rem);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    dialog.programa-dialog.programa-dialog--wide {
+        max-width: min(48rem, 100% - 2rem);
+    }
+    dialog.programa-dialog::backdrop {
+        background: rgba(28, 25, 23, 0.45);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-8">
+    <nav class="text-sm text-stone-600">
+        <a href="{% url 'core:director_dashboard' %}" class="font-medium text-amber-800 hover:underline">Director</a>
+        <span class="mx-1.5 text-stone-400">/</span>
+        <span class="text-stone-800">Programa de formación</span>
+    </nav>
+    <div class="escuelas-hero flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="relative z-10">
+            <p class="text-xs font-semibold uppercase tracking-wider text-stone-300/90">Todas las sedes</p>
+            <h1 class="mt-1 text-2xl font-bold text-white">Escuelas del programa (catálogo global)</h1>
+            <p class="mt-2 text-sm text-stone-200/90 max-w-2xl">
+                Define aquí los <strong class="text-white">niveles y escuelas base</strong>; cada sede hereda esta estructura automáticamente.
+            </p>
+        </div>
+        <div class="relative z-10 shrink-0 flex flex-wrap items-center justify-end gap-2">
+            <button type="button" class="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/15 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/25" id="open-niveles-dialog" aria-haspopup="dialog">
+                <i class="fas fa-layer-group text-amber-200"></i>
+                Ver niveles
+            </button>
+            <button type="button" class="escuelas-fab" id="open-programa-dialog" aria-haspopup="dialog">
+                <i class="fas fa-plus-circle text-amber-600"></i>
+                Crear escuela
+            </button>
+        </div>
+    </div>
+
+    <section class="card p-5 border border-amber-200/90 bg-amber-50/40" aria-labelledby="programa-dinamico-titulo">
+        <h2 id="programa-dinamico-titulo" class="text-lg font-semibold text-stone-900">Vista previa del programa</h2>
+        {% if programa_por_nivel %}
+        <div class="mt-4 space-y-2">
+            {% for grupo in programa_por_nivel %}
+            <details class="group rounded-xl border border-stone-200 bg-white/90 open:shadow-sm">
+                <summary class="cursor-pointer list-none flex flex-wrap items-center gap-2 px-4 py-3 text-sm font-medium text-stone-900 marker:content-none">
+                    <span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600 group-open:bg-amber-100 group-open:text-amber-900" aria-hidden="true">
+                        <i class="fas fa-chevron-right text-xs transition-transform group-open:rotate-90"></i>
+                    </span>
+                    <span>{{ grupo.nivel_display }}</span>
+                </summary>
+                <div class="px-4 pb-4 pt-0 border-t border-stone-100">
+                    {% if grupo.nivel_programa.descripcion %}
+                    <div class="mt-3 text-sm text-stone-800 leading-relaxed whitespace-pre-line border-l-2 border-amber-300/80 pl-3">
+                        {{ grupo.nivel_programa.descripcion }}
+                    </div>
+                    {% endif %}
+                    {% if not grupo.escuelas %}
+                    <p class="text-sm text-stone-600 mt-3">Aún no hay escuelas del programa en este nivel. Usa <strong>Crear escuela</strong> y elige <strong>{{ grupo.nivel_display }}</strong> en el campo Nivel.</p>
+                    {% endif %}
+                    {% for ep in grupo.escuelas %}
+                    <div class="mt-3 {% if not forloop.first %}pt-3 border-t border-stone-100{% endif %}">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">Escuela</p>
+                        <p class="text-sm font-medium text-stone-900">{{ ep.nombre }}</p>
+                        {% if ep.descripcion %}
+                        <div class="mt-2 text-sm text-stone-700 whitespace-pre-line">{{ ep.descripcion }}</div>
+                        {% else %}
+                        <p class="text-sm text-stone-500 mt-2">Sin descripción.</p>
+                        {% endif %}
+                        <p class="text-sm mt-2">
+                            {% if ep.tiene_matricula %}
+                            <span class="font-medium text-stone-800">Matrícula:</span>
+                            <span class="text-stone-700">{{ ep.costo_matricula_cop|cop_enteros }}</span>
+                            {% else %}
+                            <span class="text-stone-600">Sin costo de matrícula.</span>
+                            {% endif %}
+                        </p>
+                        <div class="mt-3 flex flex-wrap items-center gap-3">
+                            <button type="button"
+                               class="js-abrir-editar-programa inline-flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-50"
+                               data-programa-id="{{ ep.id }}">
+                                <i class="fas fa-pen text-xs text-amber-700" aria-hidden="true"></i>
+                                Editar
+                            </button>
+                            <form method="post" class="inline" onsubmit="return confirm('¿Eliminar esta escuela del programa?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="accion" value="eliminar_programa">
+                                <input type="hidden" name="programa_id" value="{{ ep.id }}">
+                                <button type="submit" class="text-sm font-medium text-red-700 hover:text-red-900">Eliminar del programa</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="mt-4 card p-8 text-center border border-dashed border-stone-300 bg-white/60">
+            <p class="text-stone-600 text-sm">No hay niveles del programa para esta sede. Abre <strong>Ver niveles</strong> y añade al menos un nivel; luego podrás registrar escuelas con <strong>Crear escuela</strong>.</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+{{ niveles_edit_script|safe }}
+{{ escuelas_programa_edit_script|safe }}
+
+<dialog class="programa-dialog programa-dialog--wide" id="dialog-niveles" aria-labelledby="dialog-niveles-title">
+    <div class="p-6 space-y-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 id="dialog-niveles-title" class="text-lg font-bold text-gray-900">Niveles del programa</h2>
+            </div>
+            <button type="button" class="text-stone-400 hover:text-stone-700 p-1 rounded-lg" id="close-niveles-dialog" aria-label="Cerrar">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <div>
+            <h3 class="text-sm font-semibold text-stone-900 mb-2">Niveles actuales</h3>
+            {% if niveles_programa %}
+            <div class="overflow-x-auto rounded-xl border border-stone-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-stone-100 text-stone-700 text-left">
+                        <tr>
+                            <th class="px-3 py-2 font-medium">Nivel</th>
+                            <th class="px-3 py-2 font-medium text-center">Escuelas</th>
+                            <th class="px-3 py-2 font-medium text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-stone-100 bg-white">
+                        {% for n in niveles_programa %}
+                        <tr class="align-top">
+                            <td class="px-3 py-2.5 text-stone-900">{{ n.titulo_acordeon }}</td>
+                            <td class="px-3 py-2.5 text-center text-stone-600">{{ n.num_escuelas }}</td>
+                            <td class="px-3 py-2.5 text-right">
+                                <div class="flex flex-wrap justify-end gap-2">
+                                    <button type="button"
+                                       class="js-abrir-editar-nivel inline-flex items-center gap-1 rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-800 hover:bg-stone-50"
+                                       data-nivel-id="{{ n.id }}">
+                                        <i class="fas fa-pen text-[10px] text-amber-700" aria-hidden="true"></i>
+                                        Editar
+                                    </button>
+                                    <button type="submit" form="form-eliminar-nivel-{{ n.id }}" class="text-xs font-medium text-red-700 hover:text-red-900 disabled:opacity-40 disabled:cursor-not-allowed" {% if n.num_escuelas %}disabled title="Tiene escuelas asignadas"{% endif %}>Eliminar</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% for n in niveles_programa %}
+            <form id="form-eliminar-nivel-{{ n.id }}" method="post" class="hidden" aria-hidden="true" onsubmit="return confirm('¿Eliminar este nivel? Solo es posible si no tiene escuelas del programa.');">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="eliminar_nivel">
+                <input type="hidden" name="nivel_id" value="{{ n.id }}">
+            </form>
+            {% endfor %}
+            {% else %}
+            <p class="text-sm text-stone-600 rounded-lg border border-dashed border-stone-300 bg-stone-50/80 px-4 py-3">Aún no hay niveles registrados para esta sede.</p>
+            {% endif %}
+        </div>
+
+        <div class="border-t border-stone-200 pt-4">
+            <h3 class="text-sm font-semibold text-stone-900 mb-3">Añadir nivel</h3>
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="crear_nivel">
+                {% if form_nivel.non_field_errors %}
+                    <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {{ form_nivel.non_field_errors }}
+                    </div>
+                {% endif %}
+                <div>
+                    <label for="{{ form_nivel.jerarquia.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_nivel.jerarquia.label }}</label>
+                    {{ form_nivel.jerarquia }}
+                    {% if form_nivel.jerarquia.help_text %}<p class="text-xs text-stone-500 mt-1">{{ form_nivel.jerarquia.help_text }}</p>{% endif %}
+                    {% if form_nivel.jerarquia.errors %}<p class="text-sm text-red-600 mt-1">{{ form_nivel.jerarquia.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form_nivel.nombre.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_nivel.nombre.label }}</label>
+                    {{ form_nivel.nombre }}
+                    {% if form_nivel.nombre.help_text %}<p class="text-xs text-stone-500 mt-1">{{ form_nivel.nombre.help_text }}</p>{% endif %}
+                    {% if form_nivel.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ form_nivel.nombre.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form_nivel.descripcion.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_nivel.descripcion.label }}</label>
+                    {{ form_nivel.descripcion }}
+                    {% if form_nivel.descripcion.help_text %}<p class="text-xs text-stone-500 mt-1">{{ form_nivel.descripcion.help_text }}</p>{% endif %}
+                    {% if form_nivel.descripcion.errors %}<p class="text-sm text-red-600 mt-1">{{ form_nivel.descripcion.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" class="btn-outline px-4 py-2 text-sm font-medium" id="cancel-niveles-dialog">Cerrar</button>
+                    <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Añadir nivel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</dialog>
+
+<dialog class="programa-dialog programa-dialog--wide" id="dialog-editar-nivel" aria-labelledby="dialog-editar-nivel-title">
+    <form method="post" class="p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="editar_nivel">
+        <input type="hidden" name="nivel_id" id="id_nivel_id_edit" value="{% if editar_nivel_id %}{{ editar_nivel_id }}{% endif %}">
+        <div class="flex items-start justify-between gap-3">
+            <h2 id="dialog-editar-nivel-title" class="text-lg font-bold text-gray-900">Editar nivel</h2>
+            <button type="button" class="text-stone-400 hover:text-stone-700 p-1 rounded-lg" id="close-editar-nivel-dialog" aria-label="Cerrar">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        {% if form_nivel_edit.non_field_errors %}
+            <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {{ form_nivel_edit.non_field_errors }}
+            </div>
+        {% endif %}
+        <div>
+            <label for="{{ form_nivel_edit.jerarquia.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_nivel_edit.jerarquia.label }}</label>
+            {{ form_nivel_edit.jerarquia }}
+            {% if form_nivel_edit.jerarquia.help_text %}<p class="text-xs text-stone-500 mt-1">{{ form_nivel_edit.jerarquia.help_text }}</p>{% endif %}
+            {% if form_nivel_edit.jerarquia.errors %}<p class="text-sm text-red-600 mt-1">{{ form_nivel_edit.jerarquia.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div>
+            <label for="{{ form_nivel_edit.nombre.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_nivel_edit.nombre.label }}</label>
+            {{ form_nivel_edit.nombre }}
+            {% if form_nivel_edit.nombre.help_text %}<p class="text-xs text-stone-500 mt-1">{{ form_nivel_edit.nombre.help_text }}</p>{% endif %}
+            {% if form_nivel_edit.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ form_nivel_edit.nombre.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div>
+            <label for="{{ form_nivel_edit.descripcion.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_nivel_edit.descripcion.label }}</label>
+            {{ form_nivel_edit.descripcion }}
+            {% if form_nivel_edit.descripcion.help_text %}<p class="text-xs text-stone-500 mt-1">{{ form_nivel_edit.descripcion.help_text }}</p>{% endif %}
+            {% if form_nivel_edit.descripcion.errors %}<p class="text-sm text-red-600 mt-1">{{ form_nivel_edit.descripcion.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div class="flex justify-end gap-2 pt-2 border-t border-stone-200">
+            <button type="button" class="btn-outline px-4 py-2 text-sm font-medium" id="cancel-editar-nivel-dialog">Cancelar</button>
+            <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Guardar cambios</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog class="programa-dialog" id="dialog-crear-programa" aria-labelledby="dialog-programa-title">
+    <form method="post" class="p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="crear_programa">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 id="dialog-programa-title" class="text-lg font-bold text-gray-900">Crear escuela</h2>
+                <p class="text-sm text-stone-600 mt-1">Define la escuela en el programa: nivel, nombre, descripción y, si aplica, matrícula en pesos colombianos.</p>
+            </div>
+            <button type="button" class="text-stone-400 hover:text-stone-700 p-1 rounded-lg" id="close-programa-dialog" aria-label="Cerrar">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        {% if form_programa.non_field_errors %}
+            <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {{ form_programa.non_field_errors }}
+            </div>
+        {% endif %}
+        <div>
+            <label for="{{ form_programa.nivel_plantilla.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_programa.nivel_plantilla.label }}</label>
+            {{ form_programa.nivel_plantilla }}
+            {% if form_programa.nivel_plantilla.errors %}<p class="text-sm text-red-600 mt-1">{{ form_programa.nivel_plantilla.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div>
+            <label for="{{ form_programa.nombre.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_programa.nombre.label }}</label>
+            {{ form_programa.nombre }}
+            {% if form_programa.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ form_programa.nombre.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div>
+            <label for="{{ form_programa.descripcion.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_programa.descripcion.label }}</label>
+            {{ form_programa.descripcion }}
+            {% if form_programa.descripcion.help_text %}<p class="text-xs text-stone-500 mt-1">{{ form_programa.descripcion.help_text }}</p>{% endif %}
+            {% if form_programa.descripcion.errors %}<p class="text-sm text-red-600 mt-1">{{ form_programa.descripcion.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div class="rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3 space-y-3">
+            <label class="flex items-start gap-3 cursor-pointer">
+                {{ form_programa.tiene_matricula }}
+                <span class="text-sm text-stone-800 leading-snug">
+                    <span class="font-medium">{{ form_programa.tiene_matricula.label }}</span>
+                    {% if form_programa.tiene_matricula.help_text %}
+                    <span class="block text-xs text-stone-500 mt-0.5">{{ form_programa.tiene_matricula.help_text }}</span>
+                    {% endif %}
+                </span>
+            </label>
+            {% if form_programa.tiene_matricula.errors %}<p class="text-sm text-red-600">{{ form_programa.tiene_matricula.errors|join:", " }}</p>{% endif %}
+            <div id="programa-matricula-costo-wrap" class="{% if not form_programa.tiene_matricula.value %}hidden{% endif %}">
+                <label for="{{ form_programa.costo_matricula_cop.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_programa.costo_matricula_cop.label }}</label>
+                {{ form_programa.costo_matricula_cop }}
+                {% if form_programa.costo_matricula_cop.help_text %}<p class="text-xs text-stone-500 mt-1">{{ form_programa.costo_matricula_cop.help_text }}</p>{% endif %}
+                {% if form_programa.costo_matricula_cop.errors %}<p class="text-sm text-red-600 mt-1">{{ form_programa.costo_matricula_cop.errors|join:", " }}</p>{% endif %}
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2 border-t border-stone-200">
+            <button type="button" class="btn-outline px-4 py-2 text-sm font-medium" id="cancel-programa-dialog">Cancelar</button>
+            <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Guardar escuela</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog class="programa-dialog" id="dialog-editar-programa" aria-labelledby="dialog-editar-programa-title">
+    <form method="post" class="p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="editar_programa">
+        <input type="hidden" name="programa_id" id="id_programa_id_edit" value="{% if editar_programa_id %}{{ editar_programa_id }}{% endif %}">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 id="dialog-editar-programa-title" class="text-lg font-bold text-gray-900">Editar escuela del programa</h2>
+                <p class="text-sm text-stone-600 mt-1">Cambia nivel, nombre, descripción o matrícula.</p>
+            </div>
+            <button type="button" class="text-stone-400 hover:text-stone-700 p-1 rounded-lg" id="close-edit-programa-dialog" aria-label="Cerrar">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        {% if form_programa_edit.non_field_errors %}
+            <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {{ form_programa_edit.non_field_errors }}
+            </div>
+        {% endif %}
+        <div>
+            <label for="{{ form_programa_edit.nivel_plantilla.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_programa_edit.nivel_plantilla.label }}</label>
+            {{ form_programa_edit.nivel_plantilla }}
+            {% if form_programa_edit.nivel_plantilla.errors %}<p class="text-sm text-red-600 mt-1">{{ form_programa_edit.nivel_plantilla.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div>
+            <label for="{{ form_programa_edit.nombre.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_programa_edit.nombre.label }}</label>
+            {{ form_programa_edit.nombre }}
+            {% if form_programa_edit.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ form_programa_edit.nombre.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div>
+            <label for="{{ form_programa_edit.descripcion.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_programa_edit.descripcion.label }}</label>
+            {{ form_programa_edit.descripcion }}
+            {% if form_programa_edit.descripcion.help_text %}<p class="text-xs text-stone-500 mt-1">{{ form_programa_edit.descripcion.help_text }}</p>{% endif %}
+            {% if form_programa_edit.descripcion.errors %}<p class="text-sm text-red-600 mt-1">{{ form_programa_edit.descripcion.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div class="rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3 space-y-3">
+            <label class="flex items-start gap-3 cursor-pointer">
+                {{ form_programa_edit.tiene_matricula }}
+                <span class="text-sm text-stone-800 leading-snug">
+                    <span class="font-medium">{{ form_programa_edit.tiene_matricula.label }}</span>
+                    {% if form_programa_edit.tiene_matricula.help_text %}
+                    <span class="block text-xs text-stone-500 mt-0.5">{{ form_programa_edit.tiene_matricula.help_text }}</span>
+                    {% endif %}
+                </span>
+            </label>
+            {% if form_programa_edit.tiene_matricula.errors %}<p class="text-sm text-red-600">{{ form_programa_edit.tiene_matricula.errors|join:", " }}</p>{% endif %}
+            <div id="programa-edit-matricula-costo-wrap" class="{% if not form_programa_edit.tiene_matricula.value %}hidden{% endif %}">
+                <label for="{{ form_programa_edit.costo_matricula_cop.id_for_label }}" class="block text-sm font-medium text-stone-800 mb-1">{{ form_programa_edit.costo_matricula_cop.label }}</label>
+                {{ form_programa_edit.costo_matricula_cop }}
+                {% if form_programa_edit.costo_matricula_cop.help_text %}<p class="text-xs text-stone-500 mt-1">{{ form_programa_edit.costo_matricula_cop.help_text }}</p>{% endif %}
+                {% if form_programa_edit.costo_matricula_cop.errors %}<p class="text-sm text-red-600 mt-1">{{ form_programa_edit.costo_matricula_cop.errors|join:", " }}</p>{% endif %}
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2 border-t border-stone-200">
+            <button type="button" class="btn-outline px-4 py-2 text-sm font-medium" id="cancel-edit-programa-dialog">Cancelar</button>
+            <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Guardar cambios</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+(function () {
+    function wireDialog(openId, dlgId, closeId, cancelId) {
+        var dlg = document.getElementById(dlgId);
+        var openBtn = document.getElementById(openId);
+        var closeBtn = document.getElementById(closeId);
+        var cancelBtn = document.getElementById(cancelId);
+        if (!dlg || !openBtn) return;
+        function openDlg() { dlg.showModal(); }
+        function closeDlg() { dlg.close(); }
+        openBtn.addEventListener('click', openDlg);
+        if (closeBtn) closeBtn.addEventListener('click', closeDlg);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeDlg);
+        dlg.addEventListener('click', function (ev) {
+            if (ev.target === dlg) closeDlg();
+        });
+    }
+    wireDialog('open-programa-dialog', 'dialog-crear-programa', 'close-programa-dialog', 'cancel-programa-dialog');
+
+    var cbMat = document.querySelector('#dialog-crear-programa .js-programa-tiene-matricula');
+    var wrapMat = document.getElementById('programa-matricula-costo-wrap');
+    var inputMat = document.getElementById('id_costo_matricula_cop');
+    function syncMatriculaCosto() {
+        if (!wrapMat || !cbMat) return;
+        var on = cbMat.checked;
+        wrapMat.classList.toggle('hidden', !on);
+        if (inputMat) {
+            inputMat.required = on;
+            if (!on) {
+                inputMat.value = '';
+            }
+        }
+    }
+    if (cbMat) {
+        cbMat.addEventListener('change', syncMatriculaCosto);
+        syncMatriculaCosto();
+    }
+
+    var dlgEdit = document.getElementById('dialog-editar-programa');
+    var closeEdit = document.getElementById('close-edit-programa-dialog');
+    var cancelEdit = document.getElementById('cancel-edit-programa-dialog');
+    function stripEditarQuery() {
+        if (!window.history || !window.history.replaceState) return;
+        try {
+            var u = new URL(window.location.href);
+            if (u.searchParams.has('editar_programa')) {
+                u.searchParams.delete('editar_programa');
+            }
+            if (u.searchParams.has('editar_nivel')) {
+                u.searchParams.delete('editar_nivel');
+            }
+            window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+        } catch (e) {}
+    }
+    function closeEditDlg() {
+        if (dlgEdit) dlgEdit.close();
+        stripEditarQuery();
+    }
+    if (dlgEdit) {
+        if (closeEdit) closeEdit.addEventListener('click', closeEditDlg);
+        if (cancelEdit) cancelEdit.addEventListener('click', closeEditDlg);
+        dlgEdit.addEventListener('click', function (ev) {
+            if (ev.target === dlgEdit) closeEditDlg();
+        });
+    }
+
+    var dlgNiveles = document.getElementById('dialog-niveles');
+    var openNiveles = document.getElementById('open-niveles-dialog');
+    var closeNiveles = document.getElementById('close-niveles-dialog');
+    var cancelNiveles = document.getElementById('cancel-niveles-dialog');
+    function closeNivelesDlg() {
+        if (dlgNiveles) dlgNiveles.close();
+        stripEditarQuery();
+    }
+    function openNivelesDlg() {
+        if (dlgNiveles) dlgNiveles.showModal();
+    }
+    if (openNiveles && dlgNiveles) openNiveles.addEventListener('click', openNivelesDlg);
+    if (closeNiveles) closeNiveles.addEventListener('click', closeNivelesDlg);
+    if (cancelNiveles) cancelNiveles.addEventListener('click', closeNivelesDlg);
+    if (dlgNiveles) dlgNiveles.addEventListener('click', function (ev) {
+        if (ev.target === dlgNiveles) closeNivelesDlg();
+    });
+
+    var dlgEditNivel = document.getElementById('dialog-editar-nivel');
+    function parseNivelesPayload() {
+        var el = document.getElementById('niveles-edit-payload');
+        if (!el) return [];
+        try {
+            return JSON.parse(el.textContent);
+        } catch (e) {
+            return [];
+        }
+    }
+    function closeEditNivelReopenLista() {
+        if (dlgEditNivel) dlgEditNivel.close();
+        if (dlgNiveles) dlgNiveles.showModal();
+    }
+    function openEditarNivelFromBtn(btn) {
+        var raw = btn.getAttribute('data-nivel-id');
+        var id = raw ? parseInt(raw, 10) : NaN;
+        if (!id || !dlgEditNivel) return;
+        var list = parseNivelesPayload();
+        var row = null;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].id === id) {
+                row = list[i];
+                break;
+            }
+        }
+        if (!row) return;
+        var hid = document.getElementById('id_nivel_id_edit');
+        var j = document.getElementById('id_np_edit-jerarquia');
+        var n = document.getElementById('id_np_edit-nombre');
+        var d = document.getElementById('id_np_edit-descripcion');
+        if (hid) hid.value = String(id);
+        if (j) j.value = row.jerarquia;
+        if (n) n.value = row.nombre;
+        if (d) d.value = row.descripcion;
+        if (dlgNiveles) dlgNiveles.close();
+        dlgEditNivel.showModal();
+    }
+    document.querySelectorAll('.js-abrir-editar-nivel').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            openEditarNivelFromBtn(btn);
+        });
+    });
+    var closeEditNivelBtn = document.getElementById('close-editar-nivel-dialog');
+    var cancelEditNivelBtn = document.getElementById('cancel-editar-nivel-dialog');
+    if (closeEditNivelBtn) closeEditNivelBtn.addEventListener('click', closeEditNivelReopenLista);
+    if (cancelEditNivelBtn) cancelEditNivelBtn.addEventListener('click', closeEditNivelReopenLista);
+    if (dlgEditNivel) dlgEditNivel.addEventListener('click', function (ev) {
+        if (ev.target === dlgEditNivel) closeEditNivelReopenLista();
+    });
+
+    var cbEditMat = document.querySelector('#dialog-editar-programa .js-programa-edit-tiene-matricula');
+    var wrapEditMat = document.getElementById('programa-edit-matricula-costo-wrap');
+    var inputEditMat = document.getElementById('id_programa_edit-costo_matricula_cop');
+    function syncEditMatriculaCosto() {
+        if (!wrapEditMat || !cbEditMat) return;
+        var on = cbEditMat.checked;
+        wrapEditMat.classList.toggle('hidden', !on);
+        if (inputEditMat) {
+            inputEditMat.required = on;
+            if (!on) {
+                inputEditMat.value = '';
+            }
+        }
+    }
+    if (cbEditMat) {
+        cbEditMat.addEventListener('change', syncEditMatriculaCosto);
+        syncEditMatriculaCosto();
+    }
+
+    function parseEscuelasProgramaPayload() {
+        var el = document.getElementById('escuelas-programa-edit-payload');
+        if (!el) return [];
+        try {
+            return JSON.parse(el.textContent);
+        } catch (e) {
+            return [];
+        }
+    }
+    function openEditarProgramaFromBtn(btn) {
+        var raw = btn.getAttribute('data-programa-id');
+        var id = raw ? parseInt(raw, 10) : NaN;
+        if (!id || !dlgEdit) return;
+        var list = parseEscuelasProgramaPayload();
+        var row = null;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].id === id) {
+                row = list[i];
+                break;
+            }
+        }
+        if (!row) return;
+        var hid = document.getElementById('id_programa_id_edit');
+        var sel = document.getElementById('id_programa_edit-nivel_plantilla');
+        var nom = document.getElementById('id_programa_edit-nombre');
+        var desc = document.getElementById('id_programa_edit-descripcion');
+        var cb = document.getElementById('id_programa_edit-tiene_matricula');
+        var costo = document.getElementById('id_programa_edit-costo_matricula_cop');
+        if (hid) hid.value = String(id);
+        if (sel) sel.value = String(row.nivel_plantilla_id);
+        if (nom) nom.value = row.nombre || '';
+        if (desc) desc.value = row.descripcion || '';
+        if (cb) cb.checked = !!row.tiene_matricula;
+        if (costo) {
+            costo.value = (row.costo_matricula_cop != null && row.costo_matricula_cop !== '') ? String(row.costo_matricula_cop) : '';
+        }
+        syncEditMatriculaCosto();
+        dlgEdit.showModal();
+    }
+    document.querySelectorAll('.js-abrir-editar-programa').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            openEditarProgramaFromBtn(btn);
+        });
+    });
+})();
+</script>
+{% if form_programa.errors %}
+<script>
+    document.getElementById('dialog-crear-programa').showModal();
+</script>
+{% endif %}
+{% if form_nivel.errors %}
+<script>
+    document.getElementById('dialog-niveles').showModal();
+</script>
+{% endif %}
+{% if abrir_dialog_editar_nivel %}
+<script>
+    document.getElementById('dialog-editar-nivel').showModal();
+</script>
+{% endif %}
+{% if abrir_dialog_editar_programa %}
+<script>
+(function () {
+    var d = document.getElementById('dialog-editar-programa');
+    if (d) d.showModal();
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -74,12 +74,14 @@ class DirectorInterfaceTests(TestCase):
             {
                 "nombres": "Ana",
                 "apellidos": "Lopez",
+                "tipo_documento": "CC",
+                "documento_identidad": "1234567890",
+                "celular": "3001234567",
                 "email": "ana@example.com",
                 "tipo_coordinador": AdminEscuela.TipoCoordinador.SEDE,
                 "avatar": self.make_test_image(),
                 "password1": "coord12345",
                 "password2": "coord12345",
-                "is_active": "on",
             },
         )
 
@@ -100,6 +102,9 @@ class DirectorInterfaceTests(TestCase):
                 can_manage=True,
             ).exists()
         )
+        self.assertEqual(coordinador.user.documento_identidad, "1234567890")
+        self.assertEqual(coordinador.user.tipo_documento, "CC")
+        self.assertEqual(coordinador.user.phone, "3001234567")
 
     def test_director_can_edit_coordinator(self):
         sede = Sede.objects.create(nombre="Hechos Norte", direccion="Calle Principal 123")
@@ -113,6 +118,9 @@ class DirectorInterfaceTests(TestCase):
             sede=sede,
             is_active=True,
             is_staff=True,
+            documento_identidad="9876543210",
+            tipo_documento=User.TipoDocumento.CC,
+            phone="3109876543",
         )
         coordinador = AdminEscuela.objects.create(
             user=user,
@@ -128,12 +136,14 @@ class DirectorInterfaceTests(TestCase):
             {
                 "nombres": "Ana María",
                 "apellidos": "Lopez",
+                "tipo_documento": "CC",
+                "documento_identidad": "9876543210",
+                "celular": "3109876543",
                 "email": "ana.maria@example.com",
                 "tipo_coordinador": AdminEscuela.TipoCoordinador.SEDE,
                 "avatar": self.make_test_image("avatar-edit.gif"),
                 "password1": "",
                 "password2": "",
-                "is_active": "on",
             },
         )
 

@@ -135,13 +135,15 @@ DATABASES = {
     'default': get_database_config(BASE_DIR)
 }
 
-# Supabase transaction pooler (puerto 6543) no admite prepared statements como Django por defecto.
+# Pooler PgBouncer (Supabase 6543, Neon *-pooler.*): sin cursores del lado del servidor.
 _default_db = DATABASES['default']
 _db_host = str(_default_db.get('HOST') or '')
 _db_port = str(_default_db.get('PORT') or '')
-if _db_port == '6543' and (
-    'supabase.co' in _db_host or 'pooler.supabase.com' in _db_host
-):
+_use_pooler_fix = (
+    _db_port == '6543'
+    and ('supabase.co' in _db_host or 'pooler.supabase.com' in _db_host)
+) or ('neon.tech' in _db_host and '-pooler' in _db_host)
+if _use_pooler_fix:
     _default_db['CONN_MAX_AGE'] = 0
     _default_db['DISABLE_SERVER_SIDE_CURSORS'] = True
 
@@ -194,6 +196,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Authentication settings
 AUTHENTICATION_BACKENDS = [
+    'core.auth_backends.EmailOrDocumentBackend',
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
@@ -201,8 +204,8 @@ AUTHENTICATION_BACKENDS = [
 SITE_ID = 1
 
 # Allauth settings
-ACCOUNT_LOGIN_METHODS = {'email'}
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_LOGIN_METHODS = {'username', 'email'}
+ACCOUNT_SIGNUP_FIELDS = ['username*', 'password1*', 'password2*', 'email']
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # Deshabilitado para desarrollo
 ACCOUNT_RATE_LIMITS = {
     'login_failed': '5/5m/key,10/m/ip',

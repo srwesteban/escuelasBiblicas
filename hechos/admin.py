@@ -2,7 +2,8 @@ from django.contrib import admin
 from .models import (
     Estudiante, Profesor, AdminEscuela, Salon, RutaEstudio, Curso, EdicionCurso,
     Matricula, Clase, Asistencia, Nota, ActividadEscuela, EntregaActividad,
-    ArchivoRecursoEscuela,
+    ArchivoRecursoEscuela, EscuelaPrograma, EscuelaProgramaPlantilla, NivelPrograma,
+    NivelProgramaPlantilla,
 )
 
 
@@ -44,6 +45,43 @@ class AdminEscuelaAdmin(admin.ModelAdmin):
     search_fields = ('user__first_name', 'user__last_name', 'user__email', 'sede__nombre', 'cargo')
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('user__first_name', 'user__last_name')
+
+
+@admin.register(NivelProgramaPlantilla)
+class NivelProgramaPlantillaAdmin(admin.ModelAdmin):
+    list_display = ('jerarquia', 'nombre', 'updated_at')
+    ordering = ('jerarquia',)
+
+
+@admin.register(EscuelaProgramaPlantilla)
+class EscuelaProgramaPlantillaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'nivel_plantilla', 'tiene_matricula', 'updated_at')
+    list_filter = ('nivel_plantilla', 'tiene_matricula')
+    search_fields = ('nombre', 'descripcion')
+    ordering = ('nivel_plantilla__jerarquia', 'nombre')
+
+
+@admin.register(NivelPrograma)
+class NivelProgramaAdmin(admin.ModelAdmin):
+    list_display = ('sede', 'jerarquia', 'nombre', 'is_active', 'updated_at')
+    list_filter = ('sede', 'is_active')
+    search_fields = ('nombre', 'descripcion', 'sede__nombre')
+    ordering = ('sede', 'jerarquia')
+
+
+@admin.register(EscuelaPrograma)
+class EscuelaProgramaAdmin(admin.ModelAdmin):
+    list_display = (
+        'nombre',
+        'nivel_programa',
+        'sede',
+        'tiene_matricula',
+        'costo_matricula_cop',
+        'is_active',
+        'updated_at',
+    )
+    list_filter = ('nivel_programa', 'sede', 'is_active')
+    search_fields = ('nombre', 'descripcion', 'sede__nombre')
 
 
 @admin.register(Salon)
