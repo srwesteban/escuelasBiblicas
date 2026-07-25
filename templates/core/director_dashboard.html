@@ -65,7 +65,61 @@
         </a>
     </div>
 
+    <div class="rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="min-w-0">
+            <p class="text-sm font-semibold text-stone-900">Directorio de profesores</p>
+            <p class="text-xs text-stone-600 mt-0.5">Busca y edita datos de cualquier sede desde un solo lugar.</p>
+        </div>
+        <a href="{% url 'core:director_profesores' %}" class="btn-primary px-4 py-2 text-sm font-medium shrink-0 text-center">
+            Abrir directorio
+        </a>
+    </div>
+
+    <div class="card p-5 space-y-4">
+        <div>
+            <p class="text-sm font-semibold text-stone-900">Buscar sede</p>
+            <p class="text-xs text-stone-600 mt-0.5">Elegí una ciudad con sedes o buscá por nombre. Solo se muestran las ciudades donde ya hay sedes.</p>
+        </div>
+
+        {% if ciudades_disponibles %}
+        <div class="flex flex-wrap gap-2">
+            {% for chip in ciudades_disponibles %}
+            <a href="?dep={{ chip.dep|urlencode }}&ciudad={{ chip.ciudad|urlencode }}"
+               class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition
+                      {% if chip.activo %}border-amber-500 bg-amber-50 text-amber-800{% else %}border-stone-300 bg-white text-stone-700 hover:border-amber-400 hover:bg-amber-50/50{% endif %}">
+                <i class="fas fa-map-marker-alt text-xs opacity-70"></i>
+                <span>{{ chip.label }}</span>
+                <span class="rounded-full bg-stone-100 px-1.5 text-xs text-stone-600">{{ chip.total }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-stone-500">Todavía no hay sedes con ciudad definida.</p>
+        {% endif %}
+
+        <form method="get" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input type="search" name="q" value="{{ q }}" placeholder="Buscar sede por nombre o dirección"
+                   class="w-full sm:max-w-xs rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 shadow-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500">
+            <div class="flex items-center gap-2">
+                <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Buscar</button>
+                {% if hay_filtro %}
+                <a href="{% url 'core:director_dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">Quitar filtro</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    {% if not hay_filtro %}
+    <div class="card p-12 text-center">
+        <div class="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-map-location-dot text-amber-500 text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Elegí una ciudad para ver sus sedes</h3>
+        <p class="text-gray-600">Tocá uno de los botones de ciudad de arriba o usá el buscador. Hay {{ total_sedes }} sede{{ total_sedes|pluralize }} en total.</p>
+    </div>
+    {% else %}
     <div class="space-y-10">
+        <p class="text-sm text-stone-600">{{ total_resultados }} sede{{ total_resultados|pluralize }} encontrada{{ total_resultados|pluralize }}.</p>
         {% for grupo in sedes_por_ubicacion %}
         <section class="space-y-4">
             <h2 class="text-lg font-semibold text-stone-800 border-b border-stone-200 pb-2">
@@ -113,7 +167,7 @@
                                 <div class="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2">
                                     <div>
                                         <div class="text-sm font-medium text-gray-900">{{ coordinador.user.get_full_name }}</div>
-                                        <div class="text-xs text-gray-500">{{ coordinador.user.username }} · {{ coordinador.cargo }}</div>
+                                        <div class="text-xs text-gray-500">{{ coordinador.user.get_full_name|default:coordinador.user.email }} · {{ coordinador.cargo }}</div>
                                     </div>
                                     <span class="text-xs text-gray-500">{{ coordinador.user.email }}</span>
                                 </div>
@@ -128,15 +182,16 @@
         {% empty %}
             <div class="col-span-full card p-12 text-center">
                 <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-building text-gray-400 text-2xl"></i>
+                    <i class="fas fa-magnifying-glass text-gray-400 text-2xl"></i>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Aún no hay sedes</h3>
-                <p class="text-gray-600 mb-6">Crea la primera sede para comenzar a asignar coordinadores.</p>
-                <a href="{% url 'core:sede_create' %}" class="btn-primary px-4 py-2 text-sm font-medium inline-flex items-center">
-                    <i class="fas fa-plus mr-2"></i>Crear sede
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Sin resultados</h3>
+                <p class="text-gray-600 mb-6">No encontramos sedes con ese filtro. Probá con otra ciudad o cambiá la búsqueda.</p>
+                <a href="{% url 'core:director_dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center">
+                    Quitar filtro
                 </a>
             </div>
         {% endfor %}
     </div>
+    {% endif %}
 </div>
 {% endblock %}

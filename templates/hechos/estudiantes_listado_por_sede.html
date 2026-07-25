@@ -1,0 +1,103 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Directorio de estudiantes — todas las sedes{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Directorio de estudiantes</h1>
+            <p class="text-gray-600 mt-1 text-sm sm:text-base max-w-3xl">
+                Todos los estudiantes <strong>activos</strong> de <strong>todas las sedes</strong>.
+                Busca por nombre, correo, documento, código o nombre de sede; abre la ficha para ver en qué escuela o edición está matriculado.
+            </p>
+            <p class="text-sm text-stone-600 mt-2">
+                {% if busqueda_q %}
+                <span class="tabular-nums font-semibold text-stone-800">{{ total_coincidencias }}</span>
+                resultado{% if total_coincidencias != 1 %}s{% endif %} de búsqueda
+                <span class="text-stone-400">·</span>
+                <span class="tabular-nums text-stone-700">{{ total_plataforma }}</span>
+                estudiante{% if total_plataforma != 1 %}s{% endif %} activos en total en la plataforma
+                {% else %}
+                <span class="tabular-nums font-semibold text-stone-800">{{ total_plataforma }}</span>
+                estudiante{% if total_plataforma != 1 %}s{% endif %} activos en total
+                {% endif %}
+            </p>
+        </div>
+        <a href="{% url 'core:dashboard' %}" class="btn-outline px-4 py-2.5 text-sm font-medium inline-flex items-center justify-center shrink-0">
+            <i class="fas fa-arrow-left mr-2"></i>Volver
+        </a>
+    </div>
+
+    <div class="card p-4 sm:p-5 border-stone-200">
+        <form method="get" class="flex flex-col sm:flex-row gap-3 sm:items-end">
+            <div class="flex-1 min-w-0">
+                <label for="q" class="block text-sm font-medium text-stone-700">Buscar en todo el directorio</label>
+                <input type="search" name="q" id="q" value="{{ busqueda_q }}"
+                       placeholder="Nombre, correo, documento, código o sede…"
+                       class="input mt-1 w-full max-w-2xl">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="btn-primary px-4 py-2.5 text-sm font-medium">Buscar</button>
+                {% if busqueda_q %}
+                <a href="{% url 'hechos:estudiantes_listado_por_sede' %}" class="btn-outline px-4 py-2.5 text-sm font-medium">Limpiar</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <div class="card border-stone-200 overflow-hidden">
+        <div class="px-4 py-3 border-b border-stone-100 bg-stone-50/80 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-stone-800">Estudiantes</h2>
+        </div>
+        {% if estudiantes %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="text-left text-xs font-semibold uppercase tracking-wide text-stone-500 border-b border-stone-100 bg-white">
+                        <th class="px-4 py-3 w-10">#</th>
+                        <th class="px-4 py-3">Nombre</th>
+                        <th class="px-4 py-3">Sede perfil</th>
+                        <th class="px-4 py-3">Correo</th>
+                        <th class="px-4 py-3">Documento</th>
+                        <th class="px-4 py-3">Código</th>
+                        {% if puede_ver_detalle_estudiante %}
+                        <th class="px-4 py-3 w-28 text-right">Acción</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100">
+                    {% for e in estudiantes %}
+                    <tr class="hover:bg-stone-50/60">
+                        <td class="px-4 py-3 text-stone-400 tabular-nums">{{ forloop.counter }}</td>
+                        <td class="px-4 py-3 font-medium text-stone-900">{{ e.user.get_full_name|default:e.user.email|default:"—" }}</td>
+                        <td class="px-4 py-3 text-stone-700">
+                            {% if e.sede %}{{ e.sede.nombre }}{% else %}<span class="text-stone-400">Sin sede en perfil</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-stone-600">{{ e.user.email|default:"—" }}</td>
+                        <td class="px-4 py-3 text-stone-700 tabular-nums">{{ e.numero_documento|default:"—" }}</td>
+                        <td class="px-4 py-3 text-stone-600">{{ e.codigo_estudiante|default:"—" }}</td>
+                        {% if puede_ver_detalle_estudiante %}
+                        <td class="px-4 py-3 text-right">
+                            <a href="{% url 'hechos:detalle_estudiante' e.id %}" class="text-emerald-700 hover:text-emerald-900 text-xs font-medium">Ver ficha</a>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="px-4 py-14 text-center text-stone-500 text-sm">
+            <i class="fas fa-users text-2xl text-stone-300 mb-2 block"></i>
+            {% if busqueda_q %}
+            No hay estudiantes que coincidan con la búsqueda.
+            {% else %}
+            No hay estudiantes activos registrados.
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

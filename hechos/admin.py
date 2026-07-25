@@ -1,10 +1,26 @@
 from django.contrib import admin
 from .models import (
-    Estudiante, Profesor, AdminEscuela, Salon, RutaEstudio, Curso, EdicionCurso,
+    Estudiante, Profesor, AdminEscuela, Escuela, EscuelaHorario, Salon, RutaEstudio, Curso,
     Matricula, Clase, Asistencia, Nota, ActividadEscuela, EntregaActividad,
     ArchivoRecursoEscuela, EscuelaPrograma, EscuelaProgramaPlantilla, NivelPrograma,
     NivelProgramaPlantilla,
 )
+
+
+class EscuelaHorarioInline(admin.TabularInline):
+    model = EscuelaHorario
+    extra = 0
+
+
+@admin.register(Escuela)
+class EscuelaAdmin(admin.ModelAdmin):
+    list_display = (
+        'nombre', 'sede', 'anio', 'ciclo', 'maestro', 'fecha_inicio', 'fecha_fin',
+        'cupo_maximo', 'modalidad', 'is_active',
+    )
+    list_filter = ('sede', 'ciclo', 'anio', 'is_active', 'modalidad')
+    search_fields = ('nombre', 'descripcion', 'sede__nombre')
+    inlines = [EscuelaHorarioInline]
 
 
 @admin.register(Estudiante)
@@ -114,41 +130,26 @@ class CursoAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(EdicionCurso)
-class EdicionCursoAdmin(admin.ModelAdmin):
-    list_display = ('curso', 'nombre_edicion', 'profesor', 'fecha_inicio', 'fecha_fin', 'estudiantes_inscritos', 'cupos_disponibles', 'is_active')
-    list_filter = ('curso__sede', 'curso__ruta_estudio', 'profesor', 'fecha_inicio', 'is_active')
-    search_fields = ('curso__nombre', 'nombre_edicion', 'profesor__user__first_name', 'profesor__user__last_name')
-    ordering = ('curso', 'fecha_inicio')
-    
-    fieldsets = (
-        ('Información Básica', {'fields': ('curso', 'nombre_edicion', 'profesor')}),
-        ('Horario y Lugar', {'fields': ('fecha_inicio', 'fecha_fin', 'horario', 'aula')}),
-        ('Capacidad', {'fields': ('cupo_maximo',)}),
-        ('Estado', {'fields': ('is_active',)}),
-    )
-
-
 @admin.register(Matricula)
 class MatriculaAdmin(admin.ModelAdmin):
-    list_display = ('sede', 'estudiante', 'edicion_curso', 'estado', 'fecha_matricula', 'is_active')
-    list_filter = ('sede', 'estado', 'is_active', 'fecha_matricula', 'edicion_curso__curso__ruta_estudio')
-    search_fields = ('estudiante__user__first_name', 'estudiante__user__last_name', 'edicion_curso__curso__nombre', 'sede__nombre')
+    list_display = ('sede', 'estudiante', 'escuela', 'estado', 'fecha_matricula', 'is_active')
+    list_filter = ('sede', 'estado', 'is_active', 'fecha_matricula', 'escuela')
+    search_fields = ('estudiante__user__first_name', 'estudiante__user__last_name', 'escuela__nombre', 'sede__nombre')
     ordering = ('-fecha_matricula',)
 
 
 @admin.register(Clase)
 class ClaseAdmin(admin.ModelAdmin):
-    list_display = ('sede', 'edicion_curso', 'numero_clase', 'titulo', 'fecha_clase', 'profesor', 'is_active')
-    list_filter = ('sede', 'edicion_curso', 'profesor', 'fecha_clase', 'is_active')
-    search_fields = ('titulo', 'descripcion', 'edicion_curso__curso__nombre', 'sede__nombre')
-    ordering = ('sede', 'edicion_curso', 'numero_clase')
+    list_display = ('sede', 'escuela', 'numero_clase', 'titulo', 'fecha_clase', 'profesor', 'is_active')
+    list_filter = ('sede', 'escuela', 'profesor', 'fecha_clase', 'is_active')
+    search_fields = ('titulo', 'descripcion', 'escuela__nombre', 'sede__nombre')
+    ordering = ('sede', 'escuela', 'numero_clase')
 
 
 @admin.register(Asistencia)
 class AsistenciaAdmin(admin.ModelAdmin):
     list_display = ('sede', 'estudiante', 'clase', 'estado', 'fecha_registro', 'registrado_por')
-    list_filter = ('sede', 'estado', 'fecha_registro', 'clase__edicion_curso__curso')
+    list_filter = ('sede', 'estado', 'fecha_registro', 'clase__escuela')
     search_fields = ('estudiante__user__first_name', 'estudiante__user__last_name', 'clase__titulo', 'sede__nombre')
     ordering = ('-fecha_registro',)
 
@@ -191,13 +192,13 @@ class ArchivoRecursoEscuelaAdmin(admin.ModelAdmin):
 
 @admin.register(Nota)
 class NotaAdmin(admin.ModelAdmin):
-    list_display = ('sede', 'estudiante', 'curso', 'titulo', 'tipo', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_evaluacion')
-    list_filter = ('sede', 'tipo', 'fecha_evaluacion', 'curso', 'profesor')
-    search_fields = ('estudiante__user__first_name', 'estudiante__user__last_name', 'titulo', 'curso__nombre', 'sede__nombre')
+    list_display = ('sede', 'estudiante', 'escuela', 'titulo', 'tipo', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_evaluacion')
+    list_filter = ('sede', 'tipo', 'fecha_evaluacion', 'escuela', 'profesor')
+    search_fields = ('estudiante__user__first_name', 'estudiante__user__last_name', 'titulo', 'escuela__nombre', 'sede__nombre')
     ordering = ('-fecha_evaluacion', 'estudiante__user__first_name')
     
     fieldsets = (
-        ('Información Básica', {'fields': ('sede', 'estudiante', 'curso', 'tipo', 'titulo', 'descripcion')}),
+        ('Información Básica', {'fields': ('sede', 'estudiante', 'escuela', 'tipo', 'titulo', 'descripcion')}),
         ('Evaluación', {'fields': ('puntaje_obtenido', 'puntaje_maximo', 'fecha_evaluacion', 'profesor')}),
         ('Observaciones', {'fields': ('observaciones',)}),
     )

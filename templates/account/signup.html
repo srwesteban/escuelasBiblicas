@@ -24,6 +24,18 @@
     .signup-link:hover {
         color: #57534e;
     }
+    /* Campos del formulario: altura táctil cómoda y padding uniforme */
+    .signup-input {
+        min-height: 2.75rem;
+        padding: 0.625rem 1rem;
+        font-size: 0.9375rem;
+        line-height: 1.375;
+        border-radius: 0.75rem;
+    }
+    select.signup-input {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
 </style>
 {% endblock %}
 
@@ -76,20 +88,20 @@
                             <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Nombres <span class="text-red-600">*</span></label>
                             <input type="text" name="{{ form.first_name.name }}" id="{{ form.first_name.id_for_label }}"
                                    value="{{ form.first_name.value|default:'' }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                   class="input signup-input w-full" required>
                         </div>
                         <div>
                             <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Apellidos <span class="text-red-600">*</span></label>
                             <input type="text" name="{{ form.last_name.name }}" id="{{ form.last_name.id_for_label }}"
                                    value="{{ form.last_name.value|default:'' }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                   class="input signup-input w-full" required>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="{{ form.tipo_documento.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Tipo de documento <span class="text-red-600">*</span></label>
                             <select name="{{ form.tipo_documento.name }}" id="{{ form.tipo_documento.id_for_label }}"
-                                    class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                    class="input signup-input w-full" required>
                                 {% for val, label in form.tipo_documento.field.choices %}
                                     <option value="{{ val }}" {% if form.tipo_documento.value == val %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
@@ -99,9 +111,10 @@
                             <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Numero de documento <span class="text-red-600">*</span></label>
                             <input type="text" name="{{ form.username.name }}" id="{{ form.username.id_for_label }}"
                                    value="{{ form.username.value|default:'' }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none"
-                                   required autocomplete="username"
+                                   class="input signup-input w-full"
+                                   required autocomplete="username" spellcheck="false" autocorrect="off"
                                    data-doc-input>
+                            <p id="doc-field-hint" class="mt-1.5 text-xs text-slate-500 leading-snug" aria-live="polite"></p>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -109,13 +122,13 @@
                             <label for="{{ form.phone.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Celular <span class="text-red-600">*</span></label>
                             <input type="text" name="{{ form.phone.name }}" id="{{ form.phone.id_for_label }}"
                                    value="{{ form.phone.value|default:'' }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                   class="input signup-input w-full" required>
                         </div>
                         <div>
                             <label for="{{ form.fecha_nacimiento.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Fecha de nacimiento <span class="text-red-600">*</span></label>
                             <input type="date" name="{{ form.fecha_nacimiento.name }}" id="{{ form.fecha_nacimiento.id_for_label }}"
                                    value="{{ form.fecha_nacimiento.value|default:'' }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                   class="input signup-input w-full" required>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -124,7 +137,7 @@
                                 Genero <span class="text-red-600">*</span>
                             </label>
                             <select name="{{ form.genero.name }}" id="{{ form.genero.id_for_label }}"
-                                    class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                    class="input signup-input w-full" required>
                                 {% for val, label in form.genero.field.choices %}
                                     <option value="{{ val }}" {% if form.genero.value == val %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
@@ -135,7 +148,7 @@
                                 Estado civil <span class="text-red-600">*</span>
                             </label>
                             <select name="{{ form.estado_civil.name }}" id="{{ form.estado_civil.id_for_label }}"
-                                    class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                    class="input signup-input w-full" required>
                                 {% for val, label in form.estado_civil.field.choices %}
                                     <option value="{{ val }}" {% if form.estado_civil.value == val %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
@@ -149,8 +162,8 @@
                                 Direccion de residencia<span class="text-red-600">*</span>
                             </label>
                             <textarea name="{{ form.direccion_detallada.name }}" id="{{ form.direccion_detallada.id_for_label }}"
-                                      class="input w-full px-3 py-3 border rounded-xl focus:outline-none resize-none"
-                                      rows="1" required>{{ form.direccion_detallada.value|default:'' }}</textarea>
+                                      class="input signup-input w-full resize-none"
+                                      rows="2" required>{{ form.direccion_detallada.value|default:'' }}</textarea>
                         </div>
                         <div>
                             <label for="{{ form.barrio.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
@@ -158,7 +171,7 @@
                             </label>
                             <input type="text" name="{{ form.barrio.name }}" id="{{ form.barrio.id_for_label }}"
                                    value="{{ form.barrio.value|default:'' }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                   class="input signup-input w-full" required>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -167,7 +180,7 @@
                                 Departamento <span class="text-red-600">*</span>
                             </label>
                             <select name="{{ form.departamento.name }}" id="{{ form.departamento.id_for_label }}"
-                                    class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                    class="input signup-input w-full" required>
                                 {% for val, label in form.departamento.field.choices %}
                                     <option value="{{ val }}" {% if form.departamento.value == val %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
@@ -178,7 +191,7 @@
                                 Ciudad o municipio <span class="text-red-600">*</span>
                             </label>
                             <select name="{{ form.ciudad.name }}" id="{{ form.ciudad.id_for_label }}"
-                                    class="input w-full px-3 py-3 border rounded-xl focus:outline-none" required>
+                                    class="input signup-input w-full" required>
                                 {% for val, label in form.ciudad.field.choices %}
                                     <option value="{{ val }}" {% if form.ciudad.value == val %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
@@ -192,7 +205,7 @@
                                name="{{ form.email.name }}"
                                id="{{ form.email.id_for_label }}"
                                value="{{ form.email.value|default:'' }}"
-                               class="input w-full px-3 py-3 border rounded-xl focus:outline-none"
+                               class="input signup-input w-full"
                                placeholder="usuario@correo.com"
                                autocomplete="email">
                     </div>
@@ -202,8 +215,7 @@
                             <input type="password"
                                    name="{{ form.password1.name }}"
                                    id="{{ form.password1.id_for_label }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none"
-                                   placeholder="Minimo 8 caracteres"
+                                   class="input signup-input w-full"
                                    autocomplete="new-password"
                                    required>
                         </div>
@@ -212,7 +224,7 @@
                             <input type="password"
                                    name="{{ form.password2.name }}"
                                    id="{{ form.password2.id_for_label }}"
-                                   class="input w-full px-3 py-3 border rounded-xl focus:outline-none"
+                                   class="input signup-input w-full"
                                    placeholder="Repite la contrasena"
                                    autocomplete="new-password"
                                    required>
@@ -308,7 +320,20 @@
 (function () {
     const tipoSel = document.getElementById("{{ form.tipo_documento.id_for_label }}");
     const docInput = document.querySelector("[data-doc-input]");
+    const docHint = document.getElementById("doc-field-hint");
     if (!tipoSel || !docInput) return;
+
+    const DOC_HINTS = {
+        CC: "Cédula o TI: solo números (6 a 10 dígitos). Si tiene pasaporte, elija «Pasaporte» en tipo de documento para poder usar letras.",
+        TI: "Cédula o TI: solo números (6 a 10 dígitos). Si tiene pasaporte, elija «Pasaporte» en tipo de documento para poder usar letras.",
+        CE: "Cédula de extranjería: letras y números (3 a 12 caracteres).",
+        PAS: "Pasaporte: letras y números (5 a 14 caracteres), sin espacios."
+    };
+
+    function setDocHint(tipo) {
+        if (!docHint) return;
+        docHint.textContent = DOC_HINTS[tipo] || DOC_HINTS.PAS;
+    }
 
     function filterByTipo() {
         const tipo = tipoSel.value;
@@ -317,6 +342,8 @@
             v = v.replace(/\D/g, "").slice(0, 10);
         } else if (tipo === "CE") {
             v = v.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
+        } else if (tipo === "PAS") {
+            v = v.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 14);
         } else {
             v = v.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 14);
         }
@@ -325,15 +352,23 @@
 
     function applyTipoMode() {
         const tipo = tipoSel.value;
+        setDocHint(tipo);
         if (tipo === "CC" || tipo === "TI") {
             docInput.setAttribute("inputmode", "numeric");
             docInput.setAttribute("maxlength", "10");
+            docInput.setAttribute("autocapitalize", "off");
         } else if (tipo === "CE") {
             docInput.removeAttribute("inputmode");
             docInput.setAttribute("maxlength", "12");
+            docInput.setAttribute("autocapitalize", "characters");
+        } else if (tipo === "PAS") {
+            docInput.removeAttribute("inputmode");
+            docInput.setAttribute("maxlength", "14");
+            docInput.setAttribute("autocapitalize", "characters");
         } else {
             docInput.removeAttribute("inputmode");
             docInput.setAttribute("maxlength", "14");
+            docInput.setAttribute("autocapitalize", "characters");
         }
         filterByTipo();
     }

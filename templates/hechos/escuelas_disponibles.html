@@ -20,7 +20,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h2 class="text-base font-semibold text-gray-900">Buscar escuelas</h2>
-                <p class="text-sm text-stone-600 mt-0.5">Nombre de la escuela, nivel, curso, grupo o profesor.</p>
+                <p class="text-sm text-stone-600 mt-0.5">Nombre de la escuela, nivel del programa, horario o profesor.</p>
             </div>
             <div class="text-sm text-stone-600">
                 <span class="font-semibold text-gray-900" id="escuelas-disponibles-visible">{{ escuelas|length }}</span>
@@ -29,7 +29,7 @@
         </div>
         <div class="mt-4">
             <label for="filtro-escuelas-disponibles" class="sr-only">Buscar escuelas</label>
-            <input type="search" id="filtro-escuelas-disponibles" placeholder="Ej. Primeros pasos, Juan Pérez, grupo A…"
+            <input type="search" id="filtro-escuelas-disponibles" placeholder="Ej. Followers, fundamentos, Juan Pérez…"
                    class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-500/20">
         </div>
     </div>
@@ -51,72 +51,75 @@
                     <p>{{ item.escuela.descripcion|default:"Escuela disponible para matrícula." }}</p>
                 </div>
 
-                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {% for nivel_item in item.niveles %}
-                        <div class="rounded-xl border border-stone-200 p-4">
-                            <div class="flex items-start justify-between gap-3">
-                                <div>
-                                    <h3 class="text-base font-semibold text-gray-900">Nivel {{ nivel_item.nivel.nombre }}</h3>
-                                    <p class="text-sm text-gray-600 mt-1">{{ nivel_item.curso.nombre }}</p>
-                                </div>
-                                {% if nivel_item.solicitud %}
-                                    {% if nivel_item.solicitud.estado == 'pendiente' %}
-                                        <span class="badge badge-warning">Pendiente</span>
-                                    {% elif nivel_item.solicitud.estado == 'aprobada' %}
-                                        <span class="badge badge-success">Aprobada</span>
+                {% with o=item.oferta %}
+                {% if o %}
+                <div class="mt-6 max-w-xl">
+                    <div class="rounded-xl border border-stone-200 p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                {% if o.nivel_programa_linea %}
+                                <h3 class="text-base font-semibold text-gray-900">{{ o.nivel_programa_linea }}</h3>
+                                {% endif %}
+                            </div>
+                            {% if o.ya_matriculado %}
+                                <span class="badge badge-success">Matriculado</span>
+                            {% elif o.solicitud %}
+                                {% if o.solicitud.estado == 'pendiente' %}
+                                    <span class="badge badge-warning">Pendiente</span>
+                                {% elif o.solicitud.estado == 'aprobada' %}
+                                    <span class="badge badge-success">Aprobada</span>
+                                {% else %}
+                                    <span class="badge badge-danger">Rechazada</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge">{{ o.cupos_disponibles }} cupos</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="mt-4 space-y-2 text-sm text-gray-600">
+                            <div class="flex items-center justify-between">
+                                <span>Horario</span>
+                                <span class="font-medium text-gray-900">{{ o.edicion.horario|default:"Por definir" }}</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span>Profesor</span>
+                                <span class="font-medium text-gray-900">
+                                    {% if o.edicion.profesor %}
+                                        {{ o.edicion.profesor.user.get_full_name }}
                                     {% else %}
-                                        <span class="badge badge-danger">Rechazada</span>
+                                        Por asignar
                                     {% endif %}
-                                {% else %}
-                                    <span class="badge">{{ nivel_item.edicion.cupos_disponibles }} cupos</span>
-                                {% endif %}
-                            </div>
-
-                            <div class="mt-4 space-y-2 text-sm text-gray-600">
-                                <div class="flex items-center justify-between">
-                                    <span>Grupo</span>
-                                    <span class="font-medium text-gray-900">{{ nivel_item.edicion.nombre_edicion }}</span>
-                                </div>
-                                <div class="flex items-center justify-between">
-                                    <span>Profesor</span>
-                                    <span class="font-medium text-gray-900">
-                                        {% if nivel_item.edicion.profesor %}
-                                            {{ nivel_item.edicion.profesor.user.get_full_name }}
-                                        {% else %}
-                                            Por asignar
-                                        {% endif %}
-                                    </span>
-                                </div>
-                                <div class="flex items-center justify-between">
-                                    <span>Fechas</span>
-                                    <span class="font-medium text-gray-900">
-                                        {{ nivel_item.edicion.fecha_inicio|date:"d/m/Y" }} - {{ nivel_item.edicion.fecha_fin|date:"d/m/Y" }}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="mt-4">
-                                {% if nivel_item.puede_solicitar %}
-                                    <form method="post" action="{% url 'hechos:solicitar_matricula' nivel_item.edicion.id %}">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
-                                            <i class="fas fa-user-plus mr-2"></i>Solicitar matrícula
-                                        </button>
-                                    </form>
-                                {% else %}
-                                    <div class="btn-secondary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
-                                        <i class="fas fa-clock mr-2"></i>
-                                        {% if nivel_item.solicitud %}
-                                            {{ nivel_item.solicitud.get_estado_display }}
-                                        {% else %}
-                                            No disponible
-                                        {% endif %}
-                                    </div>
-                                {% endif %}
+                                </span>
                             </div>
                         </div>
-                    {% endfor %}
+
+                        <div class="mt-4">
+                            {% if o.ya_matriculado %}
+                                <a href="{% url 'hechos:detalle_mis_escuela' o.curso.id %}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                    <i class="fas fa-arrow-right mr-2"></i>Entrar al curso
+                                </a>
+                            {% elif o.puede_solicitar %}
+                                <form method="post" action="{% url 'hechos:solicitar_matricula_escuela' item.escuela.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                        <i class="fas fa-user-plus mr-2"></i>Solicitar matrícula
+                                    </button>
+                                </form>
+                            {% else %}
+                                <div class="btn-secondary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                    <i class="fas fa-clock mr-2"></i>
+                                    {% if o.solicitud %}
+                                        {{ o.solicitud.get_estado_display }}
+                                    {% else %}
+                                        No disponible
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
+                {% endif %}
+                {% endwith %}
             </div>
         {% empty %}
             <div class="col-span-full">
@@ -125,7 +128,7 @@
                         <i class="fas fa-school text-gray-400 text-2xl"></i>
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mb-2">No hay escuelas nuevas para solicitar</h3>
-                    <p class="text-gray-600">O ya estás matriculado en todas las escuelas con grupos activos en tu sede, o aún no hay oferta. Revisa <strong>Mis escuelas</strong> para lo que ya tienes aprobado o activo.</p>
+                    <p class="text-gray-600">O ya estás matriculado en todas las escuelas con oferta activa en tu sede, o aún no hay oferta. Revisa <strong>Mis escuelas</strong> para lo que ya tienes aprobado o activo.</p>
                 </div>
             </div>
         {% endfor %}

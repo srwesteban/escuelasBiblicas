@@ -3,80 +3,228 @@
 
 {% block title %}Mi perfil{% endblock %}
 
-{% block content %}
-<div class="max-w-3xl mx-auto">
-    <div class="mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">Mi perfil</h1>
-    </div>
+{% block extra_css %}
+<style>
+    .profile-shell {
+        background: linear-gradient(180deg, hsl(40 20% 97%) 0%, hsl(var(--background)) 45%);
+    }
+    .profile-avatar-ring {
+        box-shadow: 0 0 0 4px hsl(42 45% 88%), 0 12px 28px rgba(15, 23, 42, 0.08);
+    }
+    .profile-field {
+        width: 100%;
+        border-radius: 0.75rem;
+        border: 1px solid hsl(var(--border));
+        background: hsl(var(--background));
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
+        line-height: 1.4;
+        color: hsl(var(--foreground));
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .profile-field:focus {
+        outline: none;
+        border-color: hsl(var(--ring));
+        box-shadow: 0 0 0 2px hsl(var(--ring) / 0.18);
+    }
+    .profile-section-h {
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: hsl(var(--muted-foreground));
+    }
+    .profile-card {
+        border-radius: 1rem;
+        border: 1px solid hsl(var(--border) / 0.85);
+        background: hsl(var(--card));
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .profile-card ul.errorlist {
+        list-style: none;
+        margin: 0.35rem 0 0;
+        padding: 0;
+        font-size: 0.8125rem;
+        color: hsl(var(--destructive));
+    }
+</style>
+{% endblock %}
 
-    <div class="card p-8">
-        <div class="flex flex-col sm:flex-row gap-8 sm:items-start">
-            <div class="flex flex-col items-center sm:items-start">
-                <span class="text-sm font-medium text-stone-700 mb-3">Foto</span>
-                <div class="w-28 h-28 rounded-full border-2 border-dashed border-stone-300 bg-stone-50 flex items-center justify-center overflow-hidden shrink-0">
-                    {% if user.avatar %}
-                        <img src="{{ user.avatar.url }}" alt="" class="w-full h-full object-cover">
-                    {% else %}
-                        <span class="text-4xl text-stone-400"><i class="fas fa-user"></i></span>
-                    {% endif %}
+{% block content %}
+<div class="profile-shell min-h-[60vh] -mx-4 px-4 py-8 sm:py-10 sm:mx-0 sm:px-0">
+    <div class="max-w-4xl mx-auto space-y-8">
+
+        <header class="text-center sm:text-left">
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900">Mi perfil</h1>
+            <p class="mt-2 text-sm text-stone-600 max-w-xl">Actualiza tu foto, correo, contraseña y datos de contacto en un solo lugar.</p>
+        </header>
+
+        {# — Identidad + foto — #}
+        <div class="profile-card overflow-hidden">
+            <div class="px-5 py-6 sm:px-8 sm:py-8 flex flex-col md:flex-row gap-8 md:gap-10 md:items-start">
+                <div class="flex flex-col items-center md:items-start shrink-0 mx-auto md:mx-0">
+                    <div class="profile-avatar-ring w-[7.25rem] h-[7.25rem] rounded-2xl overflow-hidden bg-stone-100 flex items-center justify-center">
+                        {% if user.avatar %}
+                            <img src="{{ user.avatar.url }}" alt="" class="w-full h-full object-cover">
+                        {% else %}
+                            <i class="fas fa-user text-5xl text-stone-300"></i>
+                        {% endif %}
+                    </div>
+                    <form method="post" enctype="multipart/form-data" class="mt-5 w-full max-w-[16rem] space-y-2">
+                        {% csrf_token %}
+                        <label class="profile-section-h block mb-1.5 text-center md:text-left">Cambiar foto</label>
+                        <input type="file" name="avatar" accept="image/*"
+                               class="profile-field text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-stone-100 file:text-stone-700 hover:file:bg-stone-200">
+                        <button type="submit" class="btn-outline w-full py-2.5 text-sm font-medium rounded-xl">
+                            Subir imagen
+                        </button>
+                    </form>
                 </div>
-                <form method="post" enctype="multipart/form-data" class="mt-4 w-full max-w-xs space-y-2">
-                    {% csrf_token %}
-                    <input type="file" name="avatar" accept="image/*" class="input w-full px-3 py-2 text-sm border rounded-xl focus:outline-none">
-                    <button type="submit" class="btn-outline w-full px-3 py-2 text-sm font-medium">
-                        Actualizar foto
-                    </button>
-                </form>
-            </div>
-            <div class="flex-1 space-y-5 min-w-0">
-                <div class="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700 space-y-1">
-                    <p><span class="font-medium text-stone-900">Nombre:</span> {{ user.get_full_name|default:"—" }}</p>
-                    <p><span class="font-medium text-stone-900">Correo:</span> {{ user.email }}</p>
-                    <p><span class="font-medium text-stone-900">Usuario:</span> {{ user.username }}</p>
-                    {% if user.sede %}
-                        <p class="mt-1"><span class="font-medium text-stone-900">Sede:</span> {{ user.sede.nombre }}</p>
-                    {% endif %}
-                    {% if admin_escuela_profile %}
-                        <p class="mt-1"><span class="font-medium text-stone-900">Rol en Hechos:</span> {{ admin_escuela_profile.get_tipo_coordinador_display }}</p>
-                    {% elif profesor_profile %}
-                        <p class="mt-1"><span class="font-medium text-stone-900">Rol:</span> Profesor</p>
-                    {% elif estudiante_profile %}
-                        <p class="mt-1"><span class="font-medium text-stone-900">Rol:</span> Estudiante</p>
-                        <p class="mt-2">
-                            <a href="{% url 'hechos:seleccionar_sede_estudiante' %}" class="text-sm font-medium text-stone-700 hover:text-stone-900">
-                                Cambiar sede
+
+                <div class="flex-1 min-w-0 space-y-5">
+                    <div>
+                        <p class="profile-section-h">Tu cuenta</p>
+                        <h2 class="text-xl sm:text-2xl font-semibold text-stone-900 mt-1 leading-snug">
+                            {{ user.get_full_name|default:user.email }}
+                        </h2>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            {% if admin_escuela_profile %}
+                                <span class="inline-flex items-center rounded-full bg-amber-100 text-amber-900 px-3 py-0.5 text-xs font-medium">{{ admin_escuela_profile.get_tipo_coordinador_display }}</span>
+                            {% elif profesor_profile %}
+                                <span class="inline-flex items-center rounded-full bg-sky-100 text-sky-900 px-3 py-0.5 text-xs font-medium"><i class="fas fa-chalkboard-teacher mr-1.5 opacity-80"></i>Profesor</span>
+                            {% elif estudiante_profile %}
+                                <span class="inline-flex items-center rounded-full bg-emerald-100 text-emerald-900 px-3 py-0.5 text-xs font-medium"><i class="fas fa-graduation-cap mr-1.5 opacity-80"></i>Estudiante</span>
+                            {% elif user.is_super_admin %}
+                                <span class="inline-flex items-center rounded-full bg-stone-200 text-stone-900 px-3 py-0.5 text-xs font-medium">Director</span>
+                            {% endif %}
+                            {% if user.sede %}
+                                <span class="inline-flex items-center rounded-full bg-stone-100 text-stone-700 px-3 py-0.5 text-xs font-medium"><i class="fas fa-location-dot mr-1.5 text-stone-500"></i>{{ user.sede.nombre }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-stone-100">
+                        <div class="rounded-xl bg-stone-50/80 px-4 py-3 border border-stone-100/80">
+                            <dt class="text-xs font-medium text-stone-500 flex items-center gap-2"><i class="fas fa-id-card text-stone-400 w-4"></i>Documento</dt>
+                            <dd class="mt-1 text-sm font-medium text-stone-900 break-all">{{ user.documento_identidad|default:"Sin documento" }}</dd>
+                        </div>
+                        <div class="rounded-xl bg-stone-50/80 px-4 py-3 border border-stone-100/80">
+                            <dt class="text-xs font-medium text-stone-500 flex items-center gap-2"><i class="fas fa-envelope text-stone-400 w-4"></i>Correo actual</dt>
+                            <dd class="mt-1 text-sm font-medium text-stone-900 break-all">{{ user.email|default:"Sin correo" }}</dd>
+                        </div>
+                    </dl>
+
+                    {% if estudiante_profile %}
+                        <p class="text-sm">
+                            <a href="{% url 'hechos:seleccionar_sede_estudiante' %}" class="font-medium text-stone-800 underline decoration-stone-300 underline-offset-2 hover:decoration-stone-600">
+                                Cambiar sede de estudiante
                             </a>
                         </p>
-                    {% elif user.is_super_admin %}
-                        <p class="mt-1"><span class="font-medium text-stone-900">Rol:</span> Director</p>
                     {% endif %}
                 </div>
+            </div>
+        </div>
 
-                <div class="rounded-xl border border-stone-200 p-5 space-y-4">
-                    <h2 class="text-sm font-semibold text-stone-900">Contacto y ubicación</h2>
-                    <p class="text-xs text-stone-500">Puedes actualizar tu celular (WhatsApp) y tu dirección cuando quieras.</p>
+        {# — Seguridad: correo + contraseña — #}
+        <div>
+            <p class="profile-section-h mb-4 px-0.5">Seguridad y acceso</p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="profile-card p-6 sm:p-7">
+                    <div class="flex items-start gap-3 mb-5">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700"><i class="fas fa-envelope"></i></span>
+                        <div>
+                            <h3 class="text-base font-semibold text-stone-900">Correo electrónico</h3>
+                            <p class="text-xs text-stone-500 mt-0.5 leading-relaxed">Único en el sistema. Notificaciones y recuperación de acceso.</p>
+                        </div>
+                    </div>
                     <form method="post" class="space-y-4">
                         {% csrf_token %}
-                        <input type="hidden" name="profile_contact" value="1">
+                        <input type="hidden" name="profile_account" value="1">
                         <div>
-                            <label for="profile_phone" class="block text-sm font-medium text-stone-700 mb-1">Celular <span class="text-stone-500 font-normal">(WhatsApp)</span></label>
-                            <input type="tel" name="phone" id="profile_phone" value="{{ user.phone|default:'' }}"
-                                   autocomplete="tel"
-                                   class="w-full rounded-xl border-2 border-stone-300 bg-white px-4 py-2.5 text-stone-900 text-sm focus:border-stone-500 focus:outline-none focus:ring-4 focus:ring-stone-200">
+                            <label for="profile_email" class="sr-only">Correo</label>
+                            <input type="email" name="email" id="profile_email" value="{{ user.email|default:'' }}"
+                                   inputmode="email" autocomplete="email" placeholder="correo@ejemplo.com"
+                                   class="profile-field">
+                        </div>
+                        <button type="submit" class="btn-primary w-full sm:w-auto px-6 py-2.5 text-sm font-medium rounded-xl">
+                            Guardar correo
+                        </button>
+                    </form>
+                </div>
+
+                <div class="profile-card p-6 sm:p-7">
+                    <div class="flex items-start gap-3 mb-5">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700"><i class="fas fa-lock"></i></span>
+                        <div>
+                            <h3 class="text-base font-semibold text-stone-900">Contraseña</h3>
+                            <p class="text-xs text-stone-500 mt-0.5 leading-relaxed">Tras guardar, esta sesión sigue activa. Usa la nueva clave en otros dispositivos.</p>
+                        </div>
+                    </div>
+                    <form method="post" class="space-y-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="profile_password" value="1">
+                        {% if password_form.non_field_errors %}
+                            <div class="rounded-xl bg-red-50 border border-red-100 text-red-800 text-sm px-4 py-3" role="alert">
+                                {{ password_form.non_field_errors }}
+                            </div>
+                        {% endif %}
+                        <div>
+                            <label for="id_old_password" class="block text-xs font-medium text-stone-600 mb-1.5">Contraseña actual</label>
+                            {{ password_form.old_password.errors }}
+                            {{ password_form.old_password }}
                         </div>
                         <div>
-                            <label for="profile_direccion" class="block text-sm font-medium text-stone-700 mb-1">Dirección</label>
-                            <textarea name="direccion" id="profile_direccion" rows="3"
-                                      class="w-full rounded-xl border-2 border-stone-300 bg-white px-4 py-2.5 text-stone-900 text-sm focus:border-stone-500 focus:outline-none focus:ring-4 focus:ring-stone-200">{{ direccion_perfil }}</textarea>
+                            <label for="id_new_password1" class="block text-xs font-medium text-stone-600 mb-1.5">Nueva contraseña</label>
+                            {{ password_form.new_password1.errors }}
+                            {{ password_form.new_password1 }}
                         </div>
-                        <button type="submit" class="btn-primary px-5 py-2.5 text-sm font-medium">
-                            Guardar
+                        <div>
+                            <label for="id_new_password2" class="block text-xs font-medium text-stone-600 mb-1.5">Confirmar</label>
+                            {{ password_form.new_password2.errors }}
+                            {{ password_form.new_password2 }}
+                        </div>
+                        <button type="submit" class="btn-primary w-full sm:w-auto px-6 py-2.5 text-sm font-medium rounded-xl">
+                            Actualizar contraseña
                         </button>
                     </form>
                 </div>
             </div>
         </div>
-    </div>
 
+        {# — Contacto — #}
+        <div>
+            <p class="profile-section-h mb-4 px-0.5">Contacto</p>
+            <div class="profile-card p-6 sm:p-7">
+                <div class="flex items-start gap-3 mb-5">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700"><i class="fas fa-phone"></i></span>
+                    <div>
+                        <h3 class="text-base font-semibold text-stone-900">Celular y dirección</h3>
+                        <p class="text-xs text-stone-500 mt-0.5 leading-relaxed">WhatsApp y dirección para ubicarte cuando haga falta.</p>
+                    </div>
+                </div>
+                <form method="post" class="space-y-5">
+                    {% csrf_token %}
+                    <input type="hidden" name="profile_contact" value="1">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div class="sm:col-span-2">
+                            <label for="profile_phone" class="block text-xs font-medium text-stone-600 mb-1.5">Celular <span class="text-stone-400 font-normal">(WhatsApp)</span></label>
+                            <input type="tel" name="phone" id="profile_phone" value="{{ user.phone|default:'' }}"
+                                   autocomplete="tel" placeholder="Ej. 300 123 4567"
+                                   class="profile-field">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label for="profile_direccion" class="block text-xs font-medium text-stone-600 mb-1.5">Dirección</label>
+                            <textarea name="direccion" id="profile_direccion" rows="3" placeholder="Barrio, ciudad…"
+                                      class="profile-field resize-y min-h-[5rem]">{{ direccion_perfil }}</textarea>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary px-6 py-2.5 text-sm font-medium rounded-xl">
+                        Guardar contacto
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
 </div>
 {% endblock %}

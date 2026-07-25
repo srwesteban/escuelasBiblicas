@@ -58,23 +58,31 @@ def has_any_capacidad(user, codigos) -> bool:
     return bool(mine.intersection(frozenset(codigos)))
 
 
-def redirect_operational_home_if_restricted(request):
+def redirect_operational_home_user(user):
     """
-    Coordinadores de sede, financiero y logístico no usan el dashboard general de Hechos.
+    Coordinadores de sede, financiero y logístico: destino de trabajo operativo
+    (no el dashboard general de Hechos). Misma lógica que redirect_operational_home_if_restricted.
     """
-    if request.user.is_super_admin() or not hasattr(request.user, 'admin_escuela_profile'):
+    if user.is_super_admin() or not hasattr(user, 'admin_escuela_profile'):
         return None
-    p = request.user.admin_escuela_profile
+    p = user.admin_escuela_profile
     if not p.sede_id:
         return None
     sid = p.sede_id
     if p.tipo_coordinador == AdminEscuela.TipoCoordinador.SEDE:
         return redirect('core:coordinador_sede_equipo', sede_id=sid)
-    if has_capacidad(request.user, 'financiero'):
+    if has_capacidad(user, 'financiero'):
         return redirect('hechos:coordinador_recursos')
-    if has_capacidad(request.user, 'logistico'):
+    if has_capacidad(user, 'logistico'):
         return redirect('hechos:coordinador_logistica')
     return None
+
+
+def redirect_operational_home_if_restricted(request):
+    """
+    Coordinadores de sede, financiero y logístico no usan el dashboard general de Hechos.
+    """
+    return redirect_operational_home_user(request.user)
 
 
 def require_capacidad(request, codigo: str, mensaje: str | None = None):

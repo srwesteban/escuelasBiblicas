@@ -1,13 +1,1032 @@
 {% extends 'base_modern.html' %}
 
+{# Hoja a ancho completo (sin max-w-7xl) para alinear con Excel en pantalla. #}
+{% block main_container_class %}w-full max-w-none mx-auto px-0 py-0 sm:px-0 lg:px-0{% endblock %}
+
 {% block title %}Asistencia — {{ escuela.nombre }}{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto">
-    <div class="card p-8 flex items-center justify-center min-h-[18rem]">
-        <a href="{% url 'hechos:profesor_escuela_asistencia_excel' escuela.id %}" class="btn-primary inline-flex items-center px-5 py-2.5 text-sm font-medium">
-            <i class="fas fa-file-excel mr-2"></i>Descargar excel
-        </a>
+<div class="excel-asistencia-root min-h-[calc(100vh-4rem)] flex flex-col text-[13px] text-neutral-800"
+     style="font-family: 'Segoe UI', 'Segoe UI Web (West European)', ui-sans-serif, system-ui, sans-serif;">
+    {# Barra superior tipo Excel (verde hoja) #}
+    <div class="excel-asistencia-ribbon sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-white shadow-md"
+         style="background: linear-gradient(180deg, #107C41 0%, #0d6635 100%);">
+        <div class="flex items-center gap-2 min-w-0 flex-wrap">
+            <a href="{{ volver_url }}"
+               class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-white/30 bg-white/10 text-white hover:bg-white/20 text-sm font-semibold"
+               aria-label="Volver">←</a>
+            <div class="min-w-0">
+                <h1 class="text-base sm:text-lg font-semibold tracking-tight truncate">Asistencia</h1>
+                <p class="text-[11px] text-white/85 truncate max-w-[min(100vw-8rem,28rem)]">{{ escuela.nombre }} — {{ escuela.anio }} · {{ escuela.get_ciclo_display }}</p>
+            </div>
+            {% if num_columnas %}
+            <span class="hidden sm:inline-flex items-center rounded-sm border border-white/25 bg-black/10 px-2 py-1 text-[11px] font-medium text-white/95">
+                {{ num_columnas }} {% if num_columnas == 1 %}columna de fecha{% else %}columnas de fechas{% endif %}
+            </span>
+            {% endif %}
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+            {% if matricular_modal_activo %}
+            <button type="button" id="btn-abrir-matricular-asistencia"
+                    class="inline-flex items-center justify-center gap-2 rounded-sm border border-white/35 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-white/25 min-h-[40px] shrink-0">
+                <i class="fas fa-user-plus text-xs" aria-hidden="true"></i>
+                Matricular
+            </button>
+            {% endif %}
+            <a href="{% url 'hechos:profesor_escuela_asistencia_excel_formato' escuela.id %}"
+               class="inline-flex items-center justify-center gap-2 rounded-sm border border-white/35 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-white/25 min-h-[40px] shrink-0">
+                <i class="fas fa-file-excel text-xs" aria-hidden="true"></i>
+                Plantilla Excel
+            </a>
+        </div>
+    </div>
+
+    {# Barra tipo “cinta” + convención de celdas (como formato condicional de Excel) #}
+    <div class="flex flex-col gap-2 border-b border-neutral-300 bg-[#f3f3f3] px-2 py-2 sm:flex-row sm:items-center sm:gap-3 shrink-0">
+        <div class="flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs text-neutral-700">
+            <span class="font-semibold text-neutral-600 mr-1">Celdas:</span>
+            <span class="inline-flex items-center gap-1 rounded-sm border border-neutral-300 bg-white px-2 py-1 shadow-sm">
+                <span class="h-3.5 w-3.5 rounded-sm border border-neutral-300 excel-swatch-a" aria-hidden="true"></span>
+                <strong>A</strong> asistió
+            </span>
+            <span class="inline-flex items-center gap-1 rounded-sm border border-neutral-300 bg-white px-2 py-1 shadow-sm">
+                <span class="h-3.5 w-3.5 rounded-sm border border-neutral-300 excel-swatch-p" aria-hidden="true"></span>
+                <strong>P</strong>
+            </span>
+            <span class="inline-flex items-center gap-1 rounded-sm border border-neutral-300 bg-white px-2 py-1 shadow-sm">
+                <span class="h-3.5 w-3.5 rounded-sm border border-neutral-300 excel-swatch-n" aria-hidden="true"></span>
+                <strong>N</strong> falta
+            </span>
+            <span class="text-neutral-500 hidden md:inline">· <strong>% Inas.</strong> = N ÷ nº sesiones (igual que en el libro)</span>
+        </div>
+        {% if tiene_estudiantes %}
+        <div class="flex flex-1 min-w-0 items-center gap-2 sm:justify-end">
+            <label for="grilla-buscar-estudiante" class="sr-only">Buscar por nombre o documento</label>
+            <div class="relative w-full max-w-md min-w-0 flex-1 sm:flex-none">
+                <span class="absolute left-2 top-1/2 -translate-y-1/2 rounded-sm border border-neutral-300 bg-[#e7e7e7] px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 pointer-events-none" aria-hidden="true">Buscar</span>
+                <input type="search" id="grilla-buscar-estudiante" name="q_grilla_estudiante" autocomplete="off"
+                       enterkeyhint="search"
+                       placeholder="Nombre o documento…"
+                       class="excel-buscar-input w-full rounded-sm border border-neutral-400 bg-white pl-[4.25rem] pr-2 py-2 text-sm text-neutral-900 min-h-[40px] shadow-inner placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#107C41]/35 focus:border-[#107C41]"/>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% if not tiene_columnas_clase %}
+    <p class="text-xs text-amber-900 px-3 py-2 bg-amber-50 border-b border-amber-200">
+        Aún no hay fechas de sesión en el calendario; cuando existan, aparecerán como columnas (como en Excel).
+    </p>
+    {% endif %}
+
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-neutral-300 bg-white px-3 py-1.5 text-[11px] text-neutral-600 shrink-0">
+        <span><span class="text-neutral-400">Docente</span> <span class="font-medium text-neutral-800">{{ nombre_docente }}</span></span>
+        <span class="hidden sm:inline text-neutral-300">|</span>
+        <span><span class="text-neutral-400">Horario</span> <span class="font-medium text-neutral-800">{{ horario_txt }}</span></span>
+        <span class="hidden sm:inline text-neutral-300">|</span>
+        <span><span class="text-neutral-400">Modalidad</span> <span class="font-medium text-neutral-800">{{ modalidad_txt }}</span></span>
+        <div class="ml-auto flex flex-wrap items-center gap-1">
+            {% if agregar_sesion_deshabilitado_motivo %}
+            <button type="button" disabled
+                    class="rounded-sm border border-neutral-200 bg-neutral-100 px-2 py-1.5 text-[11px] font-semibold text-neutral-400 min-h-[36px] cursor-not-allowed"
+                    title="{{ agregar_sesion_deshabilitado_motivo }}">
+                + Columna fecha
+            </button>
+            {% else %}
+            <details id="details-anadir-sesion-asistencia" class="relative z-50 group">
+                <summary class="list-none cursor-pointer rounded-sm border border-[#0d6635] bg-[#107C41] px-2.5 py-1.5 text-[11px] font-semibold text-white min-h-[36px] shadow-sm hover:bg-[#0d6635] [&::-webkit-details-marker]:hidden inline-flex items-center gap-1">
+                    <i class="fas fa-plus text-[10px]" aria-hidden="true"></i>
+                    Nueva fecha (sesión)
+                </summary>
+                <div class="absolute right-0 mt-1 w-[min(18rem,calc(100vw-2rem))] rounded-sm border border-neutral-300 bg-white p-3 shadow-xl text-neutral-800">
+                    <form method="post" action="{{ agregar_sesion_url }}" class="flex flex-col gap-2">
+                        {% csrf_token %}
+                        <label class="block text-xs font-medium text-neutral-700">
+                            Fecha (como en Excel: dd/mm/aa)
+                            <input type="text" name="fecha_sesion" required
+                                   inputmode="numeric"
+                                   autocomplete="off"
+                                   placeholder="dd/mm/aa"
+                                   class="mt-1 w-full rounded-sm border border-neutral-400 px-2 py-2 text-sm text-neutral-900 min-h-[44px]"
+                                   value="{{ fecha_sesion_input_default_display }}"/>
+                        </label>
+                        <button type="submit" class="rounded-sm bg-[#107C41] px-3 py-2 text-sm font-semibold text-white hover:bg-[#0d6635] min-h-[44px]">
+                            Agregar columna
+                        </button>
+                    </form>
+                </div>
+            </details>
+            {% endif %}
+            <button type="button" id="grilla-scroll-inicio"
+                    class="rounded-sm border border-neutral-400 bg-white px-2 py-1.5 text-[11px] font-semibold text-neutral-800 min-h-[36px] min-w-[40px] shadow-sm hover:bg-neutral-50"
+                    title="Primera columna">⟨⟨</button>
+            <button type="button" id="grilla-scroll-fin"
+                    class="rounded-sm border border-neutral-400 bg-white px-2 py-1.5 text-[11px] font-semibold text-neutral-800 min-h-[36px] min-w-[40px] shadow-sm hover:bg-neutral-50"
+                    title="Última columna">⟩⟩</button>
+        </div>
+    </div>
+
+    {% if not tiene_estudiantes %}
+    <div class="p-8 text-center text-gray-600 flex-1 flex items-center justify-center">
+        <p>No hay estudiantes matriculados en esta escuela.</p>
+    </div>
+    {% else %}
+    <form id="form-asistencia-grilla" method="post" class="flex-1 flex flex-col min-h-0 min-w-0"
+          data-num-columnas="{{ num_columnas }}">
+        {% csrf_token %}
+        <div id="grilla-asistencia-scroll"
+             title="Tip: usá las flechas del teclado para moverte entre celdas, como en Excel."
+             class="asistencia-grilla-scroll excel-sheet-view flex-1 min-h-0 min-w-0 overflow-x-auto overflow-y-auto overscroll-x-contain touch-pan-x scroll-smooth bg-[#fafafa]">
+            <table class="excel-grid-table min-w-max w-max text-[13px] border-collapse">
+                <thead>
+                    <tr class="excel-thead-row">
+                        <th rowspan="2" class="excel-th-frozen sticky left-0 z-[32] top-0 align-middle w-10 min-w-[2.5rem] max-w-[2.5rem] px-1 py-2 text-center font-semibold text-neutral-700">#</th>
+                        <th rowspan="2" class="excel-th-frozen sticky z-[32] top-0 align-middle w-[9rem] sm:w-[12rem] min-w-[9rem] sm:min-w-[12rem] max-w-[9rem] sm:max-w-[12rem] px-2 py-2 text-left font-semibold text-neutral-800"
+                            style="left: 2.5rem;">Nombre</th>
+                        <th rowspan="2" class="excel-th-frozen asistencia-sticky-ver sticky z-[32] top-0 align-middle w-10 min-w-[2.5rem] max-w-[2.5rem] px-0.5 py-2"
+                            scope="col" aria-label="Columna de menú por fila"></th>
+                        {% for h in encabezados_columnas %}
+                        <th class="sticky top-0 z-20 h-8 excel-grid-border px-0 py-0.5 text-center w-[3.5rem] min-w-[3.5rem] bg-[#e7e7e7]">
+                            {% if h.clase_id %}
+                            <button type="button"
+                                    class="js-confirmar-post-form mx-auto flex h-7 w-full max-w-[2.75rem] items-center justify-center rounded-sm text-neutral-500 transition-colors hover:bg-[#ffcccc] hover:text-red-800 focus:outline-none focus:ring-2 focus:ring-red-400/50"
+                                    title="Eliminar columna (sesión del {{ h.fecha_etiqueta }})"
+                                    aria-label="Eliminar columna del {{ h.fecha_etiqueta }}"
+                                    data-confirm-title="Eliminar columna de fecha"
+                                    data-confirm-message="Se eliminará la sesión del {{ h.fecha_etiqueta }} y todo el A / N / P guardado en esa columna, igual que borrar una columna en Excel."
+                                    data-confirm-form="form-quitar-sesion-{{ h.clase_id }}">
+                                <i class="fas fa-times text-[10px]" aria-hidden="true"></i>
+                            </button>
+                            {% else %}
+                            <span class="inline-block h-7 w-full" aria-hidden="true"></span>
+                            {% endif %}
+                        </th>
+                        {% endfor %}
+                        <th rowspan="2" class="sticky top-0 z-20 align-middle excel-grid-border px-0.5 py-2 text-center font-bold excel-h-a w-10 min-w-[2.5rem] text-xs">A</th>
+                        <th rowspan="2" class="sticky top-0 z-20 align-middle excel-grid-border px-0.5 py-2 text-center font-bold excel-h-n w-10 min-w-[2.5rem] text-xs">N</th>
+                        <th rowspan="2" class="sticky top-0 z-20 align-middle excel-grid-border px-0.5 py-2 text-center font-bold excel-h-p w-10 min-w-[2.5rem] text-xs">P</th>
+                        <th rowspan="2" class="sticky top-0 z-20 align-middle excel-grid-border px-1 py-2 text-center font-semibold bg-[#e7e7e7] text-neutral-800 w-[5.5rem] min-w-[5.5rem] text-[10px] leading-tight">% Inas.</th>
+                    </tr>
+                    <tr class="excel-thead-row2">
+                        {% for h in encabezados_columnas %}
+                        <th class="sticky top-8 z-20 h-10 excel-grid-border px-0.5 py-1 text-center font-semibold w-[3.5rem] min-w-[3.5rem] text-[11px] bg-[#f2f2f2] text-neutral-900 leading-tight tabular-nums">
+                            {{ h.fecha }}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody id="grilla-asistencia-tbody">
+                    {% for fila in filas %}
+                    {% with e=fila.estudiante %}
+                    <tr class="js-grilla-fila-estudiante hover:bg-stone-50/80"
+                        data-buscar-nombre="{{ e.user.get_full_name|default_if_none:''|escape }}"
+                        data-buscar-doc="{{ e.numero_documento|default_if_none:''|escape }}">
+                        <td class="js-grilla-fila-num excel-td-frozen sticky left-0 z-10 w-10 min-w-[2.5rem] max-w-[2.5rem] excel-grid-border px-1 py-1 text-neutral-500 text-center tabular-nums">{{ forloop.counter }}</td>
+                        <td class="excel-td-frozen sticky z-10 w-[9rem] sm:w-[12rem] min-w-[9rem] sm:min-w-[12rem] max-w-[9rem] sm:max-w-[12rem] excel-grid-border px-2 py-1 font-medium text-neutral-900 truncate"
+                            style="left: 2.5rem;"
+                            title="{{ e.user.get_full_name }}">{{ e.user.get_full_name }}</td>
+                        <td class="asistencia-sticky-ver excel-td-frozen sticky z-10 w-10 min-w-[2.5rem] max-w-[2.5rem] excel-grid-border p-0.5 text-center align-middle">
+                            <button type="button"
+                                    class="js-asistencia-fila-menu-trigger mx-auto flex h-9 w-9 items-center justify-center rounded-sm border border-neutral-400 bg-white text-neutral-600 hover:bg-[#f0f0f0] text-lg font-bold leading-none shadow-sm select-none"
+                                    title="Ficha del estudiante o quitar matrícula"
+                                    aria-label="Menú de esta fila"
+                                    aria-haspopup="menu"
+                                    aria-expanded="false"
+                                    aria-controls="asistencia-fila-menu-flyout"
+                                    data-resumen-url="{% url 'hechos:estudiante_resumen_fragment' e.id %}"
+                                    data-quitar-form-id="form-quitar-matricula-asist-{{ e.id }}">⋯</button>
+                        </td>
+                        {% for celda in fila.celdas %}
+                        <td class="excel-grid-border p-0 align-middle excel-td-celda {% if celda.value == 'A' %}bg-[#C6EFCE]{% elif celda.value == 'P' %}bg-[#FFEB9C]{% elif celda.value == 'N' %}bg-[#FFC7CE]{% else %}bg-white{% endif %}">
+                            <label class="sr-only" for="g_{{ e.id }}_{{ celda.col }}">Estudiante {{ e.id }}, sesión {{ celda.col }}</label>
+                            <select name="g_{{ e.id }}_{{ celda.col }}" id="g_{{ e.id }}_{{ celda.col }}"
+                                    class="grilla-asistencia-select excel-cell-select w-[3.5rem] min-w-[3.5rem] min-h-[40px] sm:min-h-[36px] block text-[13px] font-semibold text-center border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#107C41] py-1 px-0 text-neutral-900 cursor-default">
+                                <option value="" {% if not celda.value %}selected{% endif %}>—</option>
+                                <option value="A" {% if celda.value == 'A' %}selected{% endif %}>A</option>
+                                <option value="P" {% if celda.value == 'P' %}selected{% endif %}>P</option>
+                                <option value="N" {% if celda.value == 'N' %}selected{% endif %}>N</option>
+                            </select>
+                        </td>
+                        {% endfor %}
+                        <td class="js-grilla-cnt-a excel-grid-border px-0.5 py-1 text-center font-semibold excel-h-a text-green-900 w-10 min-w-[2.5rem] text-xs tabular-nums">{{ fila.cnt_a }}</td>
+                        <td class="js-grilla-cnt-n excel-grid-border px-0.5 py-1 text-center font-semibold excel-h-n text-red-900 w-10 min-w-[2.5rem] text-xs tabular-nums">{{ fila.cnt_n }}</td>
+                        <td class="js-grilla-cnt-p excel-grid-border px-0.5 py-1 text-center font-semibold excel-h-p text-amber-900 w-10 min-w-[2.5rem] text-xs tabular-nums">{{ fila.cnt_p }}</td>
+                        <td class="js-grilla-pct-inas excel-grid-border px-1 py-1 text-center font-mono text-xs bg-[#f2f2f2] text-neutral-900 w-[5.5rem] min-w-[5.5rem] tabular-nums">{{ fila.pct_inasistencia|floatformat:4 }}</td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                    <tr id="grilla-asistencia-sin-resultados" class="hidden" aria-live="polite">
+                        <td colspan="{{ num_columnas|add:7 }}" class="text-center py-10 px-4 text-sm text-stone-600 bg-stone-50/90 border border-gray-200">
+                            No hay estudiantes que coincidan con la búsqueda.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="excel-status-bar flex flex-wrap items-center justify-between gap-3 border-t-2 border-[#107C41] bg-[#f3f3f3] px-3 py-2.5 shrink-0">
+            <div class="min-w-0 flex flex-col gap-0.5 text-[12px] text-neutral-600">
+                <p class="flex flex-wrap items-center gap-x-2 gap-y-0">
+                    <span class="inline-flex items-center gap-1 font-semibold text-[#107C41]">
+                        <i class="fas fa-check-circle text-[11px] opacity-80" aria-hidden="true"></i>
+                        Listo
+                    </span>
+                    <span class="text-neutral-400 hidden sm:inline">|</span>
+                    <span class="hidden sm:inline text-neutral-500">Flechas del teclado: mover entre celdas</span>
+                </p>
+                <p class="text-[11px] text-neutral-500">Hasta que no pulses <strong class="text-neutral-700">Guardar hoja</strong>, los cambios no se registran en el servidor.</p>
+            </div>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                <a href="{% url 'hechos:profesor_escuela_asistencia_excel' escuela.id %}"
+                   class="inline-flex items-center gap-2 rounded-sm border border-neutral-400 bg-white px-3 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 min-h-[44px]">
+                    <i class="fas fa-file-excel text-[#107C41]" aria-hidden="true"></i>
+                    Exportar .xlsx
+                </a>
+                <button type="submit" class="inline-flex items-center gap-2 rounded-sm border border-[#0d6635] bg-[#107C41] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0d6635] min-h-[44px]">
+                    <i class="fas fa-save text-xs opacity-90" aria-hidden="true"></i>
+                    Guardar hoja
+                </button>
+            </div>
+        </div>
+    </form>
+    {% for h in encabezados_columnas %}
+    {% if h.clase_id %}
+    <form id="form-quitar-sesion-{{ h.clase_id }}" method="post" action="{{ quitar_sesion_url }}" class="hidden">
+        {% csrf_token %}
+        <input type="hidden" name="clase_id" value="{{ h.clase_id }}"/>
+    </form>
+    {% endif %}
+    {% endfor %}
+    {% for fila in filas %}
+    <form id="form-quitar-matricula-asist-{{ fila.estudiante.id }}" method="post"
+          action="{% url 'hechos:profesor_escuela_estudiante_quitar_matricula' escuela.id fila.estudiante.id %}" class="hidden">
+        {% csrf_token %}
+        <input type="hidden" name="redirect_to" value="asistencia"/>
+    </form>
+    {% endfor %}
+    {% endif %}
+    <details class="excel-import-panel border-t border-neutral-300 bg-[#fffbeb] shrink-0">
+        <summary class="list-none cursor-pointer px-3 py-2.5 text-sm font-semibold text-amber-950 hover:bg-amber-100/50 flex items-center gap-2 [&::-webkit-details-marker]:hidden">
+            <i class="fas fa-file-import text-amber-800" aria-hidden="true"></i>
+            Importar desde libro Excel (.xlsx)
+            <i class="fas fa-chevron-down ml-auto text-xs text-amber-800/70 opacity-80" aria-hidden="true"></i>
+        </summary>
+        <div class="space-y-2 border-t border-amber-200/80 px-3 py-3 text-xs text-amber-950">
+            <p>
+                Igual que pegar desde Excel: solo se escriben celdas con <strong>A</strong>, <strong>N</strong> o <strong>P</strong>.
+                Celda vacía en el archivo = <strong>no cambia</strong> lo que ya está registrado en la hoja web.
+                Fechas nuevas en columnas extra pueden crear sesiones hasta el límite del sistema.
+                Las filas se cruzan por <strong>documento</strong> (columna B del formato).
+            </p>
+            <form method="post" action="{% url 'hechos:profesor_escuela_asistencia_import_excel' escuela.id %}"
+                  enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+                {% csrf_token %}
+                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-none">
+                    <input id="archivo-excel-asistencia" type="file" name="archivo_excel"
+                           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                           class="sr-only" aria-describedby="archivo-excel-nombre"/>
+                    <label for="archivo-excel-asistencia"
+                           class="inline-flex cursor-pointer items-center justify-center rounded-sm border border-amber-700 bg-white px-3 py-2 text-sm font-medium text-amber-950 shadow-sm hover:bg-amber-50 min-h-[44px] shrink-0">
+                        Elegir archivo…
+                    </label>
+                    <span id="archivo-excel-nombre" class="min-w-0 truncate text-sm text-amber-950/90" aria-live="polite">
+                        Ningún archivo seleccionado
+                    </span>
+                </div>
+                <button type="submit" class="rounded-sm border border-[#b45309] bg-[#b45309] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#92400e] min-h-[44px]">
+                    Aplicar al libro
+                </button>
+            </form>
+        </div>
+    </details>
+</div>
+
+{# Menú por fila: un solo panel fijo en el viewport (no lo recorta el scroll de la grilla). #}
+<div id="asistencia-fila-menu-backdrop" class="fixed inset-0 z-[104] hidden cursor-default bg-black/20" aria-hidden="true"></div>
+<div id="asistencia-fila-menu-flyout" class="fixed z-[105] hidden w-[13rem] max-h-[min(70dvh,22rem)] overflow-y-auto rounded-sm border border-neutral-300 bg-white py-1 text-left shadow-2xl" role="menu" aria-hidden="true">
+    <button type="button" id="asistencia-fila-menu-btn-ficha" class="js-resumen-estudiante flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-neutral-800 hover:bg-[#e8f4ea]" data-resumen-url="" role="menuitem">
+        <i class="fas fa-address-card w-4 shrink-0 text-center text-[#107C41]" aria-hidden="true"></i>
+        Ver ficha del estudiante
+    </button>
+    <button type="button" id="asistencia-fila-menu-btn-quitar" class="js-confirmar-post-form flex w-full items-center gap-2 border-t border-neutral-200 px-3 py-2.5 text-left text-sm text-red-800 hover:bg-red-50" role="menuitem"
+            data-confirm-title="Quitar matrícula"
+            data-confirm-message="¿Anular la matrícula de este estudiante en esta escuela? La persona no se elimina del sistema; puede volver a matricular al estudiante con el documento y el nombre correctos."
+            data-confirm-form="">
+        <i class="fas fa-user-minus w-4 shrink-0 text-center" aria-hidden="true"></i>
+        Quitar de esta escuela
+    </button>
+</div>
+
+<div id="modal-cambios-sin-guardar" class="fixed inset-0 z-[110] hidden" role="dialog" aria-modal="true" aria-labelledby="modal-cambios-titulo" aria-hidden="true">
+    <button type="button" id="modal-cambios-backdrop" class="absolute inset-0 w-full h-full border-0 bg-stone-900/50 cursor-default" aria-label="Cancelar"></button>
+    <div class="absolute z-10 inset-x-4 top-[max(1rem,8vh)] sm:left-1/2 sm:-translate-x-1/2 w-full max-w-lg rounded-xl border border-stone-200 bg-white shadow-2xl overflow-hidden flex flex-col">
+        <div class="flex gap-3 p-4 sm:p-5 border-b border-stone-100">
+            <div class="shrink-0 text-amber-500 text-3xl leading-none pt-0.5" aria-hidden="true">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="min-w-0 space-y-2">
+                <h2 id="modal-cambios-titulo" class="text-base font-semibold text-stone-900">Cambios sin guardar</h2>
+                <p class="text-sm text-stone-700">
+                    ¿Desea <strong>guardar</strong> los cambios en la asistencia antes de salir?
+                </p>
+                <p class="text-xs text-stone-500">
+                    Si elige <strong>No guardar</strong>, se descartarán las modificaciones que aún no haya guardado con el botón «Guardar».
+                </p>
+            </div>
+        </div>
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 p-4 sm:p-5 bg-stone-50 border-t border-stone-100">
+            <button type="button" id="modal-cambios-cancelar"
+                    class="w-full sm:w-auto rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-100 min-h-[44px]">
+                Cancelar
+            </button>
+            <button type="button" id="modal-cambios-no-guardar"
+                    class="w-full sm:w-auto rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-100 min-h-[44px]">
+                No guardar
+            </button>
+            <button type="button" id="modal-cambios-guardar"
+                    class="w-full sm:w-auto rounded-lg border border-emerald-700 bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 min-h-[44px]">
+                Guardar
+            </button>
+        </div>
     </div>
 </div>
+
+<div id="modal-matricular-estudiante" class="fixed inset-0 z-[120] hidden" role="dialog" aria-modal="true" aria-labelledby="modal-matricular-titulo" aria-hidden="true">
+    <button type="button" id="modal-matricular-backdrop" class="absolute inset-0 w-full h-full border-0 bg-stone-900/50 cursor-default" aria-label="Cerrar"></button>
+    <div class="absolute z-10 inset-x-2 sm:inset-x-4 top-[max(0.5rem,3vh)] bottom-[max(0.5rem,3vh)] sm:left-1/2 sm:-translate-x-1/2 w-full max-w-lg flex flex-col rounded-2xl border border-stone-200 bg-white shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-stone-100 bg-stone-50 shrink-0">
+            <h2 id="modal-matricular-titulo" class="text-base font-semibold text-stone-900">Matricular estudiante</h2>
+            <button type="button" id="modal-matricular-cerrar" class="rounded-lg p-2 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Cerrar ventana">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-white p-3 sm:p-4">
+            {% if matricular_modal_activo %}
+            {% with escuela_matricular=matricular_modal_escuela matricular_embed=True matricular_return_url=matricular_modal_return_url matricular_form_en_modal=True matricular_form_action=matricular_modal_post_url matricular_field_id_suffix='-asist' %}
+            {% include 'hechos/_matricular_estudiante_simple_form_inner.html' %}
+            {% endwith %}
+            {% else %}
+            {% include 'hechos/_matricular_estudiante_simple_empty_ediciones.html' %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div id="modal-resumen-estudiante" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true" aria-labelledby="modal-resumen-estudiante-titulo">
+    <button type="button" id="modal-resumen-estudiante-backdrop" class="absolute inset-0 bg-stone-900/50 w-full h-full border-0 cursor-default" aria-label="Cerrar ventana"></button>
+    <div class="absolute z-10 inset-x-4 top-[max(1rem,6vh)] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 w-full max-w-md sm:max-w-2xl max-h-[min(92vh,44rem)] overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl flex flex-col">
+        <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-stone-100 bg-stone-50 shrink-0">
+            <h2 id="modal-resumen-estudiante-titulo" class="text-base font-semibold text-stone-900">Estudiante</h2>
+            <button type="button" id="modal-resumen-estudiante-cerrar" class="rounded-lg p-2 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Cerrar">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div id="modal-resumen-estudiante-body" class="overflow-y-auto p-4 sm:p-5 text-sm text-stone-800 min-h-0 flex-1">
+            <p class="text-stone-500">Cargando…</p>
+        </div>
+    </div>
+</div>
+
+{% include 'hechos/_modal_confirmar_post.html' %}
+
+<style>
+    .excel-swatch-a { background-color: #C6EFCE; }
+    .excel-swatch-p { background-color: #FFEB9C; }
+    .excel-swatch-n { background-color: #FFC7CE; }
+    .excel-grid-border { border: 1px solid #d0d0d0; }
+    .excel-thead-row, .excel-thead-row2 { background: #e7e7e7; }
+    .excel-th-frozen { background: #e7e7e7; box-shadow: 4px 0 8px -2px rgba(0,0,0,0.08); }
+    .excel-td-frozen { background: #fff; box-shadow: 4px 0 8px -2px rgba(0,0,0,0.06); }
+    .excel-h-a { background: #e2efd9 !important; }
+    .excel-h-n { background: #f5d4d4 !important; }
+    .excel-h-p { background: #faf3d1 !important; }
+    .excel-cell-select {
+        transition: background-color 120ms ease, color 120ms ease;
+        -webkit-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M3 4.5L6 8l3-3.5'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 2px center;
+        padding-right: 12px;
+    }
+    .asistencia-grilla-scroll {
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #b0b0b0 #f0f0f0;
+    }
+    .asistencia-sticky-ver {
+        left: 11.5rem;
+    }
+    .grilla-asistencia-select {
+        transition: background-color 120ms ease, color 120ms ease;
+    }
+    .grilla-asistencia-select.estado-a {
+        background-color: #C6EFCE;
+        color: #166534;
+    }
+    .grilla-asistencia-select.estado-p {
+        background-color: #FFEB9C;
+        color: #92400e;
+    }
+    .grilla-asistencia-select.estado-n {
+        background-color: #FFC7CE;
+        color: #991b1b;
+    }
+    .grilla-asistencia-select.estado-vacio {
+        background-color: transparent;
+        color: #111827;
+    }
+    .grilla-asistencia-select option[value="A"] { color: #166534; }
+    .grilla-asistencia-select option[value="P"] { color: #92400e; }
+    .grilla-asistencia-select option[value="N"] { color: #991b1b; }
+    tr.js-grilla-fila-estudiante:hover .excel-td-celda { filter: brightness(0.98); }
+    @media (min-width: 640px) {
+        .asistencia-sticky-ver {
+            left: 14.5rem;
+        }
+    }
+    #modal-matricular-estudiante .matricula-input {
+        min-height: 2.75rem;
+        padding: 0.625rem 1rem;
+        font-size: 0.9375rem;
+        line-height: 1.375;
+        border-radius: 0.75rem;
+    }
+    #modal-matricular-estudiante select.matricula-input {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+    #modal-matricular-estudiante .doc-suggest-panel {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        margin-top: 0.25rem;
+        z-index: 50;
+        max-height: 14rem;
+        overflow-y: auto;
+        border-radius: 0.75rem;
+        border: 1px solid hsl(var(--border));
+        background: hsl(var(--card));
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+    }
+    #modal-matricular-estudiante .doc-suggest-item {
+        width: 100%;
+        text-align: left;
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
+        line-height: 1.35;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: hsl(var(--foreground));
+        border-bottom: 1px solid hsl(var(--border) / 0.6);
+    }
+    #modal-matricular-estudiante .doc-suggest-item:last-child { border-bottom: none; }
+    #modal-matricular-estudiante .doc-suggest-item:hover,
+    #modal-matricular-estudiante .doc-suggest-item.doc-suggest-item-active {
+        background: hsl(42 60% 96%);
+    }
+    #modal-matricular-estudiante .doc-suggest-muted {
+        padding: 0.75rem 1rem;
+        font-size: 0.8125rem;
+        color: hsl(var(--muted-foreground));
+        line-height: 1.4;
+    }
+    #modal-matricular-estudiante .doc-suggest-panel-root > li {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    #modal-matricular-estudiante [id^="doc-buscando"] .animate-spin {
+        animation: doc-spin-asist 0.7s linear infinite;
+    }
+    @keyframes doc-spin-asist {
+        to { transform: rotate(360deg); }
+    }
+</style>
+<script>
+(function () {
+    var btn = document.getElementById('btn-abrir-matricular-asistencia');
+    var modal = document.getElementById('modal-matricular-estudiante');
+    var backdrop = document.getElementById('modal-matricular-backdrop');
+    var cerrar = document.getElementById('modal-matricular-cerrar');
+    if (!btn || !modal) return;
+    function abrir() {
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        var docInp = document.getElementById('numero_documento-asist');
+        if (docInp) {
+            docInp.focus();
+        }
+    }
+    function cerrarModal() {
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    }
+    btn.addEventListener('click', abrir);
+    cerrar?.addEventListener('click', cerrarModal);
+    backdrop?.addEventListener('click', cerrarModal);
+    modal.querySelectorAll('.matricular-modal-btn-cancelar').forEach(function (b) {
+        b.addEventListener('click', cerrarModal);
+    });
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && !modal.classList.contains('hidden')) {
+            cerrarModal();
+        }
+    });
+})();
+</script>
+{% if matricular_modal_activo %}
+{% include 'hechos/_matricular_estudiante_simple_scripts.html' with sugerencias_doc_url=matricular_modal_sugerencias_url escuela_matricular=matricular_modal_escuela matricular_field_id_suffix='-asist' %}
+{% endif %}
+<script>
+(function () {
+    var el = document.getElementById('grilla-asistencia-scroll');
+    if (el) {
+        document.getElementById('grilla-scroll-inicio')?.addEventListener('click', function () {
+            el.scrollTo({ left: 0, behavior: 'smooth' });
+        });
+        document.getElementById('grilla-scroll-fin')?.addEventListener('click', function () {
+            el.scrollTo({ left: el.scrollWidth - el.clientWidth, behavior: 'smooth' });
+        });
+    }
+
+    var form = document.getElementById('form-asistencia-grilla');
+    if (!form) return;
+
+    var numSesiones = parseInt(form.getAttribute('data-num-columnas'), 10);
+    if (!numSesiones || numSesiones < 1) numSesiones = 0;
+
+    var BG_CELDA = ['bg-white', 'bg-[#C6EFCE]', 'bg-[#FFEB9C]', 'bg-[#FFC7CE]'];
+    var SELECT_ESTADO = ['estado-a', 'estado-p', 'estado-n', 'estado-vacio'];
+
+    function syncCeldaColor(td, letter) {
+        var v = (letter || '').toUpperCase();
+        BG_CELDA.forEach(function (c) { td.classList.remove(c); });
+        if (v === 'A') td.classList.add('bg-[#C6EFCE]');
+        else if (v === 'P') td.classList.add('bg-[#FFEB9C]');
+        else if (v === 'N') td.classList.add('bg-[#FFC7CE]');
+        else td.classList.add('bg-white');
+    }
+
+    function syncSelectColor(sel, letter) {
+        var v = (letter || '').toUpperCase();
+        SELECT_ESTADO.forEach(function (c) { sel.classList.remove(c); });
+        if (v === 'A') sel.classList.add('estado-a');
+        else if (v === 'P') sel.classList.add('estado-p');
+        else if (v === 'N') sel.classList.add('estado-n');
+        else sel.classList.add('estado-vacio');
+    }
+
+    function formatPctInas(n) {
+        if (!numSesiones) return '0,0000';
+        return (n / numSesiones).toLocaleString('es-ES', {
+            minimumFractionDigits: 4,
+            maximumFractionDigits: 4
+        });
+    }
+
+    function actualizarFila(tr) {
+        var selects = tr.querySelectorAll('select.grilla-asistencia-select');
+        var cntA = 0, cntN = 0, cntP = 0;
+        selects.forEach(function (sel) {
+            var v = (sel.value || '').toUpperCase();
+            if (v === 'A') cntA++;
+            else if (v === 'N') cntN++;
+            else if (v === 'P') cntP++;
+            var td = sel.closest('td');
+            if (td) syncCeldaColor(td, v);
+            syncSelectColor(sel, v);
+        });
+        var tdA = tr.querySelector('.js-grilla-cnt-a');
+        var tdN = tr.querySelector('.js-grilla-cnt-n');
+        var tdP = tr.querySelector('.js-grilla-cnt-p');
+        var tdPct = tr.querySelector('.js-grilla-pct-inas');
+        if (tdA) tdA.textContent = String(cntA);
+        if (tdN) tdN.textContent = String(cntN);
+        if (tdP) tdP.textContent = String(cntP);
+        if (tdPct) tdPct.textContent = formatPctInas(cntN);
+    }
+
+    form.addEventListener('change', function (ev) {
+        var t = ev.target;
+        if (!t || !t.classList || !t.classList.contains('grilla-asistencia-select')) return;
+        var tr = t.closest('tr');
+        if (tr) actualizarFila(tr);
+    });
+
+    form.querySelectorAll('tbody tr.js-grilla-fila-estudiante').forEach(actualizarFila);
+
+    /* Navegación tipo Excel con flechas (solo filas visibles al filtrar) */
+    form.addEventListener('keydown', function (ev) {
+        if (!ev.target.matches || !ev.target.matches('select.grilla-asistencia-select')) return;
+        var key = ev.key;
+        if (key !== 'ArrowLeft' && key !== 'ArrowRight' && key !== 'ArrowUp' && key !== 'ArrowDown') return;
+        if (!numSesiones) return;
+        var all = Array.prototype.slice.call(
+            form.querySelectorAll('tbody tr.js-grilla-fila-estudiante:not(.hidden) select.grilla-asistencia-select')
+        );
+        if (all.length < 1) return;
+        var idx = all.indexOf(ev.target);
+        if (idx === -1) return;
+        var cols = numSesiones;
+        if (all.length % cols !== 0) return;
+        var nRows = all.length / cols;
+        var row = Math.floor(idx / cols);
+        var col = idx % cols;
+        var nextIdx = null;
+        if (key === 'ArrowRight' && col < cols - 1) nextIdx = idx + 1;
+        else if (key === 'ArrowLeft' && col > 0) nextIdx = idx - 1;
+        else if (key === 'ArrowDown' && row < nRows - 1) nextIdx = idx + cols;
+        else if (key === 'ArrowUp' && row > 0) nextIdx = idx - cols;
+        if (nextIdx !== null && all[nextIdx]) {
+            ev.preventDefault();
+            all[nextIdx].focus();
+        }
+    });
+})();
+</script>
+<script>
+(function () {
+    var input = document.getElementById('grilla-buscar-estudiante');
+    var tbody = document.getElementById('grilla-asistencia-tbody');
+    var sinRes = document.getElementById('grilla-asistencia-sin-resultados');
+    if (!input || !tbody) return;
+
+    var filas = Array.prototype.slice.call(tbody.querySelectorAll('tr.js-grilla-fila-estudiante'));
+
+    function fold(s) {
+        if (s == null || s === '') return '';
+        s = String(s).toLowerCase();
+        if (typeof s.normalize === 'function') {
+            s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+        return s;
+    }
+
+    function soloDigitos(s) {
+        return String(s || '').replace(/\D/g, '');
+    }
+
+    function aplicarFiltro() {
+        var q = (input.value || '').trim();
+        var qFold = fold(q);
+        var qDig = soloDigitos(q);
+        var visibles = 0;
+        var i;
+        for (i = 0; i < filas.length; i++) {
+            var tr = filas[i];
+            var nombreAttr = tr.getAttribute('data-buscar-nombre') || '';
+            var docAttr = tr.getAttribute('data-buscar-doc') || '';
+            var mostrar = !q;
+            if (!mostrar) {
+                if (qFold && fold(nombreAttr).indexOf(qFold) !== -1) mostrar = true;
+                else if (qFold && fold(docAttr).indexOf(qFold) !== -1) mostrar = true;
+                else if (qDig && soloDigitos(docAttr).indexOf(qDig) !== -1) mostrar = true;
+            }
+            tr.classList.toggle('hidden', !mostrar);
+            if (mostrar) {
+                visibles++;
+                var numTd = tr.querySelector('.js-grilla-fila-num');
+                if (numTd) numTd.textContent = String(visibles);
+            }
+        }
+        if (sinRes) {
+            var vacio = q.length > 0 && visibles === 0;
+            sinRes.classList.toggle('hidden', !vacio);
+        }
+    }
+
+    input.addEventListener('input', aplicarFiltro);
+    input.addEventListener('search', function () {
+        if (!input.value) aplicarFiltro();
+    });
+})();
+</script>
+<script>
+(function () {
+    var form = document.getElementById('form-asistencia-grilla');
+    var modal = document.getElementById('modal-cambios-sin-guardar');
+    if (!form || !modal) return;
+
+    var dirty = false;
+    var pendingAction = null;
+    var skipIntercept = false;
+
+    form.addEventListener('change', function (ev) {
+        var t = ev.target;
+        if (t && t.matches && t.matches('select.grilla-asistencia-select')) dirty = true;
+    });
+    form.addEventListener('submit', function () {
+        dirty = false;
+    });
+
+    window.addEventListener('beforeunload', function (e) {
+        if (!dirty) return;
+        e.preventDefault();
+        e.returnValue = '';
+    });
+
+    function openUnsavedModal() {
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeUnsavedModal() {
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        pendingAction = null;
+    }
+
+    document.body.addEventListener('click', function (e) {
+        if (!dirty || skipIntercept) return;
+        var a = e.target.closest('a[href]');
+        if (!a || a.closest('#modal-cambios-sin-guardar')) return;
+        var href = a.getAttribute('href');
+        if (!href || href === '#' || href.indexOf('javascript:') === 0) return;
+        if (href.charAt(0) === '#') return;
+        if (a.target === '_blank' || a.hasAttribute('download')) return;
+        try {
+            var u = new URL(a.href, window.location.href);
+            if (u.origin === window.location.origin &&
+                    u.pathname === window.location.pathname &&
+                    u.search === window.location.search &&
+                    u.hash !== window.location.hash) {
+                return;
+            }
+        } catch (err) { return; }
+        e.preventDefault();
+        e.stopPropagation();
+        pendingAction = { type: 'link', url: a.href };
+        openUnsavedModal();
+    }, true);
+
+    document.body.addEventListener('submit', function (e) {
+        if (!dirty || skipIntercept) return;
+        var f = e.target;
+        if (!f || f.nodeName !== 'FORM' || f.id === 'form-asistencia-grilla') return;
+        e.preventDefault();
+        e.stopPropagation();
+        pendingAction = { type: 'form', el: f };
+        openUnsavedModal();
+    }, true);
+
+    var backdrop = document.getElementById('modal-cambios-backdrop');
+    var btnGuardar = document.getElementById('modal-cambios-guardar');
+    var btnNoGuardar = document.getElementById('modal-cambios-no-guardar');
+    var btnCancelar = document.getElementById('modal-cambios-cancelar');
+
+    function armSkip() {
+        skipIntercept = true;
+        setTimeout(function () { skipIntercept = false; }, 300);
+    }
+
+    btnCancelar.addEventListener('click', closeUnsavedModal);
+    backdrop.addEventListener('click', closeUnsavedModal);
+
+    btnGuardar.addEventListener('click', function () {
+        pendingAction = null;
+        closeUnsavedModal();
+        dirty = false;
+        armSkip();
+        if (form.requestSubmit) form.requestSubmit();
+        else form.submit();
+    });
+
+    btnNoGuardar.addEventListener('click', function () {
+        var pa = pendingAction;
+        closeUnsavedModal();
+        dirty = false;
+        if (!pa) return;
+        armSkip();
+        if (pa.type === 'link') window.location.href = pa.url;
+        else if (pa.type === 'form') pa.el.submit();
+    });
+
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && !modal.classList.contains('hidden')) {
+            ev.preventDefault();
+            closeUnsavedModal();
+        }
+    });
+})();
+</script>
+<script>
+(function () {
+    var modal = document.getElementById('modal-resumen-estudiante');
+    var modalBody = document.getElementById('modal-resumen-estudiante-body');
+    var btnCerrar = document.getElementById('modal-resumen-estudiante-cerrar');
+    var backdrop = document.getElementById('modal-resumen-estudiante-backdrop');
+    if (!modal || !modalBody) return;
+
+    function cerrar() {
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    }
+
+    function abrir() {
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.js-resumen-estudiante');
+        if (!btn) return;
+        var url = btn.getAttribute('data-resumen-url');
+        if (!url) return;
+        ev.preventDefault();
+        if (typeof window.asistenciaFilaMenuClose === 'function') window.asistenciaFilaMenuClose();
+        modalBody.innerHTML = '<p class="text-stone-500">Cargando…</p>';
+        abrir();
+        fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) {
+                if (r.status === 403) throw new Error('No tienes permiso para ver esta ficha.');
+                if (!r.ok) throw new Error('No se pudo cargar el resumen.');
+                return r.text();
+            })
+            .then(function (html) {
+                modalBody.innerHTML = html;
+            })
+            .catch(function (err) {
+                modalBody.innerHTML = '<p class="text-red-700 text-sm">' + (err.message || 'Error de red.') + '</p>';
+            });
+    });
+
+    btnCerrar?.addEventListener('click', cerrar);
+    backdrop?.addEventListener('click', cerrar);
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && !modal.classList.contains('hidden')) cerrar();
+    });
+})();
+</script>
+<script>
+(function () {
+    var inp = document.getElementById('archivo-excel-asistencia');
+    var nom = document.getElementById('archivo-excel-nombre');
+    if (!inp || !nom) return;
+    inp.addEventListener('change', function () {
+        nom.textContent = (inp.files && inp.files.length) ? inp.files[0].name : 'Ningún archivo seleccionado';
+    });
+})();
+</script>
+<script>
+(function () {
+    var det = document.getElementById('details-anadir-sesion-asistencia');
+    if (!det) return;
+    document.addEventListener('click', function (e) {
+        if (!det.open) return;
+        if (det.contains(e.target)) return;
+        det.removeAttribute('open');
+    });
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && det.open) {
+            det.removeAttribute('open');
+        }
+    });
+})();
+</script>
+<script>
+(function () {
+    var fly = document.getElementById('asistencia-fila-menu-flyout');
+    var bd = document.getElementById('asistencia-fila-menu-backdrop');
+    var btnFicha = document.getElementById('asistencia-fila-menu-btn-ficha');
+    var btnQuitar = document.getElementById('asistencia-fila-menu-btn-quitar');
+    if (!fly || !bd || !btnFicha || !btnQuitar) return;
+
+    var menuAnchor = null;
+    var margin = 8;
+
+    function hayModalEncima() {
+        return !!document.querySelector(
+            '#modal-resumen-estudiante:not(.hidden), #modal-confirmar-post:not(.hidden), #modal-cambios-sin-guardar:not(.hidden), #modal-matricular-estudiante:not(.hidden)'
+        );
+    }
+
+    function cerrar() {
+        fly.classList.add('hidden');
+        fly.setAttribute('aria-hidden', 'true');
+        bd.classList.add('hidden');
+        bd.setAttribute('aria-hidden', 'true');
+        fly.style.left = '';
+        fly.style.top = '';
+        fly.style.visibility = '';
+        fly.style.maxHeight = '';
+        fly.style.overflowY = '';
+        document.querySelectorAll('.js-asistencia-fila-menu-trigger').forEach(function (b) {
+            b.setAttribute('aria-expanded', 'false');
+        });
+        menuAnchor = null;
+    }
+
+    window.asistenciaFilaMenuClose = cerrar;
+
+    function medirViewport() {
+        var vv = window.visualViewport;
+        if (!vv) {
+            return { top: 0, height: window.innerHeight, width: window.innerWidth };
+        }
+        return {
+            top: vv.offsetTop,
+            height: vv.height,
+            width: window.innerWidth,
+        };
+    }
+
+    function colocar(anchor) {
+        fly.style.visibility = 'hidden';
+        fly.style.left = '0px';
+        fly.style.top = '0px';
+        void fly.offsetWidth;
+        var fw = fly.offsetWidth;
+        var fh = fly.offsetHeight;
+        var r = anchor.getBoundingClientRect();
+        var vp = medirViewport();
+        var vh = vp.height;
+        var vw = vp.width;
+        var topInset = vp.top + margin;
+        var bottomInset = vp.top + vh - margin;
+
+        var spaceBelow = bottomInset - r.bottom;
+        var spaceAbove = r.top - topInset;
+        var top = r.bottom + 4;
+        if (fh + margin > spaceBelow && spaceAbove > spaceBelow) {
+            top = r.top - fh - 4;
+        }
+        top = Math.max(topInset, Math.min(top, bottomInset - fh));
+        var left = Math.max(margin, Math.min(r.left, vw - fw - margin));
+        fly.style.left = left + 'px';
+        fly.style.top = top + 'px';
+        fly.style.visibility = '';
+        var maxH = Math.max(120, Math.floor(bottomInset - top - margin));
+        fly.style.maxHeight = maxH + 'px';
+    }
+
+    function abrir(anchor) {
+        var url = anchor.getAttribute('data-resumen-url') || '';
+        var fid = anchor.getAttribute('data-quitar-form-id') || '';
+        btnFicha.setAttribute('data-resumen-url', url);
+        btnQuitar.setAttribute('data-confirm-form', fid);
+        menuAnchor = anchor;
+        document.querySelectorAll('.js-asistencia-fila-menu-trigger').forEach(function (b) {
+            b.setAttribute('aria-expanded', b === anchor ? 'true' : 'false');
+        });
+        bd.classList.remove('hidden');
+        bd.setAttribute('aria-hidden', 'false');
+        fly.classList.remove('hidden');
+        fly.setAttribute('aria-hidden', 'false');
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                if (menuAnchor === anchor) colocar(anchor);
+            });
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        var t = e.target.closest('.js-asistencia-fila-menu-trigger');
+        if (t) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!fly.classList.contains('hidden') && menuAnchor === t) {
+                cerrar();
+            } else {
+                abrir(t);
+            }
+            return;
+        }
+        if (fly.classList.contains('hidden')) return;
+        if (fly.contains(e.target)) return;
+        cerrar();
+    });
+
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Escape' || fly.classList.contains('hidden')) return;
+        if (hayModalEncima()) return;
+        ev.preventDefault();
+        cerrar();
+    });
+
+    var scrollGrilla = document.getElementById('grilla-asistencia-scroll');
+    if (scrollGrilla) {
+        scrollGrilla.addEventListener('scroll', cerrar, { passive: true });
+    }
+    window.addEventListener('resize', function () {
+        if (!menuAnchor || fly.classList.contains('hidden')) return;
+        colocar(menuAnchor);
+    });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', function () {
+            if (!menuAnchor || fly.classList.contains('hidden')) return;
+            colocar(menuAnchor);
+        });
+        window.visualViewport.addEventListener('scroll', function () {
+            if (!menuAnchor || fly.classList.contains('hidden')) return;
+            colocar(menuAnchor);
+        });
+    }
+})();
+</script>
 {% endblock %}

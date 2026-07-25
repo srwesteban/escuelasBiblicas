@@ -33,7 +33,7 @@
             <p class="text-xs font-semibold uppercase tracking-wider text-stone-300/90">Sede · {{ sede.nombre }}</p>
             <h1 class="mt-1 text-2xl font-bold text-white">Escuelas en la sede</h1>
             <p class="mt-2 text-sm text-stone-200/90 max-w-2xl">
-                Consulta el <strong class="text-white">programa de formación</strong> heredado para esta sede. La definición global la gestiona el director.
+                Consulta el <strong class="text-white">catálogo global</strong> de formación. Solo el director lo edita; las sedes lo consumen.
             </p>
         </div>
         <div class="relative z-10 shrink-0">
@@ -51,7 +51,7 @@
     </div>
 
     <section class="card p-5 border border-amber-200/90 bg-amber-50/40" aria-labelledby="programa-dinamico-titulo">
-        <h2 id="programa-dinamico-titulo" class="text-lg font-semibold text-stone-900">Escuelas del programa (esta sede)</h2>
+        <h2 id="programa-dinamico-titulo" class="text-lg font-semibold text-stone-900">Escuelas del programa (catálogo global)</h2>
         {% if programa_por_nivel %}
         <div class="mt-4 space-y-2">
             {% for grupo in programa_por_nivel %}
@@ -81,9 +81,11 @@
                         <p class="text-sm text-stone-500 mt-2">Sin descripción.</p>
                         {% endif %}
                         <p class="text-sm mt-2">
-                            {% if ep.tiene_matricula %}
+                            {% if ep.tiene_matricula and ep.costo_matricula_cop %}
                             <span class="font-medium text-stone-800">Matrícula:</span>
                             <span class="text-stone-700">{{ ep.costo_matricula_cop|cop_enteros }}</span>
+                            {% elif ep.tiene_matricula %}
+                            <span class="text-stone-600">Matrícula definida en catálogo global (sin monto en plantilla).</span>
                             {% else %}
                             <span class="text-stone-600">Sin costo de matrícula.</span>
                             {% endif %}

@@ -324,13 +324,25 @@
                         {% endif %}
                         {% if user.is_super_admin %}
                             <p class="px-3 pt-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">Director</p>
-                            <a href="{% url 'core:director_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'director_dashboard' or request.resolver_match.url_name == 'director_sede_detail' or request.resolver_match.url_name == 'sede_create' or request.resolver_match.url_name == 'coordinador_create' or request.resolver_match.url_name == 'coordinador_edit' or request.resolver_match.url_name == 'coordinador_delete' %}active{% endif %}">
+                            <a href="{% url 'core:director_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'director_dashboard' or request.resolver_match.url_name == 'director_sede_detail' or request.resolver_match.url_name == 'sede_create' or request.resolver_match.url_name == 'sede_edit' or request.resolver_match.url_name == 'sede_delete' or request.resolver_match.url_name == 'coordinador_create' or request.resolver_match.url_name == 'coordinador_edit' or request.resolver_match.url_name == 'coordinador_delete' %}active{% endif %}">
                                 <i class="fas fa-building w-5 text-center text-stone-500"></i>
                                 Director
+                            </a>
+                            <a href="{% url 'core:director_profesores' %}" class="sidebar-link {% if request.resolver_match.url_name == 'director_profesores' or request.resolver_match.url_name == 'director_profesor_edit' %}active{% endif %}">
+                                <i class="fas fa-chalkboard-teacher w-5 text-center text-stone-500"></i>
+                                Profesores
+                            </a>
+                            <a href="{% url 'core:director_import_seguimiento' %}" class="sidebar-link {% if request.resolver_match.url_name == 'director_import_seguimiento' %}active{% endif %}">
+                                <i class="fas fa-file-import w-5 text-center text-stone-500"></i>
+                                Importar seguimiento
                             </a>
                             <a href="{% url 'core:director_programa_escuelas' %}" class="sidebar-link {% if request.resolver_match.url_name == 'director_programa_escuelas' %}active{% endif %}">
                                 <i class="fas fa-layer-group w-5 text-center text-stone-500"></i>
                                 Formación global
+                            </a>
+                            <a href="{% url 'hechos:estudiantes_listado_por_sede' %}" class="sidebar-link {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'estudiantes_listado_por_sede' %}active{% endif %}">
+                                <i class="fas fa-table-list w-5 text-center text-stone-500"></i>
+                                Directorio de estudiantes
                             </a>
                             <a href="{% url 'admin:index' %}" class="sidebar-link {% if 'admin' in request.resolver_match.namespace %}active{% endif %}">
                                 <i class="fas fa-cog w-5 text-center text-stone-500"></i>
@@ -360,6 +372,21 @@
                             </a>
                         {% elif user.profesor_profile %}
                             <p class="px-3 pt-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">Profesor</p>
+                            <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="sidebar-link {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'mis_escuelas_profesor' %}active{% endif %}">
+                                <i class="fas fa-school w-5 text-center text-stone-500"></i>
+                                Mis escuelas
+                            </a>
+                            <a href="{% url 'hechos:profesor_crear_instancia_escuela' %}" class="sidebar-link {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'profesor_crear_instancia_escuela' %}active{% endif %}">
+                                <i class="fas fa-plus-circle w-5 text-center text-stone-500"></i>
+                                Crear instancia de la escuela
+                            </a>
+                            <a href="{% url 'hechos:profesor_solicitudes_matricula' %}" class="sidebar-link {% if request.resolver_match and request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'profesor_solicitudes_matricula' %}active{% endif %}">
+                                <i class="fas fa-user-check w-5 text-center text-stone-500 shrink-0"></i>
+                                <span class="min-w-0 truncate">Solicitudes de matrícula</span>
+                                {% if profesor_solicitudes_matricula_pendientes_count %}
+                                <span class="ml-auto shrink-0 min-w-[1.25rem] rounded-full bg-violet-700 px-1.5 py-0.5 text-center text-[10px] font-bold text-white tabular-nums leading-none" title="Pendientes de revisar">{{ profesor_solicitudes_matricula_pendientes_count }}</span>
+                                {% endif %}
+                            </a>
                             <a href="{% url 'hechos:profesor_bandeja_entregas' %}" class="sidebar-link {% if request.resolver_match and request.resolver_match.namespace == 'hechos' %}{% if request.resolver_match.url_name == 'profesor_bandeja_entregas' or request.resolver_match.url_name == 'profesor_actividad_entregas' %}active{% endif %}{% endif %}">
                                 <i class="fas fa-inbox w-5 text-center text-stone-500 shrink-0"></i>
                                 <span class="min-w-0 truncate">Entregas por calificar</span>
@@ -367,9 +394,9 @@
                                 <span class="ml-auto shrink-0 min-w-[1.25rem] rounded-full bg-amber-600 px-1.5 py-0.5 text-center text-[10px] font-bold text-white tabular-nums leading-none" title="Pendientes de evaluar">{{ profesor_entregas_pendientes_count }}</span>
                                 {% endif %}
                             </a>
-                            <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="sidebar-link {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'mis_escuelas_profesor' %}active{% endif %}">
-                                <i class="fas fa-school w-5 text-center text-stone-500"></i>
-                                Mis escuelas
+                            <a href="{% url 'hechos:estudiantes_listado_por_sede' %}" class="sidebar-link {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'estudiantes_listado_por_sede' %}active{% endif %}">
+                                <i class="fas fa-table-list w-5 text-center text-stone-500"></i>
+                                Directorio de estudiantes
                             </a>
                             <a href="{% url 'ofrendas:list' %}" class="sidebar-link {% if request.resolver_match.namespace == 'ofrendas' %}active{% endif %}">
                                 <i class="fas fa-hand-holding-dollar w-5 text-center text-stone-500"></i>
@@ -392,6 +419,10 @@
                                 <a href="{% url 'hechos:estudiantes_list' %}" class="sidebar-link {% if request.resolver_match.namespace == 'hechos' %}{% with u=request.resolver_match.url_name %}{% if u == 'estudiantes_list' or u == 'crear_estudiante' or u == 'detalle_estudiante' or u == 'editar_estudiante' or u == 'eliminar_estudiante' %}active{% endif %}{% endwith %}{% endif %}">
                                     <i class="fas fa-users w-5 text-center text-stone-500"></i>
                                     Estudiantes
+                                </a>
+                                <a href="{% url 'hechos:estudiantes_listado_por_sede' %}" class="sidebar-link {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'estudiantes_listado_por_sede' %}active{% endif %}">
+                                    <i class="fas fa-table-list w-5 text-center text-stone-500"></i>
+                                    Directorio de estudiantes
                                 </a>
                                 <a href="{% url 'hechos:solicitudes_matricula_admin' %}" class="sidebar-link {% if request.resolver_match.namespace == 'hechos' and request.resolver_match.url_name == 'solicitudes_matricula_admin' %}active{% endif %}">
                                     <i class="fas fa-user-check w-5 text-center text-stone-500"></i>
@@ -449,11 +480,11 @@
 
         <!-- Main Content -->
         <main class="flex-1 min-w-0 overflow-auto">
-            <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 {% block main_extra_class %}{% endblock %}">
+            <div class="{% block main_container_class %}max-w-7xl mx-auto py-6 sm:px-6 lg:px-8{% endblock %} {% block main_extra_class %}{% endblock %}">
             {% if messages %}
                 <div class="mb-6">
                     {% for message in messages %}
-                        <div class="flash-message alert alert-{{ message.tags }} bg-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border border-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-200 text-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-800 px-4 py-3 rounded-md">
+                        <div class="flash-message alert alert-{{ message.tags }} bg-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border border-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-200 text-{% if message.tags == 'error' %}red{% elif message.tags == 'warning' %}yellow{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-800 px-4 py-3 rounded-md" data-autodismiss="{% if 'error' in message.tags or 'warning' in message.tags %}9000{% else %}5500{% endif %}" role="status">
                             {{ message }}
                         </div>
                     {% endfor %}

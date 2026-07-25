@@ -8,12 +8,12 @@
         <div class="flex items-start justify-between gap-4">
             <div>
                 <p class="text-xs font-medium text-stone-500">Paso 1 de {{ total_steps }}</p>
-                <h1 class="text-2xl font-bold text-slate-900 mt-1">Período, ciclo y grupo</h1>
+                <h1 class="text-2xl font-bold text-slate-900 mt-1">Período y ciclo</h1>
                 <p class="text-sm text-slate-600 mt-2">
                     {% if escuela %}{{ escuela.nombre }} — {% endif %}{{ edicion.linea_identificacion_pedagogica }}
                 </p>
                 <p class="text-sm text-slate-600 mt-2">
-                    Define las fechas de la edición y el ciclo escolar (A o B) con su número de grupo. El año académico se toma del año de la fecha de inicio.
+                    Define las fechas de la edición y el ciclo escolar (A o B). El año académico se toma del año de la fecha de inicio.
                 </p>
             </div>
             <a href="{% url 'hechos:estructura_ediciones' %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
@@ -53,13 +53,6 @@
                     </div>
                 </div>
 
-                <div>
-                    <label for="grupo" class="block text-sm font-medium text-stone-800 mb-1">Número de grupo</label>
-                    <input type="number" name="grupo" id="grupo" min="1" max="999" required
-                           value="{{ w_grupo }}"
-                           class="w-full max-w-[12rem] rounded-xl border-2 border-stone-300 bg-stone-50 px-4 py-3 text-slate-900 text-sm focus:border-stone-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200">
-                    <p class="text-xs text-stone-500 mt-1">Debe coincidir con la identificación del grupo en tu sede (1, 2, 3…).</p>
-                </div>
             </div>
 
             <div class="flex justify-end">

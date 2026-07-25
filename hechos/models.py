@@ -34,16 +34,8 @@ def _texto_redundante_con_ciclo_escuela(texto: str, escuela: "Escuela") -> bool:
 
 
 def _texto_redundante_con_grupo_escuela(texto: str, escuela: "Escuela") -> bool:
-    """True si el texto es solo 'Grupo N' con el mismo N que la escuela (tolerando ceros)."""
-    if not escuela or not texto:
-        return False
-    m = re.match(r"^grupo\s*0*(\d+)\s*$", texto.strip(), re.IGNORECASE)
-    if not m:
-        return False
-    try:
-        return int(m.group(1)) == int(escuela.grupo)
-    except (TypeError, ValueError):
-        return False
+    """Compat: antes se comparaba con escuela.grupo; el campo grupo fue retirado del modelo."""
+    return False
 
 
 def _dedupe_partes_visuales(partes: list[str]) -> list[str]:
@@ -376,11 +368,17 @@ def capacidades_default_por_tipo(tipo: str) -> list[str]:
 class Escuela(models.Model):
     """
     Unidad académica principal visible para el estudiante.
+    Oferta operativa (fechas, cupo, horario, modalidad) vive en este registro.
     """
 
     class Ciclo(models.TextChoices):
         A = 'A', _('Ciclo A')
         B = 'B', _('Ciclo B')
+
+    class Modalidad(models.TextChoices):
+        PRESENCIAL = 'presencial', _('Presencial')
+        VIRTUAL = 'virtual', _('Virtual')
+        HIBRIDA = 'hibrida', _('Híbrida')
 
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='escuelas', null=True, blank=True)
     nombre = models.CharField(max_length=200)
@@ -396,10 +394,6 @@ class Escuela(models.Model):
         default=Ciclo.A,
         verbose_name=_('Ciclo'),
     )
-    grupo = models.PositiveIntegerField(
-        default=1,
-        verbose_name=_('Grupo'),
-    )
     maestro = models.ForeignKey(
         Profesor,
         on_delete=models.SET_NULL,
@@ -409,6 +403,33 @@ class Escuela(models.Model):
         verbose_name=_('Maestro asignado'),
         help_text=_('Profesor responsable; puede quedar por asignar hasta definirlo.'),
     )
+    fecha_inicio = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_('Inicio de clases'),
+    )
+    fecha_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_('Fin de clases'),
+    )
+    modalidad = models.CharField(
+        max_length=16,
+        choices=Modalidad.choices,
+        default=Modalidad.PRESENCIAL,
+        help_text=_('Modalidad de la escuela: presencial, virtual o híbrida.'),
+    )
+    horario = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        help_text=_('Ej: Lunes y Miércoles 7:00 PM'),
+    )
+    aula = models.CharField(max_length=50, blank=True, default='')
+    cupo_maximo = models.PositiveIntegerField(
+        default=30,
+        help_text=_('Cupo máximo de estudiantes'),
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -416,14 +437,74 @@ class Escuela(models.Model):
     class Meta:
         verbose_name = 'Escuela'
         verbose_name_plural = 'Escuelas'
-        ordering = ['-anio', 'ciclo', 'grupo', 'nombre']
-        unique_together = [['sede', 'nombre', 'anio', 'ciclo', 'grupo']]
+        ordering = ['-anio', 'ciclo', 'nombre']
 
     def __str__(self):
         return self.nombre
 
     def titulo_tarjeta(self) -> str:
-        return f'{self.nombre} — {self.anio} · Ciclo {self.ciclo} · Grupo {self.grupo}'
+        return f'{self.nombre} — {self.anio} · Ciclo {self.ciclo}'
+
+    def linea_identificacion_pedagogica(self) -> str:
+        parts: list[str] = [self.get_ciclo_display(), (self.nombre or '').strip()]
+        parts = _dedupe_partes_visuales([p for p in parts if p])
+        return ' · '.join(parts) if parts else '—'
+
+    @property
+    def estudiantes_inscritos(self) -> int:
+        return self.matriculas.filter(is_active=True).count()
+
+    @property
+    def cupos_disponibles(self) -> int:
+        return max(0, int(self.cupo_maximo or 0) - self.estudiantes_inscritos)
+
+    @property
+    def porcentaje_ocupacion(self) -> float:
+        if not self.cupo_maximo:
+            return 0.0
+        return (self.estudiantes_inscritos / self.cupo_maximo) * 100.0
+
+    @property
+    def profesor(self):
+        """Alias de ``maestro`` para plantillas/código que hablaban de «profesor de la edición»."""
+        return self.maestro
+
+
+class EscuelaHorario(models.Model):
+    """Días y hora de clase de una escuela (sustituye horarios por edición)."""
+
+    class DiaSemana(models.IntegerChoices):
+        LUNES = 0, _("Lunes")
+        MARTES = 1, _("Martes")
+        MIERCOLES = 2, _("Miércoles")
+        JUEVES = 3, _("Jueves")
+        VIERNES = 4, _("Viernes")
+        SABADO = 5, _("Sábado")
+        DOMINGO = 6, _("Domingo")
+
+    escuela = models.ForeignKey(
+        Escuela,
+        on_delete=models.CASCADE,
+        related_name="estructura_horarios",
+    )
+    dia_semana = models.IntegerField(choices=DiaSemana.choices)
+    hora = models.TimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Horario de escuela")
+        verbose_name_plural = _("Horarios de escuela")
+        ordering = ["escuela", "dia_semana", "hora"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["escuela", "dia_semana"],
+                name="uniq_escuela_dia_semana",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.escuela} · {self.get_dia_semana_display()} {self.hora}"
 
 
 class NivelProgramaPlantilla(models.Model):
@@ -661,6 +742,14 @@ class EscuelaPrograma(models.Model):
     def __str__(self) -> str:
         return f"{self.nivel_programa.titulo_acordeon()} — {self.nombre}"
 
+    @property
+    def nombre_para_catalogo(self) -> str:
+        """Nombre canónico en catálogo global (plantilla); vacío si la fila no tiene plantilla."""
+        p = self.plantilla
+        if p is not None:
+            return (p.nombre or "").strip()
+        return ""
+
 
 class Salon(models.Model):
     """
@@ -777,132 +866,10 @@ class Curso(models.Model):
     
     @property
     def total_estudiantes_inscritos(self):
-        """Total de estudiantes en todas las ediciones activas"""
-        return EdicionCurso.objects.filter(
-            curso=self, 
-            is_active=True
-        ).aggregate(
-            total=models.Count('matriculas', filter=models.Q(matriculas__is_active=True))
-        )['total'] or 0
-
-
-class EdicionCurso(models.Model):
-    """
-    Edición específica de un curso (grupo de estudiantes)
-    """
-    curso = models.ForeignKey(Curso, on_delete=models.CASCADE, related_name='ediciones')
-    nombre_edicion = models.CharField(max_length=200, help_text="Ej: Grupo A, Matutino, Vespertino")
-    profesor = models.ForeignKey(Profesor, on_delete=models.SET_NULL, null=True, blank=True, related_name='ediciones_curso')
-    fecha_inicio = models.DateField()
-    fecha_fin = models.DateField()
-    horario = models.CharField(max_length=100, help_text="Ej: Lunes y Miércoles 7:00 PM")
-    aula = models.CharField(max_length=50, blank=True)
-    cupo_maximo = models.PositiveIntegerField(default=30, help_text="Cupo máximo de estudiantes")
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = 'Edición de Curso'
-        verbose_name_plural = 'Ediciones de Curso'
-        ordering = ['curso', 'fecha_inicio']
-        unique_together = ['curso', 'nombre_edicion']
-    
-    def __str__(self):
-        return f"{self.curso.nombre} - {self.nombre_edicion}"
-
-    def linea_identificacion_pedagogica(self) -> str:
-        """
-        Texto para UI: ciclo y grupo de la escuela (una sola vez) + nombre del curso
-        si aporta información nueva, + nombre de edición si no repite ciclo/grupo escuela.
-        """
-        curso = self.curso
-        esc = curso.escuela
-        parts: list[str] = []
-
-        if esc:
-            parts.append(esc.get_ciclo_display())
-            parts.append(f"Grupo {esc.grupo}")
-
-        cn = (curso.nombre or "").strip()
-        if cn and esc:
-            cn = _filtrar_texto_sin_redundancia_escuela(cn, esc)
-            if _texto_redundante_con_ciclo_escuela(cn, esc) or _texto_redundante_con_grupo_escuela(
-                cn, esc
-            ):
-                cn = ""
-        if cn:
-            parts.append(cn)
-
-        ne = (self.nombre_edicion or "").strip()
-        if ne and esc:
-            ne = _filtrar_texto_sin_redundancia_escuela(ne, esc)
-            if _texto_redundante_con_ciclo_escuela(ne, esc) or _texto_redundante_con_grupo_escuela(
-                ne, esc
-            ):
-                ne = ""
-        if ne:
-            parts.append(ne)
-
-        parts = _dedupe_partes_visuales(parts)
-        line = " · ".join(parts)
-        if line:
-            return line
-        return (self.nombre_edicion or curso.nombre or "").strip() or "—"
-
-    @property
-    def estudiantes_inscritos(self):
-        return self.matriculas.filter(is_active=True).count()
-    
-    @property
-    def cupos_disponibles(self):
-        return max(0, self.cupo_maximo - self.estudiantes_inscritos)
-    
-    @property
-    def porcentaje_ocupacion(self):
-        if self.cupo_maximo == 0:
+        esc = getattr(self.ruta_estudio, 'escuela_id', None)
+        if not esc:
             return 0
-        return (self.estudiantes_inscritos / self.cupo_maximo) * 100
-
-
-class EdicionCursoHorario(models.Model):
-    """
-    Estructura interna (días + hora) de una edición de curso.
-    Permite calcular automáticamente cuántas clases hay entre fecha_inicio y fecha_fin.
-    """
-
-    class DiaSemana(models.IntegerChoices):
-        LUNES = 0, _("Lunes")
-        MARTES = 1, _("Martes")
-        MIERCOLES = 2, _("Miércoles")
-        JUEVES = 3, _("Jueves")
-        VIERNES = 4, _("Viernes")
-        SABADO = 5, _("Sábado")
-        DOMINGO = 6, _("Domingo")
-
-    edicion = models.ForeignKey(
-        EdicionCurso,
-        on_delete=models.CASCADE,
-        related_name="estructura_horarios",
-    )
-    dia_semana = models.IntegerField(choices=DiaSemana.choices)
-    hora = models.TimeField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Horario de edición"
-        verbose_name_plural = "Horarios de edición"
-        ordering = ["edicion", "dia_semana", "hora"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["edicion", "dia_semana"],
-                name="uniq_edicion_dia_semana",
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.edicion} · {self.get_dia_semana_display()} {self.hora}"
+        return Matricula.objects.filter(escuela_id=esc, is_active=True).count()
 
 
 class SolicitudMatricula(models.Model):
@@ -917,7 +884,7 @@ class SolicitudMatricula(models.Model):
 
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='solicitudes_matricula')
     estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE, related_name='solicitudes_matricula')
-    edicion_curso = models.ForeignKey(EdicionCurso, on_delete=models.CASCADE, related_name='solicitudes_matricula')
+    escuela = models.ForeignKey(Escuela, on_delete=models.CASCADE, related_name='solicitudes_matricula')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     pago_validado = models.BooleanField(default=False)
     observaciones = models.TextField(blank=True)
@@ -937,10 +904,10 @@ class SolicitudMatricula(models.Model):
         verbose_name = 'Solicitud de Matrícula'
         verbose_name_plural = 'Solicitudes de Matrícula'
         ordering = ['-fecha_solicitud']
-        unique_together = ['estudiante', 'edicion_curso']
+        unique_together = ['estudiante', 'escuela']
 
     def __str__(self):
-        return f"{self.estudiante.user.get_full_name()} -> {self.edicion_curso}"
+        return f"{self.estudiante.user.get_full_name()} -> {self.escuela}"
 
 
 class NotificacionEstudiante(models.Model):
@@ -1046,11 +1013,11 @@ class QuejaReclamo(models.Model):
 
 class Matricula(models.Model):
     """
-    Matrícula de estudiantes en ediciones de cursos
+    Matrícula de estudiantes por escuela operativa.
     """
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='matriculas', null=True, blank=True)
     estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE, related_name='matriculas')
-    edicion_curso = models.ForeignKey(EdicionCurso, on_delete=models.CASCADE, related_name='matriculas', null=True, blank=True)
+    escuela = models.ForeignKey(Escuela, on_delete=models.CASCADE, related_name='matriculas')
     fecha_matricula = models.DateTimeField(auto_now_add=True)
     periodo = models.CharField(max_length=20, default='2025-1', help_text="Período académico (ej: 2025-1, 2025-2)")
     estado = models.CharField(max_length=20, choices=[
@@ -1066,26 +1033,30 @@ class Matricula(models.Model):
     class Meta:
         verbose_name = 'Matrícula'
         verbose_name_plural = 'Matrículas'
-        unique_together = ['estudiante', 'edicion_curso']
+        unique_together = ['estudiante', 'escuela']
         ordering = ['-fecha_matricula']
     
     def __str__(self):
-        return f"{self.estudiante.user.get_full_name()} - {self.edicion_curso.curso.nombre} ({self.edicion_curso.nombre_edicion})"
+        return f"{self.estudiante.user.get_full_name()} - {self.escuela.nombre}"
     
     @property
     def curso(self):
-        """Propiedad para compatibilidad con código existente"""
-        if self.edicion_curso:
-            return self.edicion_curso.curso
-        return None
+        """Primer curso activo de la ruta de esta escuela (compatibilidad)."""
+        if not self.escuela_id:
+            return None
+        return (
+            Curso.objects.filter(ruta_estudio__escuela_id=self.escuela_id, is_active=True)
+            .order_by('orden', 'id')
+            .first()
+        )
 
 
 class Clase(models.Model):
     """
-    Sesiones/clases de una edición de curso
+    Sesiones/clases de una escuela
     """
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='clases', null=True, blank=True)
-    edicion_curso = models.ForeignKey(EdicionCurso, on_delete=models.CASCADE, related_name='clases', null=True, blank=True)
+    escuela = models.ForeignKey(Escuela, on_delete=models.CASCADE, related_name='clases')
     numero_clase = models.PositiveIntegerField()
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True)
@@ -1100,18 +1071,21 @@ class Clase(models.Model):
     class Meta:
         verbose_name = 'Clase'
         verbose_name_plural = 'Clases'
-        unique_together = ['edicion_curso', 'numero_clase']
-        ordering = ['edicion_curso', 'numero_clase']
+        unique_together = ['escuela', 'numero_clase']
+        ordering = ['escuela', 'numero_clase']
     
     def __str__(self):
-        return f"{self.edicion_curso.curso.nombre} ({self.edicion_curso.nombre_edicion}) - Clase {self.numero_clase}: {self.titulo}"
+        return f"{self.escuela.nombre} - Clase {self.numero_clase}: {self.titulo}"
     
     @property
     def curso(self):
-        """Propiedad para compatibilidad con código existente"""
-        if self.edicion_curso:
-            return self.edicion_curso.curso
-        return None
+        if not self.escuela_id:
+            return None
+        return (
+            Curso.objects.filter(ruta_estudio__escuela_id=self.escuela_id, is_active=True)
+            .order_by('orden', 'id')
+            .first()
+        )
 
 
 class ActividadEscuela(models.Model):
@@ -1353,7 +1327,7 @@ class Asistencia(models.Model):
 
 class Nota(models.Model):
     """
-    Notas de estudiantes en cursos
+    Notas de estudiantes por escuela operativa
     """
     TIPO_CHOICES = [
         ('parcial', 'Parcial'),
@@ -1362,10 +1336,10 @@ class Nota(models.Model):
         ('participacion', 'Participación'),
         ('otro', 'Otro'),
     ]
-    
+
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='notas', null=True, blank=True)
     estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE, related_name='notas')
-    curso = models.ForeignKey(Curso, on_delete=models.CASCADE, related_name='notas')
+    escuela = models.ForeignKey(Escuela, on_delete=models.CASCADE, related_name='notas_legacy')
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True)
@@ -1381,15 +1355,205 @@ class Nota(models.Model):
         verbose_name = 'Nota'
         verbose_name_plural = 'Notas'
         ordering = ['-fecha_evaluacion', 'estudiante__user__first_name']
-    
+
     def __str__(self):
         return f"{self.estudiante.user.get_full_name()} - {self.titulo} ({self.puntaje_obtenido}/{self.puntaje_maximo})"
-    
+
     @property
     def porcentaje(self):
         if self.puntaje_maximo > 0:
             return (self.puntaje_obtenido / self.puntaje_maximo) * 100
         return 0
+
+    @property
+    def curso(self):
+        """Compat: primer curso de la ruta de la escuela."""
+        if not self.escuela_id:
+            return None
+        return (
+            Curso.objects.filter(ruta_estudio__escuela_id=self.escuela_id, is_active=True)
+            .order_by('orden', 'id')
+            .first()
+        )
+
+
+class EscuelaGrillaAsistenciaConfig(models.Model):
+    escuela = models.ForeignKey(
+        Escuela,
+        on_delete=models.CASCADE,
+        related_name="grilla_asistencia_configs",
+    )
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="grilla_asistencia_configs",
+    )
+    num_columnas = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Configuración grilla de asistencia")
+        verbose_name_plural = _("Configuraciones grilla de asistencia")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("escuela", "sede"),
+                name="uniq_grilla_asistencia_config_escuela_sede",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.escuela_id} · {self.sede_id}"
+
+
+class AsistenciaGrillaCelda(models.Model):
+    class Valor(models.TextChoices):
+        ASISTIO = "A", _("Asistió (A)")
+        ESTADO_P = "P", _("P")
+        INASISTENCIA = "N", _("Inasistencia (N)")
+
+    escuela = models.ForeignKey(
+        Escuela,
+        on_delete=models.CASCADE,
+        related_name="grilla_asistencia_celdas",
+    )
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="grilla_asistencia_celdas",
+    )
+    estudiante = models.ForeignKey(
+        Estudiante,
+        on_delete=models.CASCADE,
+        related_name="grilla_asistencia_celdas",
+    )
+    columna = models.PositiveIntegerField(
+        verbose_name=_("Columna"),
+        help_text=_("1 = primer registro, 2 = segundo, etc."),
+    )
+    valor = models.CharField(max_length=1, choices=Valor.choices)
+    registrado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="grilla_asistencia_registros",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Celda grilla asistencia")
+        verbose_name_plural = _("Celdas grilla asistencia")
+        ordering = ["columna", "estudiante__user__last_name"]
+        unique_together = [("escuela", "estudiante", "columna")]
+
+    def __str__(self) -> str:
+        return f"{self.estudiante_id} col {self.columna}"
+
+
+class EscuelaGrillaNotasConfig(models.Model):
+    escuela = models.ForeignKey(
+        Escuela,
+        on_delete=models.CASCADE,
+        related_name="grilla_notas_configs",
+    )
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="grilla_notas_configs",
+    )
+    num_columnas = models.PositiveIntegerField(default=5)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Configuración grilla de notas")
+        verbose_name_plural = _("Configuraciones grilla de notas")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("escuela", "sede"),
+                name="uniq_grilla_notas_config_escuela_sede",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.escuela_id} · {self.sede_id}"
+
+
+class NotasGrillaCelda(models.Model):
+    escuela = models.ForeignKey(
+        Escuela,
+        on_delete=models.CASCADE,
+        related_name="grilla_notas_celdas",
+    )
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="grilla_notas_celdas",
+    )
+    estudiante = models.ForeignKey(
+        Estudiante,
+        on_delete=models.CASCADE,
+        related_name="grilla_notas_celdas",
+    )
+    columna = models.PositiveIntegerField(
+        verbose_name=_("Columna"),
+        help_text=_("1 = Nota 1, 2 = Nota 2, …"),
+    )
+    valor = models.CharField(max_length=64, blank=True)
+    registrado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="grilla_notas_registros",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Celda grilla notas")
+        verbose_name_plural = _("Celdas grilla notas")
+        ordering = ["columna", "estudiante__user__last_name"]
+        unique_together = [("escuela", "estudiante", "columna")]
+
+    def __str__(self) -> str:
+        return f"{self.estudiante_id} col {self.columna}"
+
+
+class NotasGrillaEstadoFinal(models.Model):
+    class Estado(models.TextChoices):
+        VACIO = "", _("—")
+        APROBADO = "aprobado", _("Aprobado")
+        NO_APROBADO = "no_aprobado", _("No aprobado")
+
+    escuela = models.ForeignKey(
+        Escuela,
+        on_delete=models.CASCADE,
+        related_name="grilla_notas_estados_finales",
+    )
+    sede = models.ForeignKey(
+        "core.Sede",
+        on_delete=models.CASCADE,
+        related_name="grilla_notas_estados_finales",
+    )
+    estudiante = models.ForeignKey(
+        Estudiante,
+        on_delete=models.CASCADE,
+        related_name="grilla_notas_estados_finales",
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        blank=True,
+        default=Estado.VACIO,
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Estado final grilla notas")
+        verbose_name_plural = _("Estados finales grilla notas")
+        unique_together = [("escuela", "estudiante")]
+
+    def __str__(self) -> str:
+        return f"{self.estudiante_id} · {self.estado or '—'}"
 
 
 class Ofrenda(models.Model):

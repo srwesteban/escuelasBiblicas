@@ -1,0 +1,235 @@
+<script>
+(function() {
+    const sugerenciasUrl = "{{ sugerencias_doc_url|escapejs }}";
+    const escuelaId = {{ escuela_matricular.id }};
+    const suf = "{{ matricular_field_id_suffix|default:''|escapejs }}";
+    const input = document.getElementById('numero_documento' + suf);
+    const listEl = document.getElementById('doc-sugerencias-list' + suf);
+    const feedback = document.getElementById('doc-feedback' + suf);
+    const nombreEl = document.getElementById('nombre_completo' + suf);
+    const manualBlock = document.getElementById('manual-matricula-block' + suf);
+    const buscandoEl = document.getElementById('doc-buscando' + suf);
+    const docFieldWrap = input ? input.parentElement : null;
+    if (!input || !listEl || !feedback || !nombreEl || !docFieldWrap) return;
+
+    function setBuscando(on) {
+        if (!buscandoEl) return;
+        buscandoEl.classList.toggle('hidden', !on);
+    }
+
+    var DOC_MAX = 15;
+    var DEBOUNCE_MS = 380;
+    var MIN_PREFIX = 3;
+
+    let debounceTimer = null;
+    let fetchSeq = 0;
+    let results = [];
+    let activeIdx = -1;
+    let listOpen = false;
+
+    function normalizeDocMatricula(raw) {
+        let s = String(raw || '').trim().replace(/\s+/g, '');
+        s = s.replace(/^(?:doc(?:umento)?|c\.?c\.?|t\.?i\.?|c\.?e\.?|pas(?:aporte)?|no\.?|n[°º#]?)\s*:?\s*/i, '');
+        s = s.replace(/[^\p{L}\p{N}]/gu, '');
+        return s.slice(0, DOC_MAX);
+    }
+
+    function clampDocInput() {
+        const n = normalizeDocMatricula(input.value);
+        if (n !== input.value) {
+            input.value = n;
+        }
+    }
+
+    function setListOpen(open) {
+        listOpen = open;
+        input.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function show(msg, tone) {
+        feedback.textContent = msg;
+        feedback.className = 'mt-2 text-sm rounded-lg px-3 py-2 ' + (tone || 'bg-stone-100 text-stone-800');
+        feedback.classList.remove('hidden');
+    }
+
+    function hideFb() {
+        feedback.classList.add('hidden');
+        feedback.textContent = '';
+    }
+
+    function hideList() {
+        listEl.innerHTML = '';
+        listEl.classList.add('hidden');
+        activeIdx = -1;
+        setListOpen(false);
+        setBuscando(false);
+    }
+
+    function setActive(i) {
+        if (i < -1 || i >= results.length) i = -1;
+        activeIdx = i;
+        var btns = listEl.querySelectorAll('.doc-suggest-item');
+        btns.forEach(function (b, j) {
+            b.classList.toggle('doc-suggest-item-active', j === activeIdx);
+        });
+    }
+
+    function selectIndex(i) {
+        if (i < 0 || i >= results.length) return;
+        var r = results[i];
+        input.value = r.documento;
+        nombreEl.value = r.nombre;
+        nombreEl.dataset.autofilled = '1';
+        hideList();
+        manualBlock.classList.add('hidden');
+        var t = 'Seleccionado: ' + r.nombre;
+        if (r.sede_registro) t += ' · ' + r.sede_registro;
+        show(t, 'bg-emerald-50 text-emerald-900');
+    }
+
+    function renderList(data) {
+        setBuscando(false);
+        results = data.results || [];
+        listEl.innerHTML = '';
+        if (data.invalid_q) {
+            hideList();
+            manualBlock.classList.add('hidden');
+            if (normalizeDocMatricula(input.value).length > 0 && normalizeDocMatricula(input.value).length < MIN_PREFIX) {
+                hideFb();
+            } else if (normalizeDocMatricula(input.value).length >= MIN_PREFIX) {
+                show('Prefijo no válido (usa 3 a 15 letras o números).', 'bg-amber-50 text-amber-900');
+            }
+            return;
+        }
+        hideFb();
+        if (results.length === 0) {
+            listEl.classList.add('hidden');
+            setListOpen(false);
+            manualBlock.classList.remove('hidden');
+            return;
+        }
+        manualBlock.classList.add('hidden');
+        results.forEach(function (r, idx) {
+            var li = document.createElement('li');
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'doc-suggest-item';
+            btn.setAttribute('role', 'option');
+            btn.id = 'doc-sug-opt-' + suf + '-' + idx;
+            var doc = r.documento || '';
+            var sedeExtra = r.sede_registro ? ' · ' + r.sede_registro : '';
+            btn.innerHTML = '<span class="font-medium text-stone-900">' + escapeHtml(r.nombre) + '</span><br><span class="text-stone-600">' + escapeHtml(doc) + '</span><span class="text-stone-400 text-xs">' + escapeHtml(sedeExtra) + '</span>';
+            btn.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                selectIndex(idx);
+            });
+            btn.addEventListener('mouseenter', function () {
+                setActive(idx);
+            });
+            li.appendChild(btn);
+            listEl.appendChild(li);
+        });
+        if (data.truncated) {
+            var footLi = document.createElement('li');
+            footLi.className = 'doc-suggest-muted';
+            footLi.textContent = 'Hay más de 20 coincidencias; sigue escribiendo para acotar.';
+            listEl.appendChild(footLi);
+        }
+        listEl.classList.remove('hidden');
+        setListOpen(true);
+        activeIdx = -1;
+    }
+
+    function escapeHtml(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    async function fetchSugerencias() {
+        clampDocInput();
+        const q = normalizeDocMatricula(input.value);
+        const seq = ++fetchSeq;
+        if (q.length < MIN_PREFIX) {
+            setBuscando(false);
+            hideList();
+            manualBlock.classList.add('hidden');
+            hideFb();
+            return;
+        }
+        setBuscando(true);
+        try {
+            const u = sugerenciasUrl + '?escuela=' + encodeURIComponent(escuelaId) + '&q=' + encodeURIComponent(q);
+            const res = await fetch(u, { headers: { 'Accept': 'application/json' } });
+            const data = await res.json();
+            if (seq !== fetchSeq) return;
+            if (!data.ok) {
+                hideList();
+                manualBlock.classList.add('hidden');
+                show(data.error || 'No se pudo cargar la lista.', 'bg-red-50 text-red-800');
+                return;
+            }
+            renderList(data);
+        } catch (e) {
+            if (seq !== fetchSeq) return;
+            hideList();
+            manualBlock.classList.add('hidden');
+            show('Error de red.', 'bg-red-50 text-red-800');
+        } finally {
+            if (seq === fetchSeq) {
+                setBuscando(false);
+            }
+        }
+    }
+
+    function scheduleFetch() {
+        clearTimeout(debounceTimer);
+        setBuscando(true);
+        debounceTimer = setTimeout(fetchSugerencias, DEBOUNCE_MS);
+    }
+
+    nombreEl.addEventListener('input', function () {
+        delete nombreEl.dataset.autofilled;
+    });
+
+    input.addEventListener('input', function () {
+        clampDocInput();
+        const q = normalizeDocMatricula(input.value);
+        if (q.length < MIN_PREFIX) {
+            clearTimeout(debounceTimer);
+            debounceTimer = null;
+            setBuscando(false);
+            hideList();
+            manualBlock.classList.add('hidden');
+            hideFb();
+            return;
+        }
+        scheduleFetch();
+    });
+
+    input.addEventListener('keydown', function (e) {
+        if (!listOpen || results.length === 0) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActive(activeIdx < results.length - 1 ? activeIdx + 1 : 0);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActive(activeIdx > 0 ? activeIdx - 1 : results.length - 1);
+        } else if (e.key === 'Enter' && activeIdx >= 0) {
+            e.preventDefault();
+            selectIndex(activeIdx);
+        } else if (e.key === 'Escape') {
+            hideList();
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        var t = e.target;
+        if (docFieldWrap.contains(t)) return;
+        if (manualBlock && manualBlock.contains(t)) return;
+        hideList();
+    });
+})();
+</script>

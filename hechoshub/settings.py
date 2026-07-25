@@ -153,13 +153,8 @@ if _use_pooler_fix:
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 6},
     },
 ]
 
@@ -245,3 +240,9 @@ ACCOUNT_LOGOUT_ON_GET = True
 
 # Custom user model
 AUTH_USER_MODEL = 'core.User'
+
+# Subidas (importación Excel en director, medios, etc.)
+# Por defecto 15 MiB; en Render/hosting ajustar vía DATA_UPLOAD_MAX_MEMORY_BYTES si hace falta.
+_data_upload_max = int(os.getenv('DATA_UPLOAD_MAX_MEMORY_BYTES', str(15 * 1024 * 1024)))
+DATA_UPLOAD_MAX_MEMORY_SIZE = _data_upload_max
+FILE_UPLOAD_MAX_MEMORY_SIZE = _data_upload_max

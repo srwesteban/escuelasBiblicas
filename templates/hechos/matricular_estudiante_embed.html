@@ -1,0 +1,154 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matricular — {{ escuela_matricular.nombre }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --background: 0 0% 100%;
+            --foreground: 220 26% 14%;
+            --card: 0 0% 100%;
+            --card-foreground: 220 26% 14%;
+            --border: 220 14% 91%;
+            --primary: 220 26% 14%;
+            --primary-foreground: 0 0% 100%;
+            --accent: 42 60% 92%;
+            --accent-foreground: 220 26% 14%;
+            --muted-foreground: 220 10% 38%;
+            --ring: 220 26% 14%;
+            --radius: 0.5rem;
+        }
+        * { border-color: hsl(var(--border)); }
+        body {
+            background-color: hsl(var(--background));
+            color: hsl(var(--foreground));
+        }
+        .card {
+            background-color: hsl(var(--card));
+            color: hsl(var(--card-foreground));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+        }
+        .btn-primary {
+            background-color: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+            border-radius: var(--radius);
+            transition: all 0.2s;
+        }
+        .btn-primary:hover { background-color: hsl(var(--primary) / 0.9); }
+        .btn-outline {
+            border: 1px solid hsl(var(--border));
+            background-color: transparent;
+            color: hsl(var(--foreground));
+            border-radius: var(--radius);
+            transition: all 0.2s;
+        }
+        .btn-outline:hover {
+            background-color: hsl(var(--accent));
+            color: hsl(var(--accent-foreground));
+        }
+        .input {
+            background-color: hsl(var(--background));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+            color: hsl(var(--foreground));
+        }
+        .input:focus {
+            outline: none;
+            border-color: hsl(var(--ring));
+            box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+        }
+        .matricula-input {
+            min-height: 2.75rem;
+            padding: 0.625rem 1rem;
+            font-size: 0.9375rem;
+            line-height: 1.375;
+            border-radius: 0.75rem;
+        }
+        select.matricula-input {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+        .doc-suggest-panel {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 100%;
+            margin-top: 0.25rem;
+            z-index: 50;
+            max-height: 14rem;
+            overflow-y: auto;
+            border-radius: 0.75rem;
+            border: 1px solid hsl(var(--border));
+            background: hsl(var(--card));
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+        }
+        .doc-suggest-item {
+            width: 100%;
+            text-align: left;
+            padding: 0.625rem 1rem;
+            font-size: 0.875rem;
+            line-height: 1.35;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: hsl(var(--foreground));
+            border-bottom: 1px solid hsl(var(--border) / 0.6);
+        }
+        .doc-suggest-item:last-child { border-bottom: none; }
+        .doc-suggest-item:hover,
+        .doc-suggest-item.doc-suggest-item-active {
+            background: hsl(42 60% 96%);
+        }
+        .doc-suggest-muted {
+            padding: 0.75rem 1rem;
+            font-size: 0.8125rem;
+            color: hsl(var(--muted-foreground));
+            line-height: 1.4;
+        }
+        .doc-suggest-panel-root > li {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body class="min-h-full antialiased bg-stone-50/90 text-stone-900 p-4 sm:p-5">
+    {% if messages %}
+    <div class="max-w-xl mx-auto mb-4 space-y-2">
+        {% for message in messages %}
+        <div class="rounded-lg px-3 py-2 text-sm border {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% elif message.tags == 'warning' %}bg-amber-50 border-amber-200 text-amber-900{% elif message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-900{% else %}bg-sky-50 border-sky-200 text-sky-900{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="max-w-xl mx-auto space-y-4">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+                <h1 class="text-xl sm:text-2xl font-bold text-stone-900">Matricular estudiante</h1>
+                <p class="text-stone-600 text-sm mt-0.5">{{ escuela_matricular.nombre }}</p>
+            </div>
+            <a href="{{ matricular_cancel_url }}" target="_top"
+               class="btn-outline px-4 py-2.5 text-sm font-medium shrink-0 inline-flex items-center justify-center rounded-lg">
+                <i class="fas fa-times mr-2 text-stone-500"></i>Cerrar
+            </a>
+        </div>
+
+        {% if not puede_matricula_escuela_simple %}
+        {% include 'hechos/_matricular_estudiante_simple_empty_ediciones.html' %}
+        {% else %}
+        {% include 'hechos/_matricular_estudiante_simple_form_inner.html' %}
+        {% endif %}
+    </div>
+
+    {% if puede_matricula_escuela_simple %}
+    {% include 'hechos/_matricular_estudiante_simple_scripts.html' %}
+    {% endif %}
+</body>
+</html>

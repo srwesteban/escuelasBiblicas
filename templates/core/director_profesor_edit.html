@@ -1,0 +1,122 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Editar profesor — Director{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <nav class="text-sm text-stone-600" aria-label="Migas de pan">
+        <a href="{% url 'core:director_dashboard' %}" class="font-medium text-amber-800 hover:underline">Director</a>
+        <span class="mx-1.5 text-stone-400">/</span>
+        <a href="{% url 'core:director_profesores' %}" class="font-medium text-amber-800 hover:underline">Profesores</a>
+        <span class="mx-1.5 text-stone-400">/</span>
+        <span class="text-stone-800">Editar</span>
+    </nav>
+
+    <div>
+        <h1 class="text-2xl font-bold text-stone-900">Editar profesor</h1>
+        <p class="mt-1 text-sm text-stone-600">
+            {{ profesor.user.get_full_name|default:profesor.user.username }}
+            {% if profesor.codigo_profesor %}<span class="text-stone-400">·</span> {{ profesor.codigo_profesor }}{% endif %}
+        </p>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
+
+    <form method="post" class="card p-5 sm:p-6 border border-stone-200 space-y-6">
+        {% csrf_token %}
+
+        <fieldset class="space-y-4">
+            <legend class="text-sm font-semibold text-stone-800">Persona</legend>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="id_first_name" class="block text-xs font-medium text-stone-600">{{ form.first_name.label }}</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}<p class="mt-1 text-xs text-red-600">{{ form.first_name.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="id_last_name" class="block text-xs font-medium text-stone-600">{{ form.last_name.label }}</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}<p class="mt-1 text-xs text-red-600">{{ form.last_name.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="sm:col-span-2">
+                    <label for="id_email" class="block text-xs font-medium text-stone-600">{{ form.email.label }}</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}<p class="mt-1 text-xs text-red-600">{{ form.email.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="sm:col-span-2">
+                    <label for="id_phone" class="block text-xs font-medium text-stone-600">{{ form.phone.label }}</label>
+                    {{ form.phone }}
+                    {% if form.phone.errors %}<p class="mt-1 text-xs text-red-600">{{ form.phone.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="id_tipo_documento" class="block text-xs font-medium text-stone-600">{{ form.tipo_documento.label }}</label>
+                    {{ form.tipo_documento }}
+                    {% if form.tipo_documento.errors %}<p class="mt-1 text-xs text-red-600">{{ form.tipo_documento.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="id_documento_identidad" class="block text-xs font-medium text-stone-600">{{ form.documento_identidad.label }}</label>
+                    {{ form.documento_identidad }}
+                    {% if form.documento_identidad.errors %}<p class="mt-1 text-xs text-red-600">{{ form.documento_identidad.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset class="space-y-4 border-t border-stone-100 pt-6">
+            <legend class="text-sm font-semibold text-stone-800">Perfil docente</legend>
+            <div>
+                <label for="id_sede" class="block text-xs font-medium text-stone-600">{{ form.sede.label }}</label>
+                {{ form.sede }}
+                {% if form.sede.errors %}<p class="mt-1 text-xs text-red-600">{{ form.sede.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="id_especialidad" class="block text-xs font-medium text-stone-600">{{ form.especialidad.label }}</label>
+                    {{ form.especialidad }}
+                    {% if form.especialidad.errors %}<p class="mt-1 text-xs text-red-600">{{ form.especialidad.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="id_experiencia_anos" class="block text-xs font-medium text-stone-600">{{ form.experiencia_anos.label }}</label>
+                    {{ form.experiencia_anos }}
+                    {% if form.experiencia_anos.errors %}<p class="mt-1 text-xs text-red-600">{{ form.experiencia_anos.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+            <div>
+                <label for="id_biografia" class="block text-xs font-medium text-stone-600">{{ form.biografia.label }}</label>
+                {{ form.biografia }}
+                {% if form.biografia.errors %}<p class="mt-1 text-xs text-red-600">{{ form.biografia.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="flex items-start gap-3">
+                {{ form.is_active }}
+                <label for="id_is_active" class="text-sm text-stone-700 leading-snug">{{ form.is_active.label }}</label>
+            </div>
+            {% if form.is_active.errors %}<p class="text-xs text-red-600">{{ form.is_active.errors.0 }}</p>{% endif %}
+        </fieldset>
+
+        <fieldset class="space-y-4 border-t border-stone-100 pt-6">
+            <legend class="text-sm font-semibold text-stone-800">Contraseña</legend>
+            <p class="text-xs text-stone-500">Opcional. Déjalo en blanco para no cambiarla.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="id_password1" class="block text-xs font-medium text-stone-600">{{ form.password1.label }}</label>
+                    {{ form.password1 }}
+                    {% if form.password1.errors %}<p class="mt-1 text-xs text-red-600">{{ form.password1.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="id_password2" class="block text-xs font-medium text-stone-600">{{ form.password2.label }}</label>
+                    {{ form.password2 }}
+                    {% if form.password2.errors %}<p class="mt-1 text-xs text-red-600">{{ form.password2.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 border-t border-stone-100">
+            <a href="{% url 'core:director_profesores' %}" class="btn-outline px-4 py-2 text-sm font-medium text-center">Cancelar</a>
+            <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Guardar</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

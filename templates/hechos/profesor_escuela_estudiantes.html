@@ -91,6 +91,9 @@
             {% endif %}
         </div>
         <div class="relative z-10 flex flex-wrap items-center gap-2">
+            <a href="{% url 'hechos:matricular_estudiante' %}?escuela={{ escuela.id }}" class="btn-outline px-4 py-2 text-sm font-medium border-white/40 bg-white/15 text-white hover:bg-white/25">
+                <i class="fas fa-user-plus mr-2"></i>Agregar estudiantes
+            </a>
             <a href="{{ volver_url }}" class="btn-outline px-4 py-2 text-sm font-medium border-white/30 bg-white/10 text-white hover:bg-white/15">
                 <i class="fas fa-arrow-left mr-2"></i>Volver a clases
             </a>
@@ -154,9 +157,24 @@
                             {% endif %}
                         </td>
                         <td class="px-4 py-3 text-right align-middle">
-                            <a href="{% url 'hechos:profesor_escuela_estudiante_notas' escuela.id e.id %}" class="btn-outline inline-flex items-center px-3 py-2 text-xs font-medium border-emerald-200 text-emerald-900 hover:bg-emerald-50">
-                                <i class="fas fa-clipboard-list mr-2"></i>Ver notas del estudiante
-                            </a>
+                            <div class="flex flex-col items-end gap-2">
+                                <a href="{% url 'hechos:profesor_escuela_estudiante_notas' escuela.id e.id %}" class="btn-outline inline-flex items-center px-3 py-2 text-xs font-medium border-emerald-200 text-emerald-900 hover:bg-emerald-50">
+                                    <i class="fas fa-clipboard-list mr-2"></i>Ver notas del estudiante
+                                </a>
+                                <form id="form-quitar-matricula-est-{{ e.id }}" method="post"
+                                      action="{% url 'hechos:profesor_escuela_estudiante_quitar_matricula' escuela.id e.id %}"
+                                      class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="redirect_to" value="estudiantes"/>
+                                    <button type="button"
+                                            class="js-confirmar-post-form inline-flex items-center px-3 py-2 text-xs font-medium rounded-lg border border-red-200 text-red-800 bg-red-50 hover:bg-red-100"
+                                            data-confirm-title="Quitar de la escuela"
+                                            data-confirm-message="¿Anular la matrícula de «{{ e.user.get_full_name|default:e.user.email }}» en esta escuela?&#10;&#10;La persona no se elimina del sistema; puede volver a matricular al estudiante con el documento y el nombre correctos."
+                                            data-confirm-form="form-quitar-matricula-est-{{ e.id }}">
+                                        <i class="fas fa-user-minus mr-2" aria-hidden="true"></i>Quitar de la escuela
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% endwith %}
@@ -172,6 +190,8 @@
         {% endif %}
     </div>
 </div>
+
+{% include 'hechos/_modal_confirmar_post.html' %}
 
 <div id="student-photo-modal" class="student-photo-modal" hidden aria-hidden="true">
     <button type="button" class="student-photo-modal__close" data-photo-close aria-label="Cerrar imagen">&times;</button>

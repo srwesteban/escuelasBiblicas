@@ -8,7 +8,18 @@ urlpatterns = [
     path('', views.inicio, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('director/', views.director_dashboard, name='director_dashboard'),
+    path(
+        'director/importar-seguimiento/',
+        views.director_import_seguimiento,
+        name='director_import_seguimiento',
+    ),
     path('director/programa-escuelas/', views.director_programa_escuelas, name='director_programa_escuelas'),
+    path('director/profesores/', views.director_profesores, name='director_profesores'),
+    path(
+        'director/profesores/<int:profesor_id>/editar/',
+        views.director_profesor_edit,
+        name='director_profesor_edit',
+    ),
     path('direccion/sedes/crear/', views.sede_create, name='sede_create'),
     path('direccion/sedes/<int:sede_id>/editar/', views.sede_edit, name='sede_edit'),
     path('direccion/sedes/<int:sede_id>/eliminar/', views.sede_delete, name='sede_delete'),

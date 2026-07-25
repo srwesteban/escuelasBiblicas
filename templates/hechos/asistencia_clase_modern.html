@@ -4,20 +4,27 @@
 {% block title %}Asistencia - {{ clase.titulo }} - Hechos{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900">{{ clase.titulo }}</h1>
+<div class="max-w-6xl mx-auto space-y-5 sm:space-y-6 px-3 sm:px-4 pb-28 sm:pb-8">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">{{ clase.titulo }}</h1>
             {% if clase.curso %}
-            <p class="text-gray-600 mt-1">{{ clase.curso.nombre }} — {{ clase.curso.ruta_estudio.nombre }}</p>
+            <p class="text-gray-600 mt-1 text-sm sm:text-base">{{ clase.curso.nombre }} — {{ clase.curso.ruta_estudio.nombre }}</p>
             {% endif %}
             <p class="text-sm text-gray-500 mt-1">
                 {{ clase.fecha_clase|date:"d/m/Y" }} · {{ clase.fecha_clase|time:"H:i" }} · {{ clase.duracion_minutos }} min
             </p>
         </div>
-        <a href="{{ volver_mis_escuelas_url }}" class="btn-outline px-4 py-2 text-sm font-medium shrink-0 self-start">
-            <i class="fas fa-arrow-left mr-2"></i>Volver a la escuela
+        <a href="{{ volver_mis_escuelas_url }}" class="btn-outline px-4 py-2.5 text-sm font-medium shrink-0 self-start inline-flex items-center justify-center min-h-[44px]">
+            <i class="fas fa-arrow-left mr-2" aria-hidden="true"></i>Volver
         </a>
+    </div>
+
+    <div class="rounded-xl border border-indigo-200 bg-indigo-50/90 p-4 text-sm text-indigo-950 leading-relaxed">
+        <p class="font-semibold text-indigo-900 mb-1 flex items-center gap-2">
+            <i class="fas fa-circle-info" aria-hidden="true"></i>Cómo guardar (celular)
+        </p>
+        <p>Tocá una opción por estudiante. Usá <strong>Todos presentes</strong> si aplica. Al terminar pulsá <strong>Guardar asistencia</strong> (el botón verde fijo abajo en el celular).</p>
     </div>
 
     <div class="card">
@@ -45,7 +52,7 @@
         </div>
         <div class="px-6 pb-6 grid md:grid-cols-2 gap-4 text-sm text-gray-600">
             <div>
-                <span class="text-gray-500">Profesor de la sesión:</span>
+                <span class="text-gray-500">Profesor de la clase:</span>
                 {% if clase.profesor %}
                 <span class="font-medium text-gray-900">{{ clase.profesor.user.get_full_name }}</span>
                 {% else %}
@@ -60,14 +67,14 @@
     </div>
 
     <div class="card overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h2 class="text-lg font-semibold text-gray-900">Marcar asistencia</h2>
-            <div class="flex flex-wrap gap-2">
-                <button type="button" onclick="marcarTodosAsistencia('presente')" class="btn-outline px-3 py-1.5 text-xs font-medium border-green-200 text-green-800 hover:bg-green-50">
-                    <i class="fas fa-check-double mr-1"></i>Todos presentes
+            <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto">
+                <button type="button" onclick="marcarTodosAsistencia('presente')" class="btn-outline px-3 py-3 sm:py-2 text-sm font-medium border-green-200 text-green-800 hover:bg-green-50 min-h-[48px]">
+                    <i class="fas fa-check-double mr-1" aria-hidden="true"></i>Todos presentes
                 </button>
-                <button type="button" onclick="marcarTodosAsistencia('ausente')" class="btn-outline px-3 py-1.5 text-xs font-medium border-red-200 text-red-800 hover:bg-red-50">
-                    <i class="fas fa-user-slash mr-1"></i>Todos ausentes
+                <button type="button" onclick="marcarTodosAsistencia('ausente')" class="btn-outline px-3 py-3 sm:py-2 text-sm font-medium border-red-200 text-red-800 hover:bg-red-50 min-h-[48px]">
+                    <i class="fas fa-user-slash mr-1" aria-hidden="true"></i>Todos ausentes
                 </button>
             </div>
         </div>
@@ -87,33 +94,33 @@
                             <p class="text-sm text-gray-500">{{ e.codigo_estudiante|default:e.user.email }}</p>
                         </div>
                     </div>
-                    <div class="flex flex-wrap gap-2 lg:justify-end" role="group" aria-label="Estado de asistencia">
-                        <label class="cursor-pointer select-none">
+                    <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full lg:justify-end" role="group" aria-label="Estado de asistencia">
+                        <label class="cursor-pointer select-none min-w-0">
                             <input type="radio" name="estudiante_{{ e.id }}" value="presente" class="peer sr-only"
                                 {% if st == 'presente' %}checked{% endif %}>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 text-sm font-medium text-gray-600 peer-checked:border-green-600 peer-checked:bg-green-600 peer-checked:text-white">
-                                <i class="fas fa-check"></i>Presente
+                            <span class="inline-flex w-full min-h-[48px] items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-semibold text-gray-600 peer-checked:border-green-600 peer-checked:bg-green-600 peer-checked:text-white">
+                                <i class="fas fa-check" aria-hidden="true"></i>Presente
                             </span>
                         </label>
-                        <label class="cursor-pointer select-none">
+                        <label class="cursor-pointer select-none min-w-0">
                             <input type="radio" name="estudiante_{{ e.id }}" value="ausente" class="peer sr-only"
                                 {% if st is None or st == 'ausente' %}checked{% endif %}>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 text-sm font-medium text-gray-600 peer-checked:border-red-600 peer-checked:bg-red-600 peer-checked:text-white">
-                                <i class="fas fa-times"></i>Ausente
+                            <span class="inline-flex w-full min-h-[48px] items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-semibold text-gray-600 peer-checked:border-red-600 peer-checked:bg-red-600 peer-checked:text-white">
+                                <i class="fas fa-times" aria-hidden="true"></i>Ausente
                             </span>
                         </label>
-                        <label class="cursor-pointer select-none">
+                        <label class="cursor-pointer select-none min-w-0">
                             <input type="radio" name="estudiante_{{ e.id }}" value="tarde" class="peer sr-only"
                                 {% if st == 'tarde' %}checked{% endif %}>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 text-sm font-medium text-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500 peer-checked:text-white">
-                                <i class="fas fa-clock"></i>Tarde
+                            <span class="inline-flex w-full min-h-[48px] items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-semibold text-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500 peer-checked:text-white">
+                                <i class="fas fa-clock" aria-hidden="true"></i>Tarde
                             </span>
                         </label>
-                        <label class="cursor-pointer select-none">
+                        <label class="cursor-pointer select-none min-w-0">
                             <input type="radio" name="estudiante_{{ e.id }}" value="justificado" class="peer sr-only"
                                 {% if st == 'justificado' %}checked{% endif %}>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-gray-200 text-sm font-medium text-gray-600 peer-checked:border-violet-600 peer-checked:bg-violet-600 peer-checked:text-white">
-                                <i class="fas fa-file-signature"></i>Justificado
+                            <span class="inline-flex w-full min-h-[48px] items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-semibold text-gray-600 peer-checked:border-violet-600 peer-checked:bg-violet-600 peer-checked:text-white">
+                                <i class="fas fa-file-signature" aria-hidden="true"></i>Justif.
                             </span>
                         </label>
                     </div>
@@ -129,14 +136,22 @@
             {% endfor %}
 
             {% if filas_asistencia %}
-            <div class="p-4 sm:p-5 bg-stone-50 flex justify-end">
-                <button type="submit" class="btn-primary px-8 py-2.5 text-sm font-medium">
-                    <i class="fas fa-save mr-2"></i>Guardar asistencia
+            <div class="hidden sm:flex p-4 sm:p-5 bg-stone-50 justify-end">
+                <button type="submit" class="btn-primary px-8 py-3 text-sm font-semibold min-h-[48px]">
+                    <i class="fas fa-save mr-2" aria-hidden="true"></i>Guardar asistencia
                 </button>
             </div>
             {% endif %}
         </form>
     </div>
+
+    {% if filas_asistencia %}
+    <div class="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur-sm px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+        <button type="submit" form="form-asistencia" class="btn-primary w-full py-3.5 text-base font-semibold min-h-[52px] inline-flex items-center justify-center gap-2">
+            <i class="fas fa-save" aria-hidden="true"></i>Guardar asistencia
+        </button>
+    </div>
+    {% endif %}
 </div>
 
 <style>

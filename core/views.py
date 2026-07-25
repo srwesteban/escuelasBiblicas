@@ -1,9 +1,14 @@
+import unicodedata
 from collections import OrderedDict
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib import messages
-from django.db import IntegrityError
+from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
+from django.core.validators import validate_email
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -13,6 +18,7 @@ from django.utils.html import json_script as html_json_script
 from core.colombia_geo import nombre_departamento
 from core.forms import (
     CoordinadorForm,
+    DirectorProfesorEditForm,
     EscuelaProgramaForm,
     EscuelaProgramaPlantillaForm,
     EscuelaProgramaPlantillaEditForm,
@@ -26,64 +32,40 @@ from core.forms import (
 )
 from .models import AppModule, Sede, UserAppPermission
 from hechos import coordinador_access as ca
+from hechos.portal_entry import home_redirect_response
 from hechos.models import (
     AdminEscuela,
     Escuela,
-    EscuelaPrograma,
     EscuelaProgramaPlantilla,
-    NivelPrograma,
     NivelProgramaPlantilla,
     Estudiante,
     NotificacionEstudiante,
     Profesor,
     RutaEstudio,
     Curso,
-    EdicionCurso,
     Salon,
 )
-from hechos.programa_formacion_seed import propagar_catalogo_global_a_todas_las_sedes
+from hechos import seguimiento_import as seg_imp
+from hechos.seguimiento_import import (
+    SeguimientoImportError,
+    analyze_seguimiento_preview_against_bd,
+    build_seguimiento_preview,
+    execute_seguimiento_import,
+)
 
 User = get_user_model()
 
 
-def _programa_agrupado_por_nivel(sede, escuelas_programa_qs):
+def _programa_agrupado_plantillas_global(escuelas_qs, niveles_plantilla_qs):
     """
-    Lista todos los niveles activos de la sede (orden por número de nivel) y,
-    para cada uno, las escuelas del programa asociadas (puede ser ninguna).
+    Agrupa escuelas plantilla por nivel (catálogo global).
+    Usa querysets ya materializados (p. ej. tras list()) para no repetir consultas.
     """
-    grupos = {}
-    for ep in escuelas_programa_qs.select_related("nivel_programa"):
-        np_id = ep.nivel_programa_id
-        grupos.setdefault(np_id, []).append(ep)
-    out = []
-    for np in (
-        NivelPrograma.objects.filter(sede=sede, is_active=True)
-        .order_by("jerarquia", "nombre")
-    ):
-        out.append(
-            {
-                "nivel_programa": np,
-                "nivel_display": np.titulo_acordeon(),
-                "escuelas": grupos.get(np.pk, []),
-            }
-        )
-    return out
-
-
-def _programa_agrupado_plantillas_global():
-    """Agrupa escuelas plantilla por nivel (catálogo global)."""
-    escuelas_qs = (
-        EscuelaProgramaPlantilla.objects.select_related("nivel_plantilla").order_by(
-            "nivel_plantilla__jerarquia",
-            "nombre",
-        )
-    )
     grupos = {}
     for ep in escuelas_qs:
-        np = ep.nivel_plantilla
-        grupos.setdefault(np.id, []).append(ep)
+        grupos.setdefault(ep.nivel_plantilla_id, []).append(ep)
     out = []
-    for np in NivelProgramaPlantilla.objects.order_by("jerarquia", "nombre"):
+    for np in niveles_plantilla_qs:
         out.append(
             {
                 "nivel_programa": np,
@@ -94,7 +76,9 @@ def _programa_agrupado_plantillas_global():
     return out
 
 
-def _escuela_programa_plantilla_form_edit(*args, **kwargs):
+def _escuela_programa_plantilla_form_edit(*args, nivel_plantilla_queryset=None, **kwargs):
+    if nivel_plantilla_queryset is not None:
+        kwargs.setdefault("nivel_plantilla_queryset", nivel_plantilla_queryset)
     return EscuelaProgramaPlantillaEditForm(*args, **kwargs)
 
 
@@ -108,82 +92,10 @@ def _escuela_programa_form_edit(sede, *args, **kwargs):
     )
 
 
-def _sync_cupo_ediciones_escuela(escuela, capacidad: int) -> None:
-    """Cupo de ediciones activas alineado a capacidad del salón (0 si no hay)."""
-    EdicionCurso.objects.filter(
-        curso__ruta_estudio__escuela=escuela,
-        is_active=True,
-        curso__is_active=True,
-    ).update(cupo_maximo=capacidad)
-
-
-def _user_has_hechos_profile(user):
-    return (
-        hasattr(user, 'estudiante_profile')
-        or hasattr(user, 'profesor_profile')
-        or hasattr(user, 'admin_escuela_profile')
-    )
-
-
-def _user_has_sede_in_profile(user):
-    try:
-        if hasattr(user, 'estudiante_profile') and user.estudiante_profile.sede_id:
-            return True
-    except Exception:
-        pass
-    try:
-        if hasattr(user, 'profesor_profile') and user.profesor_profile.sede_id:
-            return True
-    except Exception:
-        pass
-    try:
-        if hasattr(user, 'admin_escuela_profile') and user.admin_escuela_profile.sede_id:
-            return True
-    except Exception:
-        pass
-    return bool(getattr(user, 'sede_id', None))
-
-
-def _home_redirect_response(user):
-    if user.is_super_admin():
-        return redirect('core:director_dashboard')
-
-    if hasattr(user, 'admin_escuela_profile'):
-        p = user.admin_escuela_profile
-        if p.sede_id:
-            if p.tipo_coordinador == AdminEscuela.TipoCoordinador.SEDE:
-                return redirect('core:coordinador_sede_equipo', sede_id=p.sede_id)
-            if ca.has_capacidad(user, 'financiero'):
-                return redirect('hechos:coordinador_recursos')
-            if ca.has_capacidad(user, 'logistico'):
-                return redirect('hechos:coordinador_logistica')
-
-    if _user_has_hechos_profile(user):
-        p = getattr(user, 'admin_escuela_profile', None)
-        if p and ca.has_capacidad(user, 'pedagogico'):
-            return redirect('hechos:profesores_list')
-        # Estudiante sin sede: obligar a elegir sede (flujo post-registro).
-        if not _user_has_sede_in_profile(user):
-            if hasattr(user, 'estudiante_profile'):
-                return redirect('hechos:seleccionar_sede_estudiante')
-            return redirect('core:profile')
-        if hasattr(user, 'estudiante_profile'):
-            return redirect('hechos:escuelas_disponibles')
-        if hasattr(user, 'profesor_profile'):
-            return redirect('hechos:mis_escuelas_profesor')
-        if p and ca.has_capacidad(user, 'academico'):
-            return redirect('hechos:estudiantes_list')
-        return redirect('hechos:dashboard')
-
-    user_permission = UserAppPermission.objects.filter(
-        user=user,
-        can_view=True,
-        app_module__is_active=True,
-    ).select_related('app_module').order_by('app_module__order').first()
-    if user_permission:
-        return redirect(user_permission.app_module.url_name)
-
-    return redirect('core:profile')
+def _sync_cupo_escuela_desde_salon(escuela, capacidad: int) -> None:
+    """Cupo de la escuela operativa alineado a la capacidad del salón."""
+    escuela.cupo_maximo = max(0, int(capacidad or 0))
+    escuela.save(update_fields=['cupo_maximo', 'updated_at'])
 
 
 def _coordinador_sede_may_manage(request, sede):
@@ -237,7 +149,7 @@ def inicio(request):
     Landing pública del sistema.
     """
     if request.user.is_authenticated:
-        return _home_redirect_response(request.user)
+        return home_redirect_response(request.user)
 
     return render(request, 'core/inicio.html')
 
@@ -247,7 +159,7 @@ def dashboard(request):
     """
     Redirección al inicio real según el usuario.
     """
-    return _home_redirect_response(request.user)
+    return home_redirect_response(request.user)
 
 
 def _director_required(request):
@@ -273,31 +185,296 @@ def _sede_ubicacion_sort_key(sede):
     return (dep_name.casefold(), ciu.casefold(), sede.nombre.casefold())
 
 
+def _normaliza_texto(valor):
+    """Minúsculas sin tildes ni espacios extremos, para comparar ubicaciones libres."""
+    base = unicodedata.normalize("NFKD", (valor or "").strip())
+    base = "".join(c for c in base if not unicodedata.combining(c))
+    return base.casefold()
+
+
 @login_required
 def director_dashboard(request):
     if not _director_required(request):
         return redirect('core:dashboard')
 
+    dep_filtro = (request.GET.get('dep') or "").strip()
+    ciudad_filtro = (request.GET.get('ciudad') or "").strip()
+    q = (request.GET.get('q') or "").strip()
+    hay_filtro = bool(ciudad_filtro or dep_filtro or q)
+
     sedes = list(Sede.objects.all())
     sedes.sort(key=_sede_ubicacion_sort_key)
 
-    grupos = OrderedDict()
+    ciudades = OrderedDict()
     for sede in sedes:
-        label = _sede_ubicacion_label(sede)
-        coordinadores = AdminEscuela.objects.filter(sede=sede, is_active=True).select_related('user')
-        item = {
-            'sede': sede,
-            'coordinadores_count': coordinadores.count(),
-            'coordinadores': coordinadores[:3],
-        }
-        grupos.setdefault(label, []).append(item)
+        ciu = (sede.ciudad or "").strip()
+        if not ciu:
+            continue
+        dep = (sede.departamento or "").strip()
+        clave = (dep.casefold(), _normaliza_texto(ciu))
+        chip = ciudades.get(clave)
+        if chip is None:
+            ciudades[clave] = {
+                'label': _sede_ubicacion_label(sede),
+                'dep': dep,
+                'ciudad': ciu,
+                'total': 1,
+            }
+        else:
+            chip['total'] += 1
+    ciudades_disponibles = list(ciudades.values())
+    for chip in ciudades_disponibles:
+        chip['activo'] = (
+            chip['dep'].casefold() == dep_filtro.casefold()
+            and _normaliza_texto(chip['ciudad']) == _normaliza_texto(ciudad_filtro)
+        )
+
+    sedes_filtradas = sedes
+    if ciudad_filtro:
+        objetivo = _normaliza_texto(ciudad_filtro)
+        sedes_filtradas = [
+            s for s in sedes_filtradas
+            if _normaliza_texto(s.ciudad) == objetivo
+            and (not dep_filtro or (s.departamento or "").strip().casefold() == dep_filtro.casefold())
+        ]
+    if q:
+        objetivo = _normaliza_texto(q)
+        sedes_filtradas = [
+            s for s in sedes_filtradas
+            if objetivo in _normaliza_texto(s.nombre) or objetivo in _normaliza_texto(s.direccion)
+        ]
+
+    grupos = OrderedDict()
+    if hay_filtro:
+        for sede in sedes_filtradas:
+            label = _sede_ubicacion_label(sede)
+            coordinadores = AdminEscuela.objects.filter(sede=sede, is_active=True).select_related('user')
+            item = {
+                'sede': sede,
+                'coordinadores_count': coordinadores.count(),
+                'coordinadores': coordinadores[:3],
+            }
+            grupos.setdefault(label, []).append(item)
 
     sedes_por_ubicacion = [{'label': label, 'items': items} for label, items in grupos.items()]
 
     context = {
         'sedes_por_ubicacion': sedes_por_ubicacion,
+        'ciudades_disponibles': ciudades_disponibles,
+        'hay_filtro': hay_filtro,
+        'ciudad_filtro': ciudad_filtro,
+        'dep_filtro': dep_filtro,
+        'q': q,
+        'total_sedes': len(sedes),
+        'total_resultados': len(sedes_filtradas) if hay_filtro else 0,
     }
     return render(request, 'core/director_dashboard.html', context)
+
+
+def _querystring_without_page(request):
+    q = request.GET.copy()
+    q.pop("page", None)
+    s = q.urlencode()
+    return f"&{s}" if s else ""
+
+
+@login_required
+def director_profesores(request):
+    if not _director_required(request):
+        return redirect("core:dashboard")
+
+    qs = Profesor.objects.select_related("user", "sede").order_by(
+        "user__first_name", "user__last_name", "id"
+    )
+    q = (request.GET.get("q") or "").strip()
+    sede_id = _parse_pk(request.GET.get("sede"))
+    if sede_id is not None:
+        qs = qs.filter(sede_id=sede_id)
+    if q:
+        qs = qs.filter(
+            Q(user__first_name__icontains=q)
+            | Q(user__last_name__icontains=q)
+            | Q(user__email__icontains=q)
+            | Q(user__username__icontains=q)
+            | Q(user__documento_identidad__icontains=q)
+            | Q(codigo_profesor__icontains=q)
+        )
+
+    paginator = Paginator(qs, 30)
+    page_obj = paginator.get_page(request.GET.get("page") or 1)
+
+    sedes_fil = Sede.objects.filter(is_active=True).order_by("nombre").only("id", "nombre")
+
+    context = {
+        "page_obj": page_obj,
+        "search_q": q,
+        "sede_filter": sede_id,
+        "sedes_fil": sedes_fil,
+        "filters_query": _querystring_without_page(request),
+    }
+    return render(request, "core/director_profesores.html", context)
+
+
+@login_required
+def director_profesor_edit(request, profesor_id):
+    if not _director_required(request):
+        return redirect("core:dashboard")
+
+    profesor = get_object_or_404(
+        Profesor.objects.select_related("user"),
+        pk=profesor_id,
+    )
+    u = profesor.user
+
+    if request.method == "POST":
+        form = DirectorProfesorEditForm(request.POST, user_instance=u)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    form.apply_to(profesor)
+                messages.success(
+                    request,
+                    f"Se actualizó el profesor «{profesor.user.get_full_name() or profesor.user.username}».",
+                )
+                return redirect("core:director_profesores")
+            except IntegrityError as exc:
+                messages.error(request, f"No se pudo guardar (dato duplicado): {exc}")
+    else:
+        td = (u.tipo_documento or "").strip()
+        form = DirectorProfesorEditForm(
+            user_instance=u,
+            initial={
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "email": u.email or "",
+                "phone": u.phone or "",
+                "tipo_documento": td if any(td == c[0] for c in User.TipoDocumento.choices) else "",
+                "documento_identidad": u.documento_identidad or "",
+                "sede": profesor.sede_id,
+                "especialidad": profesor.especialidad,
+                "experiencia_anos": profesor.experiencia_anos,
+                "biografia": profesor.biografia,
+                "is_active": profesor.is_active,
+            },
+        )
+
+    context = {
+        "profesor": profesor,
+        "form": form,
+    }
+    return render(request, "core/director_profesor_edit.html", context)
+
+
+def _parse_pk(raw):
+    if raw in (None, ''):
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+@login_required
+def director_import_seguimiento(request):
+    """
+    Importación de seguimiento (Excel): elegir sede, subir archivo; el texto de oferta por fila
+    se cruza con las escuelas operativas activas de esa sede (sin elegir escuela a mano).
+    """
+    if not _director_required(request):
+        return redirect('core:dashboard')
+
+    sedes = Sede.objects.filter(is_active=True).order_by('ciudad', 'nombre')
+    errors: list[str] = []
+    preview = None
+    match_report = None
+    import_exec_report = None
+
+    if request.method == 'POST':
+        raw_sede = request.POST.get('sede')
+    else:
+        raw_sede = request.GET.get('sede')
+
+    selected_sede_id = _parse_pk(raw_sede)
+    if raw_sede not in (None, '') and selected_sede_id is None:
+        errors.append('El valor de sede no es válido.')
+
+    sede_valida = False
+    if selected_sede_id is not None:
+        if Sede.objects.filter(pk=selected_sede_id, is_active=True).exists():
+            sede_valida = True
+        else:
+            errors.append('La sede indicada no existe o está inactiva.')
+
+    escuelas_operativas_sede_count = 0
+    if sede_valida and selected_sede_id:
+        escuelas_operativas_sede_count = Escuela.objects.filter(
+            sede_id=selected_sede_id,
+            is_active=True,
+        ).count()
+
+    if request.method == 'POST':
+        if raw_sede in (None, ''):
+            errors.append(
+                'Selecciona una sede y pulsa «Continuar» antes de subir el archivo.'
+            )
+
+        archivo = request.FILES.get('archivo')
+        if not archivo:
+            errors.append('Selecciona un archivo Excel (.xlsx).')
+        elif not archivo.name.lower().endswith('.xlsx'):
+            errors.append('Solo se admiten archivos con extensión .xlsx.')
+        elif getattr(archivo, 'size', 0) and archivo.size > seg_imp.MAX_UPLOAD_BYTES:
+            max_mb = max(1, seg_imp.MAX_UPLOAD_BYTES // (1024 * 1024))
+            errors.append(
+                f'El archivo pesa demasiado (máximo aprox. {max_mb} MB). Reduce el tamaño o divide el libro.'
+            )
+
+        if not errors and archivo and sede_valida and selected_sede_id:
+            try:
+                preview = build_seguimiento_preview(archivo)
+            except SeguimientoImportError as exc:
+                errors.append(str(exc))
+            else:
+                sede_obj = get_object_or_404(Sede, pk=selected_sede_id, is_active=True)
+                match_report = analyze_seguimiento_preview_against_bd(preview, sede_obj)
+                ejecutar = request.POST.get('ejecutar_importacion') == '1'
+                if ejecutar:
+                    crear_ofertas = request.POST.get('crear_ediciones_faltantes') == '1'
+                    import_exec_report = execute_seguimiento_import(
+                        preview,
+                        sede_obj,
+                        match_report=match_report,
+                        crear_ediciones_faltantes=crear_ofertas,
+                    )
+                    sc = import_exec_report.status_counts()
+                    messages.success(
+                        request,
+                        'Importación aplicada: '
+                        f'{sc.get("created", 0)} con credenciales nuevas (revisa la tabla), '
+                        f'{sc.get("matricula_ok", 0)} con matrícula asegurada u omitida por duplicado, '
+                        f'{sc.get("skipped", 0)} filas sin escuela operativa, '
+                        f'{sc.get("error", 0)} errores. '
+                        'Las contraseñas solo aparecen en esta pantalla: guárdalas o comunícalas con cuidado.',
+                    )
+                else:
+                    messages.success(
+                        request,
+                        'Vista previa y análisis listos. Para crear usuarios y matrículas, marca la casilla correspondiente y vuelve a enviar el mismo archivo.',
+                    )
+
+    context = {
+        'sedes': sedes,
+        'sede_valida': sede_valida,
+        'selected_sede_id': selected_sede_id,
+        'escuelas_operativas_sede_count': escuelas_operativas_sede_count,
+        'errors': errors,
+        'preview': preview,
+        'match_report': match_report,
+        'import_exec_report': import_exec_report,
+        'import_max_file_mb': max(1, seg_imp.MAX_UPLOAD_BYTES // (1024 * 1024)),
+        'import_preview_rows': seg_imp.DEFAULT_PREVIEW_MAX_ROWS,
+    }
+    return render(request, 'core/director_import_seguimiento.html', context)
 
 
 @login_required
@@ -439,8 +616,23 @@ def director_programa_escuelas(request):
     if not _director_required(request):
         return redirect("core:dashboard")
 
-    form_programa = EscuelaProgramaPlantillaForm()
-    form_programa_edit = _escuela_programa_plantilla_form_edit()
+    niveles_programa = (
+        NivelProgramaPlantilla.objects.annotate(num_escuelas=Count("escuelas"))
+        .order_by("jerarquia", "nombre")
+    )
+    escuelas_programa = (
+        EscuelaProgramaPlantilla.objects.select_related("nivel_plantilla")
+        .order_by("nivel_plantilla__jerarquia", "nombre")
+    )
+    list(niveles_programa)
+    list(escuelas_programa)
+
+    form_programa = EscuelaProgramaPlantillaForm(
+        nivel_plantilla_queryset=niveles_programa,
+    )
+    form_programa_edit = _escuela_programa_plantilla_form_edit(
+        nivel_plantilla_queryset=niveles_programa,
+    )
     form_nivel = NivelProgramaPlantillaForm(prefix="np_nuevo")
     form_nivel_edit = None
     editar_nivel_id = None
@@ -454,21 +646,28 @@ def director_programa_escuelas(request):
             form_nivel = NivelProgramaPlantillaForm(
                 data=request.POST, prefix="np_nuevo"
             )
-            form_programa = EscuelaProgramaPlantillaForm()
-            form_programa_edit = _escuela_programa_plantilla_form_edit()
+            form_programa = EscuelaProgramaPlantillaForm(
+                nivel_plantilla_queryset=niveles_programa,
+            )
+            form_programa_edit = _escuela_programa_plantilla_form_edit(
+                nivel_plantilla_queryset=niveles_programa,
+            )
             if form_nivel.is_valid():
                 NivelProgramaPlantilla.objects.create(
                     jerarquia=form_nivel.cleaned_data["jerarquia"],
                     nombre=form_nivel.cleaned_data["nombre"],
                     descripcion=form_nivel.cleaned_data.get("descripcion") or "",
                 )
-                propagar_catalogo_global_a_todas_las_sedes()
-                messages.success(request, "Nivel del programa global creado y replicado en las sedes.")
+                messages.success(request, "Nivel del programa global creado.")
                 return redirect("core:director_programa_escuelas")
         elif accion == "editar_nivel":
             nid = (request.POST.get("nivel_id") or "").strip()
-            form_programa = EscuelaProgramaPlantillaForm()
-            form_programa_edit = _escuela_programa_plantilla_form_edit()
+            form_programa = EscuelaProgramaPlantillaForm(
+                nivel_plantilla_queryset=niveles_programa,
+            )
+            form_programa_edit = _escuela_programa_plantilla_form_edit(
+                nivel_plantilla_queryset=niveles_programa,
+            )
             form_nivel = NivelProgramaPlantillaForm(prefix="np_nuevo")
             np_obj = None
             if nid.isdigit():
@@ -489,8 +688,7 @@ def director_programa_escuelas(request):
                 np_obj.save(
                     update_fields=["jerarquia", "nombre", "descripcion", "updated_at"],
                 )
-                propagar_catalogo_global_a_todas_las_sedes()
-                messages.success(request, "Nivel actualizado y replicado en las sedes.")
+                messages.success(request, "Nivel actualizado.")
                 return redirect("core:director_programa_escuelas")
             abrir_dialog_editar_nivel = True
         elif accion == "eliminar_nivel":
@@ -507,12 +705,16 @@ def director_programa_escuelas(request):
                     )
                 else:
                     np_obj.delete()
-                    propagar_catalogo_global_a_todas_las_sedes()
                     messages.success(request, "Nivel eliminado.")
             return redirect("core:director_programa_escuelas")
         elif accion == "crear_programa":
-            form_programa = EscuelaProgramaPlantillaForm(data=request.POST)
-            form_programa_edit = _escuela_programa_plantilla_form_edit()
+            form_programa = EscuelaProgramaPlantillaForm(
+                data=request.POST,
+                nivel_plantilla_queryset=niveles_programa,
+            )
+            form_programa_edit = _escuela_programa_plantilla_form_edit(
+                nivel_plantilla_queryset=niveles_programa,
+            )
             form_nivel = NivelProgramaPlantillaForm(prefix="np_nuevo")
             form_nivel_edit = None
             if form_programa.is_valid():
@@ -528,10 +730,9 @@ def director_programa_escuelas(request):
                             "costo_matricula_cop"
                         ),
                     )
-                    propagar_catalogo_global_a_todas_las_sedes()
                     messages.success(
                         request,
-                        "Escuela del programa global registrada y replicada en las sedes.",
+                        "Escuela del programa global registrada.",
                     )
                     return redirect("core:director_programa_escuelas")
                 except IntegrityError:
@@ -540,7 +741,9 @@ def director_programa_escuelas(request):
                         "Ya existe una escuela con este nivel y nombre en el programa global.",
                     )
         elif accion == "editar_programa":
-            form_programa = EscuelaProgramaPlantillaForm()
+            form_programa = EscuelaProgramaPlantillaForm(
+                nivel_plantilla_queryset=niveles_programa,
+            )
             pid = (request.POST.get("programa_id") or "").strip()
             ep = None
             if pid.isdigit():
@@ -551,6 +754,7 @@ def director_programa_escuelas(request):
             form_programa_edit = _escuela_programa_plantilla_form_edit(
                 request.POST,
                 escuela_plantilla_pk=ep.pk,
+                nivel_plantilla_queryset=niveles_programa,
             )
             form_nivel = NivelProgramaPlantillaForm(prefix="np_nuevo")
             form_nivel_edit = None
@@ -582,10 +786,9 @@ def director_programa_escuelas(request):
                         "costo_matricula_cop"
                     )
                     ep.save()
-                    propagar_catalogo_global_a_todas_las_sedes()
                     messages.success(
                         request,
-                        "Escuela del programa global actualizada y replicada en las sedes.",
+                        "Escuela del programa global actualizada.",
                     )
                     return redirect("core:director_programa_escuelas")
             else:
@@ -594,17 +797,8 @@ def director_programa_escuelas(request):
             pid = request.POST.get("programa_id")
             if pid and pid.isdigit():
                 EscuelaProgramaPlantilla.objects.filter(id=int(pid)).delete()
-                propagar_catalogo_global_a_todas_las_sedes()
                 messages.success(request, "Escuela del programa global eliminada.")
             return redirect("core:director_programa_escuelas")
-
-    niveles_programa = NivelProgramaPlantilla.objects.annotate(
-        num_escuelas=Count("escuelas"),
-    ).order_by("jerarquia", "nombre")
-
-    escuelas_programa = EscuelaProgramaPlantilla.objects.select_related(
-        "nivel_plantilla"
-    ).order_by("nivel_plantilla__jerarquia", "nombre")
 
     if form_nivel_edit is None:
         form_nivel_edit = NivelProgramaPlantillaEditForm(
@@ -645,7 +839,10 @@ def director_programa_escuelas(request):
         request,
         "core/director_programa_escuelas.html",
         {
-            "programa_por_nivel": _programa_agrupado_plantillas_global(),
+            "programa_por_nivel": _programa_agrupado_plantillas_global(
+                escuelas_programa,
+                niveles_programa,
+            ),
             "form_programa": form_programa,
             "form_programa_edit": form_programa_edit,
             "form_nivel": form_nivel,
@@ -673,18 +870,20 @@ def coordinador_sede_escuelas(request, sede_id):
         messages.error(request, "Solo el coordinador de sede puede ver esta sección.")
         return redirect("core:dashboard")
 
-    escuelas_programa = (
-        EscuelaPrograma.objects.filter(sede=sede, is_active=True)
-        .select_related("nivel_programa")
-        .order_by("nivel_programa__jerarquia", "nombre")
-    )
+    niveles_plantilla = NivelProgramaPlantilla.objects.order_by("jerarquia", "nombre")
+    escuelas_plantilla = EscuelaProgramaPlantilla.objects.select_related(
+        "nivel_plantilla"
+    ).order_by("nivel_plantilla__jerarquia", "nombre")
 
     return render(
         request,
         "core/coordinador_sede_escuelas.html",
         {
             "sede": sede,
-            "programa_por_nivel": _programa_agrupado_por_nivel(sede, escuelas_programa),
+            "programa_por_nivel": _programa_agrupado_plantillas_global(
+                escuelas_plantilla,
+                niveles_plantilla,
+            ),
         },
     )
 
@@ -714,25 +913,11 @@ def coordinador_sede_escuela_edit(request, sede_id, escuela_id):
         if form.is_valid():
             escuela = form.save()
 
-            # Actualizar edición base si existe; si no, crearla.
-            ed = (
-                EdicionCurso.objects.filter(
-                    curso__ruta_estudio__escuela=escuela,
-                    is_active=True,
-                    curso__is_active=True,
-                )
-                .order_by("id")
-                .select_related("curso__ruta_estudio")
-                .first()
-            )
-            if ed:
-                ed.profesor = escuela.maestro
-                ed.save(update_fields=["profesor"])
-                sal = Salon.objects.filter(sede=sede, escuela=escuela, is_active=True).first()
-                if sal:
-                    _sync_cupo_ediciones_escuela(escuela, sal.capacidad_plazas)
-            else:
-                # Reutilizamos la misma lógica mínima que en creación.
+            sal = Salon.objects.filter(sede=sede, escuela=escuela, is_active=True).first()
+            if sal:
+                _sync_cupo_escuela_desde_salon(escuela, sal.capacidad_plazas)
+
+            if not RutaEstudio.objects.filter(escuela=escuela, is_active=True).exists():
                 from datetime import date, timedelta
                 from django.utils import timezone
 
@@ -749,38 +934,34 @@ def coordinador_sede_escuela_edit(request, sede_id, escuela_id):
                 curso_duracion_semanas = 4
                 fecha_fin = fecha_inicio + timedelta(weeks=curso_duracion_semanas)
 
+                en = (escuela.nombre or '').strip() or 'Escuela'
                 ruta = RutaEstudio.objects.create(
                     sede=sede,
                     escuela=escuela,
-                    nombre="Ruta base",
+                    nombre=en,
                     descripcion="",
                     duracion_semanas=12,
                     nivel="basico",
                     is_active=True,
                 )
-                curso = Curso.objects.create(
+                Curso.objects.create(
                     sede=sede,
                     ruta_estudio=ruta,
-                    nombre="Módulo 1",
+                    nombre=en,
                     descripcion="",
                     orden=1,
                     duracion_semanas=curso_duracion_semanas,
                     is_active=True,
                 )
-                EdicionCurso.objects.create(
-                    curso=curso,
-                    nombre_edicion="Principal",
-                    profesor=escuela.maestro,
-                    fecha_inicio=fecha_inicio,
-                    fecha_fin=fecha_fin,
-                    horario="Horario por definir",
-                    aula="",
-                    cupo_maximo=0,
-                    is_active=True,
+                escuela.fecha_inicio = fecha_inicio
+                escuela.fecha_fin = fecha_fin
+                if not (escuela.horario or '').strip():
+                    escuela.horario = 'Horario por definir'
+                escuela.save(
+                    update_fields=['fecha_inicio', 'fecha_fin', 'horario', 'updated_at'],
                 )
-                sal = Salon.objects.filter(sede=sede, escuela=escuela, is_active=True).first()
                 if sal:
-                    _sync_cupo_ediciones_escuela(escuela, sal.capacidad_plazas)
+                    _sync_cupo_escuela_desde_salon(escuela, sal.capacidad_plazas)
 
             messages.success(request, 'Escuela actualizada correctamente.')
             return redirect('core:coordinador_sede_escuelas', sede_id=sede.id)
@@ -814,8 +995,6 @@ def coordinador_sede_escuela_delete(request, sede_id, escuela_id):
     # Ocultar también la estructura académica asociada para que no aparezca en escuelas disponibles.
     RutaEstudio.objects.filter(escuela=escuela, is_active=True).update(is_active=False)
     Curso.objects.filter(ruta_estudio__escuela=escuela, is_active=True).update(is_active=False)
-    EdicionCurso.objects.filter(curso__ruta_estudio__escuela=escuela, is_active=True).update(is_active=False)
-
     messages.success(request, 'Escuela eliminada correctamente.')
     return redirect('core:coordinador_sede_escuelas', sede_id=sede.id)
 
@@ -973,6 +1152,23 @@ def coordinador_delete(request, sede_id, coordinador_id):
     return _coordinador_post_redirect(request, sede.id)
 
 
+def _password_change_form_styled(user, data=None):
+    if data is not None:
+        form = PasswordChangeForm(user=user, data=data)
+    else:
+        form = PasswordChangeForm(user=user)
+    inp = "profile-field w-full"
+    for name, auto in (
+        ("old_password", "current-password"),
+        ("new_password1", "new-password"),
+        ("new_password2", "new-password"),
+    ):
+        if name in form.fields:
+            form.fields[name].widget.attrs.update({"class": inp, "autocomplete": auto})
+            form.fields[name].help_text = ""
+    return form
+
+
 @login_required
 def profile(request):
     """
@@ -1003,8 +1199,50 @@ def profile(request):
             NotificacionEstudiante.objects.filter(estudiante=estudiante_profile).order_by('-created_at')[:15]
         )
 
+    password_form = _password_change_form_styled(request.user)
+
     if request.method == 'POST':
-        if request.POST.get("profile_contact"):
+        if request.POST.get("profile_password"):
+            password_form = _password_change_form_styled(request.user, data=request.POST)
+            if password_form.is_valid():
+                u = password_form.save()
+                update_session_auth_hash(request, u)
+                messages.success(request, "Contraseña actualizada correctamente.")
+                return redirect("core:profile")
+        elif request.POST.get("profile_account"):
+            email_raw = (request.POST.get("email") or "").strip().lower()
+            if email_raw:
+                try:
+                    validate_email(email_raw)
+                except ValidationError:
+                    messages.error(request, "El correo no tiene un formato válido.")
+                    return redirect("core:profile")
+                if (
+                    User.objects.filter(email__iexact=email_raw)
+                    .exclude(pk=request.user.pk)
+                    .exists()
+                ):
+                    messages.error(
+                        request,
+                        "Ese correo ya está en uso en otra cuenta. Prueba con otro o inicia sesión con esa cuenta.",
+                    )
+                else:
+                    request.user.email = email_raw
+                    try:
+                        request.user.save(update_fields=["email", "updated_at"])
+                    except IntegrityError:
+                        messages.error(
+                            request,
+                            "No se pudo guardar el correo (duplicado u otro error).",
+                        )
+                        return redirect("core:profile")
+                    messages.success(request, "Correo actualizado.")
+            else:
+                request.user.email = None
+                request.user.save(update_fields=["email", "updated_at"])
+                messages.success(request, "Correo quitado. Puedes añadir uno nuevo cuando quieras.")
+            return redirect("core:profile")
+        elif request.POST.get("profile_contact"):
             request.user.phone = (request.POST.get("phone") or "").strip() or None
             direccion = (request.POST.get("direccion") or "").strip()
             request.user.direccion = direccion
@@ -1015,28 +1253,30 @@ def profile(request):
             messages.success(request, "Celular y dirección actualizados.")
             return redirect("core:profile")
 
-        avatar = request.FILES.get('avatar')
+        avatar = request.FILES.get("avatar")
         if avatar:
             request.user.avatar = avatar
-            request.user.save(update_fields=['avatar'])
-            messages.success(request, 'Foto de perfil actualizada.')
-            return redirect('core:profile')
-        messages.warning(request, 'Selecciona una imagen para actualizar tu foto.')
-        return redirect('core:profile')
+            request.user.save(update_fields=["avatar"])
+            messages.success(request, "Foto de perfil actualizada.")
+            return redirect("core:profile")
+        if not request.POST.get("profile_password"):
+            messages.warning(request, "Selecciona una imagen para actualizar tu foto.")
+            return redirect("core:profile")
 
     direccion_perfil = (request.user.direccion or "").strip()
     if not direccion_perfil and estudiante_profile:
         direccion_perfil = (estudiante_profile.direccion or "").strip()
 
     context = {
-        'estudiante_profile': estudiante_profile,
-        'profesor_profile': profesor_profile,
-        'admin_escuela_profile': admin_escuela_profile,
-        'notificaciones_estudiante': notificaciones_estudiante,
-        'direccion_perfil': direccion_perfil,
+        "estudiante_profile": estudiante_profile,
+        "profesor_profile": profesor_profile,
+        "admin_escuela_profile": admin_escuela_profile,
+        "notificaciones_estudiante": notificaciones_estudiante,
+        "direccion_perfil": direccion_perfil,
+        "password_form": password_form,
     }
 
-    return render(request, 'core/profile_modern.html', context)
+    return render(request, "core/profile_modern.html", context)
 
 
 def get_user_modules(request):

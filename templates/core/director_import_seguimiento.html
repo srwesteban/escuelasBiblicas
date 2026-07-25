@@ -1,0 +1,349 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Importar seguimiento - Director{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl">
+    <nav class="text-sm text-stone-600 mb-4" aria-label="Miga de pan">
+        <a href="{% url 'core:director_dashboard' %}" class="font-medium text-amber-800 hover:underline">Director</a>
+        <span class="mx-1 text-stone-400" aria-hidden="true">/</span>
+        <span class="text-stone-700">Importar seguimiento</span>
+    </nav>
+
+    <header class="mb-8">
+        <h1 class="text-2xl font-semibold text-stone-900 tracking-tight">Importar seguimiento (Excel)</h1>
+        <p class="mt-2 text-stone-600 text-sm leading-relaxed max-w-3xl">
+            Elige la <strong>sede</strong> y sube el <strong>.xlsx</strong> (hasta <strong>{{ import_max_file_mb }} MB</strong>).
+            El texto de la oferta que ya viene en cada fila del Excel se compara con <strong>todas las ediciones activas</strong> de esa sede en la base de datos (no hace falta elegir escuela a mano).
+            Vista previa y análisis: primeras <strong>{{ import_preview_rows }}</strong> filas de datos.
+            <span class="block mt-1 text-stone-500 text-xs">Por defecto solo se analiza. Si marcas «Crear usuarios y matrículas», en el mismo envío se crean cuentas (usuario = documento, contraseña generada), perfil de estudiante en la sede y matrícula en la edición detectada.</span>
+        </p>
+    </header>
+
+    {% if errors %}
+    <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert" aria-live="assertive" id="import-errors">
+        <p class="font-medium">Revisa lo siguiente:</p>
+        <ul class="mt-2 list-disc pl-5 space-y-1">
+            {% for err in errors %}
+            <li>{{ err }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="space-y-10" aria-label="Pasos de importación">
+
+        <section class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm" aria-labelledby="step-sede-heading">
+            <h2 id="step-sede-heading" class="text-lg font-semibold text-stone-900">1. Sede</h2>
+            <p id="help-sede" class="mt-1 text-sm text-stone-600">
+                La sede acota estudiantes y ofertas en la base. Al continuar podrás subir el Excel; no requiere JavaScript.
+            </p>
+            <form method="get" action="{% url 'core:director_import_seguimiento' %}" class="mt-4 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+                <div class="flex-1 min-w-[12rem]">
+                    <label for="filtro-sede" class="block text-sm font-medium text-stone-700 mb-1">Sede</label>
+                    <select name="sede" id="filtro-sede" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-900 text-sm shadow-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500" aria-describedby="help-sede" required>
+                        <option value="">— Seleccionar —</option>
+                        {% for s in sedes %}
+                        <option value="{{ s.id }}" {% if selected_sede_id == s.id %}selected{% endif %}>{{ s.titulo_con_ciudad }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium w-full sm:w-auto shrink-0">
+                    Continuar
+                </button>
+            </form>
+        </section>
+
+        {% if sede_valida %}
+        <section class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm" aria-labelledby="step-archivo-heading">
+            <h2 id="step-archivo-heading" class="text-lg font-semibold text-stone-900">2. Archivo Excel</h2>
+            <p id="help-archivo" class="mt-1 text-sm text-stone-600">
+                Formato Excel 2007+ (<strong>.xlsx</strong>). La columna con el texto de la oferta (como en el formulario de inscripción o seguimiento) se usará para emparejar cada fila con una edición en sistema.
+            </p>
+            <p class="mt-2 text-sm text-stone-700" role="status">
+                <span class="font-medium">Ofertas en BD para esta sede:</span>
+                {% if escuelas_operativas_sede_count %}
+                <span class="tabular-nums">{{ escuelas_operativas_sede_count }}</span>
+                {% if escuelas_operativas_sede_count == 1 %}escuela operativa activa{% else %}escuelas operativas activas{% endif %}
+                (todas las escuelas operativas).
+                {% else %}
+                <span class="text-amber-800">ninguna aún</span> — configura estructura y ediciones en Hechos antes de importar.
+                {% endif %}
+            </p>
+
+            <form method="post" action="{% url 'core:director_import_seguimiento' %}?sede={{ selected_sede_id }}" enctype="multipart/form-data" class="mt-4 space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="sede" value="{{ selected_sede_id }}">
+
+                <div>
+                    <label for="id-archivo" class="block text-sm font-medium text-stone-700 mb-1">Archivo Excel</label>
+                    <input type="file" name="archivo" id="id-archivo" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="block w-full max-w-xl text-sm text-stone-600 file:mr-3 file:rounded-lg file:border-0 file:bg-amber-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-amber-900 hover:file:bg-amber-200" aria-describedby="help-archivo help-formato">
+                    <p id="help-formato" class="mt-1 text-xs text-stone-500">
+                        Máximo aprox. <strong>{{ import_max_file_mb }} MB</strong>. Primera hoja con fila de encabezados.
+                        Vista previa y análisis: hasta <strong>{{ import_preview_rows }}</strong> filas de datos.
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" name="ejecutar_importacion" value="1" checked class="mt-1 h-4 w-4 rounded border-amber-400 text-amber-800 focus:ring-amber-500">
+                        <span>
+                            <span class="font-medium text-amber-900">Crear usuarios y matrículas</span>
+                            <span class="block text-amber-900/90 text-xs mt-0.5 leading-relaxed">
+                                Por cada fila con edición emparejada y documento válido (6–10 dígitos): crea el usuario si no existe (contraseña aleatoria), perfil de estudiante en esta sede y matrícula activa en esa edición. Si el estudiante ya existe, solo asegura la matrícula. Las contraseñas nuevas se muestran una sola vez en la tabla de resultados.
+                            </span>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="rounded-xl border border-stone-300 bg-stone-50 px-4 py-3 text-sm text-stone-900">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" name="crear_ediciones_faltantes" value="1" class="mt-1 h-4 w-4 rounded border-stone-400 text-stone-800 focus:ring-stone-500">
+                        <span>
+                            <span class="font-medium text-stone-900">Si no hay match, crear oferta desde el Excel</span>
+                            <span class="block text-stone-700 text-xs mt-0.5 leading-relaxed">
+                                Usa el texto de la columna de oferta tal como viene en el archivo: crea o reutiliza un <strong>curso</strong> con ese nombre (núcleo sin «Presencial…») y una edición «Presencial · Excel» bajo la <strong>primera escuela operativa y primera ruta activa</strong> de esta sede. Así el mismo archivo puede matricular sin tener ya la edición cargada. Revisa en Hechos después (docente, fechas, escuela correcta si la sede tiene varias).
+                            </span>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="flex flex-wrap gap-3 pt-2">
+                    <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">
+                        Previsualizar y analizar
+                    </button>
+                    <a href="{% url 'core:director_import_seguimiento' %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center">
+                        Empezar de nuevo
+                    </a>
+                </div>
+            </form>
+        </section>
+        {% elif not selected_sede_id and not errors %}
+        <p class="text-sm text-stone-500 italic" role="status">Tras elegir una sede y pulsar «Continuar», podrás subir el archivo.</p>
+        {% endif %}
+
+        {% if preview %}
+        <section class="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-sm" aria-labelledby="preview-heading">
+            <h2 id="preview-heading" class="text-lg font-semibold text-stone-900">Vista previa</h2>
+            <p class="mt-1 text-sm text-stone-600">
+                Hoja «<span class="font-medium text-stone-800">{{ preview.sheet_name }}</span>».
+                Mostrando hasta {{ preview.preview_row_limit }} filas de datos.
+                {% if preview.has_more_rows %}Hay más filas en el archivo que no se muestran aquí.{% endif %}
+            </p>
+            <div class="mt-4 overflow-x-auto rounded-xl border border-stone-200 bg-white">
+                <table class="min-w-full text-left text-sm text-stone-800">
+                    <caption class="sr-only">Primeras filas del archivo importado</caption>
+                    <thead class="bg-stone-100 text-stone-700">
+                        <tr>
+                            {% for h in preview.headers %}
+                            <th scope="col" class="px-3 py-2 font-semibold border-b border-stone-200 whitespace-nowrap">{{ h|default:"—" }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in preview.rows %}
+                        <tr class="border-b border-stone-100 hover:bg-stone-50/80">
+                            {% for cell in row %}
+                            <td class="px-3 py-2 align-top max-w-[14rem] truncate" title="{{ cell }}">{{ cell|default:"—" }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td class="px-3 py-4 text-stone-500 italic" colspan="{{ preview.headers|length|default:1 }}">No hay filas de datos después del encabezado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if match_report and preview %}
+        <section class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm" aria-labelledby="analisis-heading">
+            <h2 id="analisis-heading" class="text-lg font-semibold text-stone-900">Análisis frente a la base de datos</h2>
+            <p class="mt-1 text-sm text-stone-600 max-w-3xl">
+                Cada fila: el <strong>texto de oferta del Excel</strong> se compara con <strong>todas las ediciones activas de la sede</strong>
+                (escuela operativa, curso, edición, horario, docente en sistema). El <strong>documento</strong> identifica al estudiante; si no existe aún y activaste la importación, se puede crear el usuario (mismo número como usuario de acceso) y la matrícula.
+                Las puntuaciones son orientativas; revisa advertencias y conflictos antes de importar.
+            </p>
+
+            {% if match_report.file_notes %}
+            <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="status">
+                <p class="font-medium text-amber-900">Sobre el archivo</p>
+                <ul class="mt-2 list-disc pl-5 space-y-1">
+                    {% for note in match_report.file_notes %}
+                    <li>{{ note }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="mt-4 flex flex-wrap gap-3 text-sm" aria-label="Resumen del análisis">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1 text-stone-800">
+                    <span class="font-medium">Ediciones en BD</span>
+                    <span class="tabular-nums">{{ match_report.ediciones_en_catalogo }}</span>
+                </span>
+                {% with st=match_report.status_counts %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-emerald-900">
+                    <span class="font-medium">Listas</span>
+                    <span class="tabular-nums">{{ st.ok }}</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-amber-900">
+                    <span class="font-medium">Revisar</span>
+                    <span class="tabular-nums">{{ st.warning }}</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-red-900">
+                    <span class="font-medium">Conflicto</span>
+                    <span class="tabular-nums">{{ st.error }}</span>
+                </span>
+                {% endwith %}
+            </div>
+
+            <div class="mt-4 text-sm text-stone-600">
+                <p class="font-medium text-stone-800">Columnas detectadas en el Excel</p>
+                <ul class="mt-1 list-disc pl-5 space-y-0.5">
+                    {% for h in preview.headers %}
+                        {% if match_report.column_documento == forloop.counter0 %}
+                        <li><span class="font-medium text-stone-800">Documento</span> — columna {{ forloop.counter }}: «{{ h }}»</li>
+                        {% endif %}
+                    {% endfor %}
+                    {% for h in preview.headers %}
+                        {% if match_report.column_nombre == forloop.counter0 %}
+                        <li><span class="font-medium text-stone-800">Nombre</span> — columna {{ forloop.counter }}: «{{ h }}»</li>
+                        {% endif %}
+                    {% endfor %}
+                    {% for h in preview.headers %}
+                        {% if match_report.column_escuela_texto == forloop.counter0 %}
+                        <li><span class="font-medium text-stone-800">Texto de oferta / escuela</span> — columna {{ forloop.counter }}: «{{ h }}»</li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+                {% if match_report.column_documento is None and match_report.column_nombre is None and match_report.column_escuela_texto is None %}
+                <p class="mt-1 italic text-stone-500">No se identificaron columnas conocidas por encabezado.</p>
+                {% endif %}
+            </div>
+
+            <div class="mt-6 overflow-x-auto rounded-xl border border-stone-200">
+                <table class="min-w-full text-left text-sm text-stone-800">
+                    <caption class="px-3 py-2 text-left text-sm font-medium text-stone-700 bg-stone-50 border-b border-stone-200">
+                        Coincidencia por fila (misma vista previa; máximo {{ preview.preview_row_limit }} filas analizadas{% if preview.has_more_rows %}; el archivo tiene más datos{% endif %})
+                    </caption>
+                    <thead class="bg-stone-100 text-stone-700">
+                        <tr>
+                            <th scope="col" class="px-3 py-2 font-semibold border-b border-stone-200 whitespace-nowrap">#</th>
+                            <th scope="col" class="px-3 py-2 font-semibold border-b border-stone-200 whitespace-nowrap">Estado</th>
+                            <th scope="col" class="px-3 py-2 font-semibold border-b border-stone-200 whitespace-nowrap">Documento</th>
+                            <th scope="col" class="px-3 py-2 font-semibold border-b border-stone-200 min-w-[8rem]">Nombre (Excel)</th>
+                            <th scope="col" class="px-3 py-2 font-semibold border-b border-stone-200 min-w-[12rem]">Oferta (Excel)</th>
+                            <th scope="col" class="px-3 py-2 font-semibold border-b border-stone-200 min-w-[12rem]">Edición en BD</th>
+                            <th scope="col" class="px-3 py-2 font-semibold border-b border-stone-200 min-w-[10rem]">Estudiante en BD</th>
+                            <th scope="col" class="px-3 py-2 font-semibold border-b border-stone-200 min-w-[10rem]">Notas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rowm in match_report.rows %}
+                        <tr class="border-b border-stone-100 align-top hover:bg-stone-50/80">
+                            <td class="px-3 py-2 tabular-nums text-stone-600">{{ rowm.row_number }}</td>
+                            <td class="px-3 py-2">
+                                {% if rowm.status == 'ok' %}
+                                <span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900" title="Coincidencias aceptables">Lista</span>
+                                {% elif rowm.status == 'warning' %}
+                                <span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900" title="Revisar antes de importar">Revisar</span>
+                                {% else %}
+                                <span class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-900" title="Requiere corrección o datos en sistema">Conflicto</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 font-mono text-xs">{{ rowm.doc_excel|default:"—" }}</td>
+                            <td class="px-3 py-2 max-w-[14rem]">{{ rowm.nombre_excel|default:"—" }}</td>
+                            <td class="px-3 py-2 max-w-[16rem] text-xs text-stone-700" title="{{ rowm.escuela_texto_excel }}">{{ rowm.escuela_texto_excel|truncatechars:80|default:"—" }}</td>
+                            <td class="px-3 py-2 text-xs">
+                                {% if rowm.edicion %}
+                                <span class="font-medium text-stone-900">{{ rowm.edicion.label }}</span>
+                                <span class="block text-stone-500 mt-0.5">Puntuación {{ rowm.edicion.score }}</span>
+                                {% if rowm.edicion_alternativas %}
+                                <span class="block mt-1 text-stone-500">Otras: {% for alt in rowm.edicion_alternativas %}{{ alt.label }} ({{ alt.score }}){% if not forloop.last %}; {% endif %}{% endfor %}</span>
+                                {% endif %}
+                                {% else %}
+                                <span class="text-stone-500">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 text-xs">
+                                {% if rowm.estudiante_id %}
+                                <span class="font-medium text-stone-900">{{ rowm.estudiante_nombre }}</span>
+                                <span class="block text-stone-500">id {{ rowm.estudiante_id }}</span>
+                                {% else %}
+                                <span class="text-stone-500">Aún no en BD (importable)</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 text-xs text-stone-600">
+                                {% if rowm.notes %}
+                                <ul class="list-disc pl-4 space-y-0.5">
+                                    {% for n in rowm.notes %}
+                                    <li>{{ n }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}—{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if import_exec_report and preview %}
+        <section class="rounded-2xl border border-emerald-300 bg-emerald-50/50 p-6 shadow-sm" aria-labelledby="import-result-heading">
+            <h2 id="import-result-heading" class="text-lg font-semibold text-emerald-950">Resultado de la importación</h2>
+            <p class="mt-1 text-sm text-emerald-900/90 max-w-3xl">
+                Credenciales nuevas solo se muestran aquí. Copia o comunica con seguridad; no se almacenan en claro.
+            </p>
+            {% with ic=import_exec_report.status_counts %}
+            <div class="mt-3 flex flex-wrap gap-2 text-xs">
+                <span class="rounded-full bg-white/80 px-2.5 py-1 text-emerald-900 border border-emerald-200">Nuevas credenciales: <strong class="tabular-nums">{{ ic.created }}</strong></span>
+                <span class="rounded-full bg-white/80 px-2.5 py-1 text-emerald-900 border border-emerald-200">Matrícula / ya existía: <strong class="tabular-nums">{{ ic.matricula_ok }}</strong></span>
+                <span class="rounded-full bg-white/80 px-2.5 py-1 text-emerald-900 border border-emerald-200">Omitidas: <strong class="tabular-nums">{{ ic.skipped }}</strong></span>
+                <span class="rounded-full bg-white/80 px-2.5 py-1 text-red-900 border border-red-200">Errores: <strong class="tabular-nums">{{ ic.error }}</strong></span>
+            </div>
+            {% endwith %}
+            <div class="mt-4 overflow-x-auto rounded-xl border border-emerald-200 bg-white">
+                <table class="min-w-full text-left text-sm text-stone-800">
+                    <thead class="bg-emerald-100/80 text-emerald-950">
+                        <tr>
+                            <th class="px-3 py-2 font-semibold border-b border-emerald-200">#</th>
+                            <th class="px-3 py-2 font-semibold border-b border-emerald-200">Estado</th>
+                            <th class="px-3 py-2 font-semibold border-b border-emerald-200">Documento</th>
+                            <th class="px-3 py-2 font-semibold border-b border-emerald-200">Documento (login)</th>
+                            <th class="px-3 py-2 font-semibold border-b border-emerald-200">Contraseña</th>
+                            <th class="px-3 py-2 font-semibold border-b border-emerald-200">Mensaje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ir in import_exec_report.rows %}
+                        <tr class="border-b border-stone-100 align-top">
+                            <td class="px-3 py-2 tabular-nums text-stone-600">{{ ir.row_number }}</td>
+                            <td class="px-3 py-2 text-xs">
+                                {% if ir.status == 'created' %}
+                                <span class="rounded-full bg-emerald-200 px-2 py-0.5 font-medium text-emerald-950">Credenciales nuevas</span>
+                                {% elif ir.status == 'matricula_ok' %}
+                                <span class="rounded-full bg-sky-100 px-2 py-0.5 font-medium text-sky-950">Matrícula</span>
+                                {% elif ir.status == 'skipped' %}
+                                <span class="rounded-full bg-stone-100 px-2 py-0.5 text-stone-700">Omitida</span>
+                                {% else %}
+                                <span class="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-900">Error</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 font-mono text-xs">{{ ir.doc_excel|default:"—" }}</td>
+                            <td class="px-3 py-2 font-mono text-xs">{{ ir.username|default:"—" }}</td>
+                            <td class="px-3 py-2 font-mono text-xs break-all">{% if ir.password_plain %}<span class="select-all">{{ ir.password_plain }}</span>{% else %}—{% endif %}</td>
+                            <td class="px-3 py-2 text-xs text-stone-600">{{ ir.message }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

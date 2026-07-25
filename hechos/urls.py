@@ -21,12 +21,17 @@ urlpatterns = [
     ),
     path('coordinacion/logistica/', views.coordinador_logistica, name='coordinador_logistica'),
     path('escuelas/', views.escuelas_disponibles, name='escuelas_disponibles'),
+    path(
+        'escuelas/por-escuela/<int:escuela_id>/solicitar-matricula/',
+        views.solicitar_matricula_escuela,
+        name='solicitar_matricula_escuela',
+    ),
     path('quejas-reclamos/', views.quejas_reclamos, name='quejas_reclamos'),
     path('escuelas/<int:edicion_id>/solicitar-matricula/', views.solicitar_matricula, name='solicitar_matricula'),
     path('estructura/', views.estructura_ediciones, name='estructura_ediciones'),
     path('estructura/escuela/<int:escuela_id>/', views.estructura_escuela_portal, name='estructura_escuela'),
     path(
-        'estructura/edicion/<int:edicion_id>/paso/<int:step>/',
+        'estructura/escuela/<int:escuela_id>/paso/<int:step>/',
         views.estructura_configurar_paso,
         name='estructura_configurar',
     ),
@@ -66,8 +71,14 @@ urlpatterns = [
     
     # Estudiantes
     path('estudiantes/', views.estudiantes_list, name='estudiantes_list'),
+    path('estudiantes/por-sede/', views.estudiantes_listado_por_sede, name='estudiantes_listado_por_sede'),
     path('estudiantes/crear/', views.crear_estudiante, name='crear_estudiante'),
     path('estudiantes/<int:estudiante_id>/', views.detalle_estudiante, name='detalle_estudiante'),
+    path(
+        'estudiantes/<int:estudiante_id>/resumen/',
+        views.estudiante_resumen_fragment,
+        name='estudiante_resumen_fragment',
+    ),
     path('estudiantes/<int:estudiante_id>/editar/', views.editar_estudiante, name='editar_estudiante'),
     path('estudiantes/<int:estudiante_id>/eliminar/', views.eliminar_estudiante, name='eliminar_estudiante'),
     
@@ -86,6 +97,16 @@ urlpatterns = [
     path('cursos/<int:curso_id>/eliminar/', views.eliminar_curso, name='eliminar_curso'),
     path('cursos/<int:curso_id>/asistencia/', views.tomar_asistencia_curso, name='tomar_asistencia_curso'),
     path('cursos/matricular/', views.matricular_estudiante, name='matricular_estudiante'),
+    path(
+        'cursos/matricular/buscar-doc/',
+        views.buscar_estudiante_doc_matricula,
+        name='buscar_estudiante_doc_matricula',
+    ),
+    path(
+        'cursos/matricular/sugerencias-doc/',
+        views.sugerencias_estudiante_doc_matricula,
+        name='sugerencias_estudiante_doc_matricula',
+    ),
     
     # Rutas de Estudio
     path('rutas-estudio/', views.rutas_estudio_list, name='rutas_estudio_list'),
@@ -101,7 +122,22 @@ urlpatterns = [
         views.profesor_bandeja_entregas,
         name='profesor_bandeja_entregas',
     ),
+    path(
+        'profesor/solicitudes-matricula/',
+        views.profesor_solicitudes_matricula,
+        name='profesor_solicitudes_matricula',
+    ),
     path('profesor/mis-escuelas/', views.clases_list, name='mis_escuelas_profesor'),
+    path(
+        'profesor/crear-instancia-escuela/',
+        views.profesor_crear_instancia_escuela,
+        name='profesor_crear_instancia_escuela',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/dar-de-baja/',
+        views.profesor_escuela_dar_de_baja,
+        name='profesor_escuela_dar_de_baja',
+    ),
     path(
         'profesor/escuelas/<int:escuela_id>/actividad/<int:actividad_id>/entregas/<int:entrega_id>/archivo/',
         views.profesor_descargar_entrega_archivo,
@@ -128,6 +164,11 @@ urlpatterns = [
         name='profesor_escuela_estudiantes',
     ),
     path(
+        'profesor/escuelas/<int:escuela_id>/estudiantes/<int:estudiante_id>/quitar-matricula/',
+        views.profesor_escuela_estudiante_quitar_matricula,
+        name='profesor_escuela_estudiante_quitar_matricula',
+    ),
+    path(
         'profesor/escuelas/<int:escuela_id>/asistencia/',
         views.profesor_escuela_asistencia_panel,
         name='profesor_escuela_asistencia_panel',
@@ -136,6 +177,56 @@ urlpatterns = [
         'profesor/escuelas/<int:escuela_id>/asistencia/excel/',
         views.profesor_escuela_asistencia_excel,
         name='profesor_escuela_asistencia_excel',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/asistencia/excel-formato/',
+        views.profesor_escuela_asistencia_excel_formato,
+        name='profesor_escuela_asistencia_excel_formato',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/asistencia/importar-excel/',
+        views.profesor_escuela_asistencia_import_excel,
+        name='profesor_escuela_asistencia_import_excel',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/asistencia/agregar-sesion/',
+        views.profesor_escuela_asistencia_agregar_sesion,
+        name='profesor_escuela_asistencia_agregar_sesion',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/asistencia/quitar-sesion/',
+        views.profesor_escuela_asistencia_quitar_sesion,
+        name='profesor_escuela_asistencia_quitar_sesion',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/notas-grilla/',
+        views.profesor_escuela_notas_panel,
+        name='profesor_escuela_notas_panel',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/notas-grilla/excel/',
+        views.profesor_escuela_notas_excel,
+        name='profesor_escuela_notas_excel',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/notas-grilla/excel-formato/',
+        views.profesor_escuela_notas_excel_formato,
+        name='profesor_escuela_notas_excel_formato',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/notas-grilla/importar-excel/',
+        views.profesor_escuela_notas_import_excel,
+        name='profesor_escuela_notas_import_excel',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/notas-grilla/agregar-nota/',
+        views.profesor_escuela_notas_agregar_columna,
+        name='profesor_escuela_notas_agregar_columna',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/notas-grilla/quitar-nota/',
+        views.profesor_escuela_notas_quitar_columna,
+        name='profesor_escuela_notas_quitar_columna',
     ),
     path(
         'profesor/escuelas/<int:escuela_id>/estudiantes/<int:estudiante_id>/notas/',

@@ -10,6 +10,7 @@ from hechos.models import (
     AdminEscuela,
     CapacidadCoordinador,
     Estudiante,
+    Profesor,
     Escuela,
     EscuelaPrograma,
     EscuelaProgramaPlantilla,
@@ -27,40 +28,40 @@ def _normalize_and_validate_documento_plausible(raw: str, tipo: str) -> str:
     tipo = (tipo or Estudiante.TipoDocumento.CC).strip() or Estudiante.TipoDocumento.CC
     s = (raw or "").strip()
     if not s:
-        raise forms.ValidationError("El numero de documento es obligatorio.")
+        raise forms.ValidationError("El número de documento es obligatorio.")
 
     if tipo in (Estudiante.TipoDocumento.CC, Estudiante.TipoDocumento.TI):
         digits = re.sub(r"[\s.\-]", "", s)
         if not digits.isdigit():
             raise forms.ValidationError(
-                "Para cedula o tarjeta de identidad use solo numeros (puede usar puntos o espacios)."
+                "El número de documento solo puede contener dígitos (puede usar puntos o espacios como separadores)."
             )
         if len(digits) < 6 or len(digits) > 10:
             raise forms.ValidationError(
-                "La cedula o TI debe tener entre 6 y 10 digitos."
+                "El número de documento debe tener entre 6 y 10 dígitos."
             )
         if len(set(digits)) == 1:
-            raise forms.ValidationError("Ese valor no parece un documento valido.")
+            raise forms.ValidationError("Ese número de documento no parece válido.")
         return digits
 
     if tipo == Estudiante.TipoDocumento.CE:
         cleaned = re.sub(r"[\s.\-]", "", s).upper()
         if not re.fullmatch(r"[A-Z0-9]{3,12}", cleaned):
             raise forms.ValidationError(
-                "La cedula de extranjeria debe tener entre 3 y 12 letras o numeros, sin caracteres raros."
+                "El número de documento debe tener entre 3 y 12 letras o números, sin caracteres especiales."
             )
         if len(set(cleaned)) == 1:
-            raise forms.ValidationError("Ese valor no parece un documento valido.")
+            raise forms.ValidationError("Ese número de documento no parece válido.")
         return cleaned
 
     # Pasaporte
     cleaned = re.sub(r"\s+", "", s).upper()
     if not re.fullmatch(r"[A-Z0-9]{5,14}", cleaned):
         raise forms.ValidationError(
-            "El pasaporte debe tener entre 5 y 14 letras o numeros."
+            "El número de documento debe tener entre 5 y 14 letras o números."
         )
     if len(set(cleaned)) == 1:
-        raise forms.ValidationError("Ese valor no parece un documento valido.")
+        raise forms.ValidationError("Ese número de documento no parece válido.")
     return cleaned
 
 
@@ -120,6 +121,9 @@ class StudentSignupForm(SignupForm):
         )
         if "username" in self.fields:
             self.fields["username"].label = "Numero de documento"
+        for _pw in ("password1", "password2"):
+            if _pw in self.fields:
+                self.fields[_pw].help_text = ""
 
     def clean_username(self):
         tipo = (self.data.get("tipo_documento") or "").strip() or Estudiante.TipoDocumento.CC
@@ -385,27 +389,24 @@ class EscuelaSedeBasicaForm(forms.ModelForm):
         if self.instance.pk:
             anio = self.instance.anio
             ciclo = self.instance.ciclo
-            grupo = self.instance.grupo
         else:
             anio = default_anio_escuela()
             ciclo = Escuela.Ciclo.A
-            grupo = 1
         qs = Escuela.objects.filter(
             sede=self.sede,
             nombre__iexact=nombre,
             anio=anio,
             ciclo=ciclo,
-            grupo=grupo,
             is_active=True,
         )
         if self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
             if self.instance.pk:
-                msg = "Ya existe otra escuela con el mismo nombre, año, ciclo y grupo en esta sede."
+                msg = "Ya existe otra escuela con el mismo nombre, año y ciclo en esta sede."
             else:
                 msg = (
-                    "Ya existe una escuela con el mismo nombre para el año en curso, ciclo A y grupo 1. "
+                    "Ya existe una escuela con el mismo nombre para el año en curso y ciclo A. "
                     "Usa otro nombre o revisa si la escuela anterior sigue activa."
                 )
             self.add_error(None, msg)
@@ -815,7 +816,13 @@ class EscuelaProgramaPlantillaForm(forms.Form):
         help_text="Solo números enteros, sin decimales.",
     )
 
-    def __init__(self, *args, checkbox_js_class="js-programa-tiene-matricula", **kwargs):
+    def __init__(
+        self,
+        *args,
+        checkbox_js_class="js-programa-tiene-matricula",
+        nivel_plantilla_queryset=None,
+        **kwargs,
+    ):
         self._checkbox_js_class = checkbox_js_class
         super().__init__(*args, **kwargs)
         input_class = (
@@ -823,8 +830,11 @@ class EscuelaProgramaPlantillaForm(forms.Form):
             "text-slate-900 shadow-sm transition focus:border-stone-500 "
             "focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200"
         )
+        nq = nivel_plantilla_queryset
+        if nq is None:
+            nq = NivelProgramaPlantilla.objects.order_by("jerarquia", "nombre")
         np = forms.ModelChoiceField(
-            queryset=NivelProgramaPlantilla.objects.order_by("jerarquia", "nombre"),
+            queryset=nq,
             label="Nivel",
             empty_label=None,
         )
@@ -911,6 +921,7 @@ class EscuelaProgramaPlantillaEditForm(forms.Form):
         escuela_plantilla_pk=None,
         prefix="programa_edit",
         checkbox_js_class="js-programa-edit-tiene-matricula",
+        nivel_plantilla_queryset=None,
         **kwargs,
     ):
         self.escuela_plantilla_pk = escuela_plantilla_pk
@@ -921,8 +932,11 @@ class EscuelaProgramaPlantillaEditForm(forms.Form):
             "text-slate-900 shadow-sm transition focus:border-stone-500 "
             "focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200"
         )
+        nq = nivel_plantilla_queryset
+        if nq is None:
+            nq = NivelProgramaPlantilla.objects.order_by("jerarquia", "nombre")
         np = forms.ModelChoiceField(
-            queryset=NivelProgramaPlantilla.objects.order_by("jerarquia", "nombre"),
+            queryset=nq,
             label="Nivel",
             empty_label=None,
         )
@@ -1292,3 +1306,141 @@ class CoordinadorForm(forms.Form):
             )
 
         return admin_profile
+
+
+class DirectorProfesorEditForm(forms.Form):
+    """
+    Edición de profesor desde la consola del director (todas las sedes).
+    """
+
+    first_name = forms.CharField(max_length=150, label="Nombre")
+    last_name = forms.CharField(max_length=150, label="Apellido")
+    email = forms.EmailField(label="Correo electrónico")
+    phone = forms.CharField(max_length=20, required=False, label="Celular")
+    tipo_documento = forms.ChoiceField(
+        choices=[("", "Sin especificar")] + list(User.TipoDocumento.choices),
+        required=False,
+        label="Tipo de documento",
+    )
+    documento_identidad = forms.CharField(
+        max_length=32,
+        required=False,
+        label="Número de documento",
+    )
+    sede = forms.ModelChoiceField(
+        queryset=Sede.objects.none(),
+        required=False,
+        label="Sede",
+        empty_label="Sin sede asignada",
+    )
+    especialidad = forms.CharField(max_length=200, required=False, label="Especialidad")
+    experiencia_anos = forms.IntegerField(
+        min_value=0,
+        max_value=80,
+        required=False,
+        label="Años de experiencia",
+    )
+    biografia = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 4}),
+        required=False,
+        label="Biografía",
+    )
+    is_active = forms.BooleanField(required=False, label="Perfil activo")
+    password1 = forms.CharField(
+        widget=forms.PasswordInput(render_value=False),
+        required=False,
+        label="Nueva contraseña",
+    )
+    password2 = forms.CharField(
+        widget=forms.PasswordInput(render_value=False),
+        required=False,
+        label="Confirmar contraseña",
+    )
+
+    def __init__(self, *args, user_instance, **kwargs):
+        self.user_instance = user_instance
+        super().__init__(*args, **kwargs)
+        self.fields["sede"].queryset = Sede.objects.filter(is_active=True).order_by("nombre")
+        ctrl = (
+            "mt-1 block w-full rounded-lg border border-stone-300 px-3 py-2 "
+            "text-sm text-stone-900 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+        )
+        for fname in (
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "documento_identidad",
+            "especialidad",
+            "experiencia_anos",
+            "password1",
+            "password2",
+        ):
+            self.fields[fname].widget.attrs.setdefault("class", ctrl)
+        self.fields["biografia"].widget.attrs.setdefault("class", ctrl)
+        self.fields["tipo_documento"].widget.attrs.setdefault("class", ctrl)
+        self.fields["sede"].widget.attrs.setdefault("class", ctrl)
+        self.fields["is_active"].widget.attrs.setdefault(
+            "class", "h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500"
+        )
+
+    def clean_email(self):
+        email = (self.cleaned_data.get("email") or "").strip()
+        if not email:
+            raise forms.ValidationError("El correo es obligatorio.")
+        if (
+            User.objects.filter(email__iexact=email)
+            .exclude(pk=self.user_instance.pk)
+            .exists()
+        ):
+            raise forms.ValidationError("Ya existe otro usuario con ese correo.")
+        return email
+
+    def clean_documento_identidad(self):
+        raw = (self.cleaned_data.get("documento_identidad") or "").strip()
+        if not raw:
+            return ""
+        tipo = (self.cleaned_data.get("tipo_documento") or "").strip() or User.TipoDocumento.CC
+        normalized = _normalize_and_validate_documento_plausible(raw, tipo)
+        dup = (
+            User.objects.filter(documento_identidad=normalized)
+            .exclude(pk=self.user_instance.pk)
+            .exists()
+        )
+        if dup:
+            raise forms.ValidationError("Ese documento ya está registrado en otro usuario.")
+        return normalized
+
+    def clean(self):
+        data = super().clean()
+        p1 = (data.get("password1") or "").strip()
+        p2 = (data.get("password2") or "").strip()
+        if p1 or p2:
+            if p1 != p2:
+                raise forms.ValidationError("Las contraseñas no coinciden.")
+            if len(p1) < 8:
+                raise forms.ValidationError("La contraseña debe tener al menos 8 caracteres.")
+        return data
+
+    def apply_to(self, profesor: Profesor) -> None:
+        data = self.cleaned_data
+        u = profesor.user
+        u.first_name = (data["first_name"] or "").strip()
+        u.last_name = (data["last_name"] or "").strip()
+        u.email = data["email"]
+        u.phone = (data.get("phone") or "").strip() or None
+        tipo = (data.get("tipo_documento") or "").strip() or User.TipoDocumento.CC
+        u.tipo_documento = tipo
+        doc = data.get("documento_identidad") or ""
+        u.documento_identidad = doc or None
+        pwd = (data.get("password1") or "").strip()
+        if pwd:
+            u.set_password(pwd)
+        u.save()
+
+        profesor.sede = data.get("sede")
+        profesor.especialidad = (data.get("especialidad") or "").strip()
+        profesor.experiencia_anos = int(data.get("experiencia_anos") or 0)
+        profesor.biografia = (data.get("biografia") or "").strip()
+        profesor.is_active = bool(data.get("is_active"))
+        profesor.save()

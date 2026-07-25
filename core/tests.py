@@ -278,3 +278,87 @@ class DirectorInterfaceTests(TestCase):
         sede = Sede.objects.get(nombre="Hechos Centro")
         self.assertRedirects(response, reverse("core:director_sede_detail", args=[sede.id]))
         self.assertEqual(PastorSede.objects.filter(sede=sede).count(), 2)
+
+    def test_director_profesores_list(self):
+        from hechos.models import Profesor
+
+        sede = Sede.objects.create(
+            nombre="Hechos ProfTest",
+            direccion="Dir",
+            departamento="5",
+            ciudad="Pasto",
+            is_active=True,
+        )
+        u = User.objects.create_user(
+            username="prof_e2e",
+            email="prof_e2e@example.com",
+            password="pwd12345!!",
+            first_name="Luis",
+            last_name="Maestro",
+            role="user",
+        )
+        Profesor.objects.create(user=u, sede=sede, is_active=True)
+        self.client.force_login(self.director)
+        response = self.client.get(reverse("core:director_profesores"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Luis")
+
+    def test_director_profesor_edit_updates_fields(self):
+        from hechos.models import Profesor
+
+        sede = Sede.objects.create(
+            nombre="Hechos EditPy",
+            direccion="Dir",
+            departamento="5",
+            ciudad="Cali",
+            is_active=True,
+        )
+        u = User.objects.create_user(
+            username="prof_edit_1",
+            email="prof_edit_1@example.com",
+            password="pwd12345!!",
+            first_name="Ana",
+            last_name="Pérez",
+            role="user",
+            documento_identidad="1234567890",
+            tipo_documento=User.TipoDocumento.CC,
+        )
+        p = Profesor.objects.create(user=u, sede=sede, is_active=True, especialidad="")
+        self.client.force_login(self.director)
+        url = reverse("core:director_profesor_edit", args=[p.id])
+        post_data = {
+            "first_name": "Ana",
+            "last_name": "García",
+            "email": "prof_edit_1@example.com",
+            "phone": "3001234567",
+            "tipo_documento": User.TipoDocumento.CC,
+            "documento_identidad": "1234567890",
+            "sede": str(sede.id),
+            "especialidad": "Biblia",
+            "experiencia_anos": "3",
+            "biografia": "",
+            "is_active": "on",
+            "password1": "",
+            "password2": "",
+        }
+        response = self.client.post(url, post_data, follow=False)
+        self.assertRedirects(response, reverse("core:director_profesores"))
+        u.refresh_from_db()
+        self.assertEqual(u.last_name, "García")
+        self.assertEqual(u.phone, "3001234567")
+        p.refresh_from_db()
+        self.assertEqual(p.especialidad, "Biblia")
+        self.assertEqual(p.experiencia_anos, 3)
+
+    def test_non_director_cannot_open_director_profesores(self):
+        other = User.objects.create_user(
+            username="norm_user",
+            email="norm@example.com",
+            password="pwd12345!!",
+            first_name="N",
+            last_name="U",
+            role="user",
+        )
+        self.client.force_login(other)
+        response = self.client.get(reverse("core:director_profesores"))
+        self.assertEqual(response.status_code, 302)

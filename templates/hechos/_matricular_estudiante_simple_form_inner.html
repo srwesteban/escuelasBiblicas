@@ -1,0 +1,55 @@
+<form method="post" {% if matricular_form_action %}action="{{ matricular_form_action }}"{% endif %} class="card p-5 sm:p-6 border-stone-200 space-y-6" id="form-matricula-escuela{{ matricular_field_id_suffix|default:'' }}" autocomplete="off">
+    {% csrf_token %}
+    <input type="hidden" name="matricula_escuela_simple" value="1">
+    <input type="hidden" name="escuela_matricular" value="{{ escuela_matricular.id }}">
+    {% if matricular_embed %}
+    <input type="hidden" name="matricular_embed" value="1">
+    <input type="hidden" name="matricular_return_url" value="{{ matricular_return_url }}">
+    {% endif %}
+    <div>
+        <label for="numero_documento{{ matricular_field_id_suffix|default:'' }}" class="block text-sm font-semibold text-stone-800">Documento</label>
+        <p class="text-xs text-stone-500 mt-0.5 mb-2">Escribe el inicio del documento: aparecerá una lista en todo el sistema; elige una persona o usa matrícula manual. <span class="font-medium text-stone-600">3 a 15</span> caracteres (letras o números).</p>
+        <div class="relative mt-1">
+            <input type="text" name="numero_documento" id="numero_documento{{ matricular_field_id_suffix|default:'' }}" required
+                   placeholder="Ej. 1085…"
+                   maxlength="15"
+                   inputmode="text"
+                   spellcheck="false"
+                   autocorrect="off"
+                   autocomplete="off"
+                   class="input matricula-input w-full"
+                   aria-autocomplete="list"
+                   aria-controls="doc-sugerencias-list{{ matricular_field_id_suffix|default:'' }}"
+                   aria-expanded="false">
+            <ul id="doc-sugerencias-list{{ matricular_field_id_suffix|default:'' }}" class="doc-suggest-panel doc-suggest-panel-root hidden" role="listbox" aria-label="Estudiantes sugeridos"></ul>
+        </div>
+        <p id="doc-buscando{{ matricular_field_id_suffix|default:'' }}" class="hidden mt-1.5 flex items-center gap-2 text-xs text-stone-500" role="status" aria-live="polite" aria-atomic="true">
+            <span class="inline-block h-3.5 w-3.5 shrink-0 rounded-full border-2 border-stone-200 border-t-emerald-600 animate-spin" aria-hidden="true"></span>
+            <span>Buscando coincidencias…</span>
+        </p>
+        <p id="doc-feedback{{ matricular_field_id_suffix|default:'' }}" class="mt-2 text-sm hidden rounded-lg px-3 py-2" role="status" aria-live="polite"></p>
+        <div id="manual-matricula-block{{ matricular_field_id_suffix|default:'' }}" class="mt-3 hidden rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3 text-sm text-stone-700">
+            <p class="font-medium text-stone-900">Matrícula manual</p>
+            <p class="mt-1 text-xs text-stone-600">No hay coincidencias con ese prefijo. Escribe el <span class="font-medium">nombre completo</span> abajo y envía: se registrará al matricular si el documento es nuevo.</p>
+        </div>
+    </div>
+
+    <div>
+        <label for="nombre_completo{{ matricular_field_id_suffix|default:'' }}" class="block text-sm font-semibold text-stone-800">Nombre completo</label>
+        <p class="text-xs text-stone-500 mt-0.5 mb-2">Obligatorio si el documento es nuevo o si no elegiste a alguien de la lista.</p>
+        <input type="text" name="nombre_completo" id="nombre_completo{{ matricular_field_id_suffix|default:'' }}" autocomplete="name"
+               placeholder="Apellidos y nombres"
+               class="input matricula-input w-full mt-1">
+    </div>
+
+    <div class="flex flex-wrap gap-3 pt-1 border-t border-stone-100">
+        <button type="submit" class="btn-primary px-5 py-2.5 text-sm font-medium inline-flex items-center">
+            <i class="fas fa-user-plus mr-2"></i>Matricular
+        </button>
+        {% if matricular_form_en_modal %}
+        <button type="button" class="matricular-modal-btn-cancelar btn-outline px-5 py-2.5 text-sm font-medium">Cancelar</button>
+        {% else %}
+        <a href="{{ matricular_cancel_url }}" {% if matricular_embed %}target="_top"{% endif %} class="btn-outline px-5 py-2.5 text-sm font-medium">Cancelar</a>
+        {% endif %}
+    </div>
+</form>

@@ -23,10 +23,10 @@
                     <div>
                         <h3 class="font-semibold text-gray-900">{{ s.estudiante.user.get_full_name }}</h3>
                         <p class="text-sm text-gray-600 mt-1">
-                            {{ s.edicion_curso.curso.nombre }} · {{ s.edicion_curso.nombre_edicion }}
+                            {{ s.escuela.nombre }}
                         </p>
                         <p class="text-xs text-gray-500 mt-1">
-                            {{ s.edicion_curso.curso.escuela.nombre }} · {{ s.fecha_solicitud|date:"d/m/Y H:i" }}
+                            {{ s.sede.nombre|default:"—" }} · {{ s.fecha_solicitud|date:"d/m/Y H:i" }}
                         </p>
                     </div>
                     <span class="badge badge-warning">Pendiente</span>
@@ -66,7 +66,7 @@
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <p class="font-medium text-gray-900">{{ s.estudiante.user.get_full_name }}</p>
-                        <p class="text-sm text-gray-600">{{ s.edicion_curso.curso.nombre }} · {{ s.edicion_curso.nombre_edicion }}</p>
+                        <p class="text-sm text-gray-600">{{ s.escuela.nombre }}</p>
                         <p class="text-xs text-gray-500 mt-1">{{ s.fecha_revision|date:"d/m/Y H:i" }}</p>
                     </div>
                     {% if s.estado == 'aprobada' %}

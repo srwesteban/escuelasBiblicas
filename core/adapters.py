@@ -11,7 +11,10 @@ class StudentAccountAdapter(DefaultAccountAdapter):
         extra_tags="",
         message=None,
     ):
-        if message_template == "account/messages/logged_out.txt":
+        if message_template in (
+            "account/messages/logged_in.txt",
+            "account/messages/logged_out.txt",
+        ):
             return
         return super().add_message(
             request,

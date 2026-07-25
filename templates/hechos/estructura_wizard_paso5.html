@@ -30,7 +30,6 @@
                 </p>
                 <p class="text-sm text-slate-700 mt-2">
                     <span class="font-medium text-slate-900">{{ ciclo_label }}</span>
-                    · Grupo <span class="font-medium text-slate-900">{{ escuela.grupo }}</span>
                     · Año de referencia <span class="font-medium text-slate-900">{{ escuela.anio }}</span>
                 </p>
             </section>
@@ -58,10 +57,10 @@
             </section>
 
             <section class="rounded-xl border border-stone-200 p-5 bg-white">
-                <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">Sesiones en el calendario</p>
+                <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">Clases en el calendario</p>
                 <p class="text-sm text-slate-700">
                     En el período indicado:
-                    <span class="font-semibold text-slate-900">{{ num_clases }} sesiones</span> según los días elegidos.
+                    <span class="font-semibold text-slate-900">{{ num_clases }} clases</span> según los días elegidos.
                 </p>
                 {% if fechas_preview %}
                 <p class="text-xs text-slate-500 mt-2">Primeras fechas:</p>

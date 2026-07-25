@@ -1,0 +1,84 @@
+{# Confirmación antes de enviar un POST (sustituye window.confirm). Estilo cercano a diálogos tipo Office/Excel. #}
+<div id="modal-confirmar-post" class="fixed inset-0 z-[115] hidden" role="dialog" aria-modal="true" aria-labelledby="modal-confirmar-post-titulo" aria-hidden="true">
+    <button type="button" id="modal-confirmar-post-backdrop" class="absolute inset-0 w-full h-full border-0 bg-black/40 cursor-default backdrop-blur-[1px]" aria-label="Cerrar"></button>
+    <div class="absolute z-10 inset-x-4 top-[max(1rem,8vh)] sm:left-1/2 sm:-translate-x-1/2 w-full max-w-md rounded-sm border border-neutral-400 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.18)] overflow-hidden flex flex-col"
+         style="font-family: 'Segoe UI', ui-sans-serif, system-ui, sans-serif;">
+        <div class="px-4 py-2.5 text-white text-sm font-semibold tracking-tight flex items-center gap-2"
+             style="background: linear-gradient(180deg, #107C41 0%, #0d6635 100%);">
+            <i class="fas fa-table text-xs opacity-90" aria-hidden="true"></i>
+            <span id="modal-confirmar-post-titulo" role="heading" aria-level="2">Confirmar</span>
+        </div>
+        <div class="px-4 py-4 sm:px-5 sm:py-5 bg-white">
+            <p id="modal-confirmar-post-texto" class="text-sm text-neutral-800 leading-relaxed whitespace-pre-line"></p>
+        </div>
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-4 py-3 sm:px-5 bg-[#f3f3f3] border-t border-neutral-300">
+            <button type="button" id="modal-confirmar-post-cancelar"
+                    class="w-full sm:w-auto rounded-sm border border-neutral-400 bg-white px-4 py-2.5 text-sm font-normal text-neutral-900 hover:bg-neutral-50 min-h-[44px] shadow-sm">
+                Cancelar
+            </button>
+            <button type="button" id="modal-confirmar-post-aceptar"
+                    class="w-full sm:w-auto rounded-sm border border-[#8b0000] bg-[#c42b1c] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#a82418] min-h-[44px] shadow-sm">
+                Aceptar
+            </button>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    'use strict';
+    var modal = document.getElementById('modal-confirmar-post');
+    if (!modal) return;
+    var titulo = document.getElementById('modal-confirmar-post-titulo');
+    var texto = document.getElementById('modal-confirmar-post-texto');
+    var btnAceptar = document.getElementById('modal-confirmar-post-aceptar');
+    var btnCancelar = document.getElementById('modal-confirmar-post-cancelar');
+    var backdrop = document.getElementById('modal-confirmar-post-backdrop');
+    var pendingFormId = null;
+
+    function abrir(opts) {
+        if (titulo) titulo.textContent = opts.title || 'Confirmar';
+        if (texto) texto.textContent = opts.message || '';
+        pendingFormId = opts.formId || null;
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        if (btnAceptar) btnAceptar.focus();
+    }
+
+    function cerrar() {
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        pendingFormId = null;
+    }
+
+    document.querySelectorAll('.js-confirmar-post-form').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (typeof window.asistenciaFilaMenuClose === 'function') window.asistenciaFilaMenuClose();
+            var fid = btn.getAttribute('data-confirm-form');
+            if (!fid) return;
+            abrir({
+                formId: fid,
+                title: btn.getAttribute('data-confirm-title') || 'Confirmar',
+                message: btn.getAttribute('data-confirm-message') || '',
+            });
+        });
+    });
+
+    function enviar() {
+        if (!pendingFormId) return;
+        var f = document.getElementById(pendingFormId);
+        if (f) f.submit();
+        cerrar();
+    }
+
+    btnAceptar?.addEventListener('click', enviar);
+    btnCancelar?.addEventListener('click', cerrar);
+    backdrop?.addEventListener('click', cerrar);
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && !modal.classList.contains('hidden')) {
+            cerrar();
+        }
+    });
+})();
+</script>

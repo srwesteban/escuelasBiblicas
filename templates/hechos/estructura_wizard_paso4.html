@@ -34,7 +34,7 @@
                     <option value="">— Sin asignar —</option>
                     {% for p in profesores %}
                     <option value="{{ p.id }}" {% if selected_profesor_id == p.id %}selected{% endif %}>
-                        {{ p.user.get_full_name|default:p.user.username }}{% if p.codigo_profesor %} ({{ p.codigo_profesor }}){% endif %}
+                        {{ p.user.get_full_name|default:p.user.email }}{% if p.codigo_profesor %} ({{ p.codigo_profesor }}){% endif %}
                     </option>
                     {% empty %}
                     <option value="" disabled>No hay profesores en esta sede</option>

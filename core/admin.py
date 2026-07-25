@@ -1,10 +1,23 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.forms import UserCreationForm
+
 from .models import User, AppModule, UserAppPermission
+
+
+class HechosUserCreationForm(UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+        model = User
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["password1"].help_text = ""
+        self.fields["password2"].help_text = ""
 
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
+    add_form = HechosUserCreationForm
     list_display = ('email', 'first_name', 'last_name', 'role', 'is_verified', 'is_active', 'created_at')
     list_filter = ('role', 'is_verified', 'is_active', 'created_at')
     search_fields = ('email', 'first_name', 'last_name', 'username')

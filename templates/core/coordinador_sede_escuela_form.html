@@ -9,8 +9,8 @@
             <h1 class="text-2xl font-bold text-gray-900">Editar instancia por ciclo</h1>
             <p class="text-stone-600 mt-1">Sede: {{ sede.nombre }}</p>
             <p class="text-sm text-stone-500 mt-2 max-w-xl">
-                Estás editando una <strong class="text-stone-700">oferta concreta</strong> (año/ciclo/grupo), no la definición del programa. Datos académicos actuales (solo lectura aquí):
-                <span class="font-medium text-stone-700">{{ escuela.anio }} · Ciclo {{ escuela.ciclo }} · Grupo {{ escuela.grupo }}</span>
+                Estás editando una <strong class="text-stone-700">oferta concreta</strong> (año/ciclo), no la definición del programa. Datos académicos actuales (solo lectura aquí):
+                <span class="font-medium text-stone-700">{{ escuela.anio }} · Ciclo {{ escuela.ciclo }}</span>
                 · Maestro:
                 {% if escuela.maestro %}{{ escuela.maestro.user.get_full_name }}{% else %}<span class="text-amber-800/90 font-medium">Por asignar</span>{% endif %}
                 · El cupo lo define el salón en logística.

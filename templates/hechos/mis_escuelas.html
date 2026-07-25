@@ -15,13 +15,13 @@
                 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h2 class="text-xl font-semibold text-gray-900">
-                            {{ solicitud.edicion_curso.curso.escuela.nombre|default:solicitud.edicion_curso.curso.nombre }}
+                            {{ solicitud.escuela.nombre }}
                         </h2>
                         <p class="text-sm text-gray-600 mt-1">
-                            {% if solicitud.edicion_curso.curso.nivel %}
-                                Nivel {{ solicitud.edicion_curso.curso.nivel.nombre }} ·
+                            {% if solicitud.nivel_programa_catalogo %}
+                                {{ solicitud.nivel_programa_catalogo }} ·
                             {% endif %}
-                            {{ solicitud.edicion_curso.nombre_edicion }} · {{ solicitud.edicion_curso.curso.sede.nombre|default:"Sin sede" }}
+                            {{ solicitud.sede.nombre|default:"Sin sede" }}
                         </p>
                         <p class="text-sm text-gray-500 mt-2">
                             Solicitada el {{ solicitud.fecha_solicitud|date:"d/m/Y H:i" }}
@@ -51,9 +51,9 @@
                     </div>
                 {% endif %}
 
-                {% if solicitud.estado == 'aprobada' %}
+                {% if solicitud.estado == 'aprobada' and solicitud.curso_portal_id %}
                     <div class="mt-4">
-                        <a href="{% url 'hechos:detalle_mis_escuela' solicitud.edicion_curso.curso.id %}" class="btn-primary inline-flex items-center px-4 py-2 text-sm font-medium">
+                        <a href="{% url 'hechos:detalle_mis_escuela' solicitud.curso_portal_id %}" class="btn-primary inline-flex items-center px-4 py-2 text-sm font-medium">
                             <i class="fas fa-arrow-right mr-2"></i>Entrar a la escuela
                         </a>
                     </div>

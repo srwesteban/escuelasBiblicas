@@ -10,6 +10,9 @@
             Evidencias que los estudiantes enviaron y aún no tienen puntaje ni cierre de evaluación.
             El número en la barra lateral se actualiza al cargar cada página.
         </p>
+        <a href="{% url 'hechos:profesor_solicitudes_matricula' %}" class="mt-3 inline-flex items-center text-sm font-medium text-violet-800 hover:underline">
+            <i class="fas fa-user-check mr-2"></i>Ver solicitudes de matrícula
+        </a>
     </div>
 
     {% if entregas %}

@@ -1,0 +1,573 @@
+{% extends 'base_modern.html' %}
+
+{% block main_container_class %}w-full max-w-none mx-auto px-0 py-0 sm:px-0 lg:px-0{% endblock %}
+
+{% block title %}Notas — {{ escuela.nombre }}{% endblock %}
+
+{% block content %}
+<div class="excel-asistencia-root min-h-[calc(100vh-4rem)] flex flex-col text-[13px] text-neutral-800"
+     style="font-family: 'Segoe UI', ui-sans-serif, system-ui, sans-serif;">
+    <div class="excel-asistencia-ribbon sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-white shadow-md"
+         style="background: linear-gradient(180deg, #3730a3 0%, #312e81 100%);">
+        <div class="flex items-center gap-2 min-w-0 flex-wrap">
+            <a href="{{ volver_url }}"
+               class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-white/30 bg-white/10 text-white hover:bg-white/20 text-sm font-semibold"
+               aria-label="Volver">←</a>
+            <div class="min-w-0">
+                <h1 class="text-base sm:text-lg font-semibold tracking-tight truncate">Notas (grilla)</h1>
+                <p class="text-[11px] text-white/85 truncate max-w-[min(100vw-8rem,28rem)]">{{ escuela.nombre }} — {{ escuela.anio }} · {{ escuela.get_ciclo_display }}</p>
+            </div>
+            {% if num_columnas %}
+            <span class="hidden sm:inline-flex items-center rounded-sm border border-white/25 bg-black/10 px-2 py-1 text-[11px] font-medium text-white/95">
+                {{ num_columnas }} {% if num_columnas == 1 %}columna{% else %}columnas{% endif %} de nota
+            </span>
+            {% endif %}
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+            {% if matricular_modal_activo %}
+            <button type="button" id="btn-abrir-matricular-notas"
+                    class="inline-flex items-center justify-center gap-2 rounded-sm border border-white/35 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-white/25 min-h-[40px] shrink-0">
+                <i class="fas fa-user-plus text-xs" aria-hidden="true"></i>
+                Matricular
+            </button>
+            {% endif %}
+            <a href="{% url 'hechos:profesor_escuela_notas_excel_formato' escuela.id %}"
+               class="inline-flex items-center justify-center gap-2 rounded-sm border border-white/35 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-white/25 min-h-[40px] shrink-0">
+                <i class="fas fa-file-excel text-xs" aria-hidden="true"></i>
+                Plantilla Excel
+            </a>
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-2 border-b border-neutral-300 bg-[#f3f3f3] px-2 py-2 sm:flex-row sm:items-center sm:gap-3 shrink-0">
+        <div class="flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs text-neutral-700">
+            <span class="font-semibold text-neutral-600 mr-1">Celdas:</span>
+            <span class="text-neutral-600">Valores libres (números o texto). El <strong>promedio</strong> usa solo valores numéricos. La columna <strong>Estado</strong> es la decisión de aprobación.</span>
+        </div>
+        {% if tiene_estudiantes %}
+        <div class="flex flex-1 min-w-0 items-center gap-2 sm:justify-end">
+            <label for="grilla-buscar-estudiante-notas" class="sr-only">Buscar</label>
+            <div class="relative w-full max-w-md min-w-0 flex-1 sm:flex-none">
+                <span class="absolute left-2 top-1/2 -translate-y-1/2 rounded-sm border border-neutral-300 bg-[#e7e7e7] px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 pointer-events-none" aria-hidden="true">Buscar</span>
+                <input type="search" id="grilla-buscar-estudiante-notas" autocomplete="off"
+                       placeholder="Nombre o documento…"
+                       class="excel-buscar-input w-full rounded-sm border border-neutral-400 bg-white pl-[4.25rem] pr-2 py-2 text-sm text-neutral-900 min-h-[40px] shadow-inner placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40 focus:border-indigo-700"/>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-neutral-300 bg-white px-3 py-1.5 text-[11px] text-neutral-600 shrink-0">
+        <span><span class="text-neutral-400">Docente</span> <span class="font-medium text-neutral-800">{{ nombre_docente }}</span></span>
+        <span class="hidden sm:inline text-neutral-300">|</span>
+        <span><span class="text-neutral-400">Horario</span> <span class="font-medium text-neutral-800">{{ horario_txt }}</span></span>
+        <span class="hidden sm:inline text-neutral-300">|</span>
+        <span><span class="text-neutral-400">Modalidad</span> <span class="font-medium text-neutral-800">{{ modalidad_txt }}</span></span>
+        <div class="ml-auto flex flex-wrap items-center gap-1">
+            {% if not puede_agregar_col %}
+            <button type="button" disabled class="rounded-sm border border-neutral-200 bg-neutral-100 px-2 py-1.5 text-[11px] font-semibold text-neutral-400 min-h-[36px] cursor-not-allowed">+ Nota</button>
+            {% else %}
+            <form method="post" action="{{ agregar_nota_url }}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="rounded-sm border border-indigo-800 bg-indigo-700 px-2.5 py-1.5 text-[11px] font-semibold text-white min-h-[36px] shadow-sm hover:bg-indigo-800">+ Nota</button>
+            </form>
+            {% endif %}
+            {% if not puede_quitar_col %}
+            <button type="button" disabled title="Debe quedar al menos una nota" class="rounded-sm border border-neutral-200 px-2 py-1.5 text-[11px] text-neutral-400 min-h-[36px] cursor-not-allowed">− Última</button>
+            {% else %}
+            <form method="post" action="{{ quitar_nota_url }}" class="inline" onsubmit="return confirm('¿Eliminar la última columna de nota y sus valores?');">
+                {% csrf_token %}
+                <button type="submit" class="rounded-sm border border-red-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-red-800 min-h-[36px] hover:bg-red-50">− Última</button>
+            </form>
+            {% endif %}
+            <button type="button" id="grilla-notas-scroll-inicio"
+                    class="rounded-sm border border-neutral-400 bg-white px-2 py-1.5 text-[11px] font-semibold text-neutral-800 min-h-[36px]">⟨⟨</button>
+            <button type="button" id="grilla-notas-scroll-fin"
+                    class="rounded-sm border border-neutral-400 bg-white px-2 py-1.5 text-[11px] font-semibold text-neutral-800 min-h-[36px]">⟩⟩</button>
+        </div>
+    </div>
+
+    {% if not tiene_estudiantes %}
+    <div class="p-8 text-center text-gray-600 flex-1 flex items-center justify-center">
+        <p>No hay estudiantes matriculados en esta escuela.</p>
+    </div>
+    {% else %}
+    <form id="form-notas-grilla" method="post" class="flex-1 flex flex-col min-h-0 min-w-0"
+          data-num-columnas="{{ num_columnas }}">
+        {% csrf_token %}
+        <div id="grilla-notas-scroll"
+             class="asistencia-grilla-scroll excel-sheet-view flex-1 min-h-0 min-w-0 overflow-x-auto overflow-y-auto overscroll-x-contain touch-pan-x scroll-smooth bg-[#fafafa]">
+            <table class="excel-grid-table min-w-max w-max text-[13px] border-collapse">
+                <thead>
+                    <tr class="excel-thead-row">
+                        <th class="excel-th-frozen sticky left-0 z-[32] top-0 align-middle w-10 min-w-[2.5rem] px-1 py-2 text-center font-semibold text-neutral-700 bg-[#e7e7e7]">#</th>
+                        <th class="excel-th-frozen sticky z-[32] top-0 align-middle w-[9rem] sm:w-[12rem] min-w-[9rem] sm:min-w-[12rem] px-2 py-2 text-left font-semibold text-neutral-800 bg-[#e7e7e7]"
+                            style="left: 2.5rem;">Nombre</th>
+                        <th class="excel-th-frozen notas-sticky-ver sticky z-[32] top-0 align-middle w-10 min-w-[2.5rem] px-0.5 py-2 bg-[#e7e7e7]"
+                            scope="col" aria-label="Menú fila"></th>
+                        {% for h in encabezados_columnas %}
+                        <th class="sticky top-0 z-20 excel-grid-border px-0.5 py-2 text-center font-semibold w-[4rem] min-w-[4rem] text-[11px] bg-[#e7e7e7] text-neutral-900">{{ h.label }}</th>
+                        {% endfor %}
+                        <th class="sticky top-0 z-20 excel-grid-border px-1 py-2 text-center font-semibold bg-indigo-100 text-indigo-950 w-[5rem] min-w-[5rem] text-[10px]">Prom.</th>
+                        <th class="sticky top-0 z-20 excel-grid-border px-1 py-2 text-center font-semibold bg-amber-100 text-amber-950 w-[7.5rem] min-w-[7.5rem] text-[10px]">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="grilla-notas-tbody">
+                    {% for fila in filas %}
+                    {% with e=fila.estudiante %}
+                    <tr class="js-notas-fila-estudiante hover:bg-stone-50/80"
+                        data-buscar-nombre="{{ e.user.get_full_name|default_if_none:''|escape }}"
+                        data-buscar-doc="{{ e.numero_documento|default_if_none:''|escape }}">
+                        <td class="js-grilla-fila-num excel-td-frozen sticky left-0 z-10 w-10 min-w-[2.5rem] excel-grid-border px-1 py-1 text-neutral-500 text-center tabular-nums bg-white">{{ forloop.counter }}</td>
+                        <td class="excel-td-frozen sticky z-10 w-[9rem] sm:w-[12rem] min-w-[9rem] sm:min-w-[12rem] excel-grid-border px-2 py-1 font-medium text-neutral-900 truncate bg-white"
+                            style="left: 2.5rem;" title="{{ e.user.get_full_name }}">{{ e.user.get_full_name }}</td>
+                        <td class="notas-sticky-ver excel-td-frozen sticky z-10 w-10 min-w-[2.5rem] excel-grid-border p-0.5 text-center align-middle bg-white">
+                            <button type="button"
+                                    class="js-notas-fila-menu-trigger mx-auto flex h-9 w-9 items-center justify-center rounded-sm border border-neutral-400 bg-white text-neutral-600 hover:bg-[#f0f0f0] text-lg font-bold leading-none shadow-sm"
+                                    data-resumen-url="{% url 'hechos:estudiante_resumen_fragment' e.id %}"
+                                    data-quitar-form-id="form-quitar-matricula-notas-{{ e.id }}">⋯</button>
+                        </td>
+                        {% for celda in fila.celdas %}
+                        <td class="excel-grid-border p-0 align-middle bg-white">
+                            <label class="sr-only" for="n_{{ e.id }}_{{ celda.col }}">Nota {{ celda.col }}, estudiante {{ e.id }}</label>
+                            <input type="text" name="n_{{ e.id }}_{{ celda.col }}" id="n_{{ e.id }}_{{ celda.col }}"
+                                   value="{{ celda.value }}"
+                                   maxlength="64"
+                                   class="grilla-nota-input w-[4rem] min-w-[4rem] min-h-[40px] block text-center text-[13px] border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 py-1 px-0.5 text-neutral-900"/>
+                        </td>
+                        {% endfor %}
+                        <td class="excel-grid-border px-1 py-1 text-center font-mono text-xs bg-indigo-50/80 text-indigo-950 w-[5rem] min-w-[5rem] tabular-nums js-notas-promedio">{{ fila.promedio_ui }}</td>
+                        <td class="excel-grid-border p-0 align-middle bg-amber-50/50 js-notas-estado-td">
+                            <label class="sr-only" for="estado_{{ e.id }}">Estado final</label>
+                            <select name="estado_{{ e.id }}" id="estado_{{ e.id }}"
+                                    class="grilla-nota-estado w-full min-h-[40px] text-[12px] font-medium text-center border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-amber-600 py-1 px-0 text-neutral-900">
+                                <option value="" {% if not fila.estado_final %}selected{% endif %}>—</option>
+                                <option value="aprobado" {% if fila.estado_final == 'aprobado' %}selected{% endif %}>Aprobado</option>
+                                <option value="no_aprobado" {% if fila.estado_final == 'no_aprobado' %}selected{% endif %}>No aprobado</option>
+                            </select>
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                    <tr id="grilla-notas-sin-resultados" class="hidden" aria-live="polite">
+                        <td colspan="{{ num_columnas|add:5 }}" class="text-center py-10 px-4 text-sm text-stone-600 bg-stone-50/90 border border-gray-200">
+                            No hay estudiantes que coincidan con la búsqueda.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="excel-status-bar flex flex-wrap items-center justify-between gap-3 border-t-2 border-indigo-800 bg-[#f3f3f3] px-3 py-2.5 shrink-0">
+            <div class="min-w-0 text-[12px] text-neutral-600">
+                <p class="text-[11px] text-neutral-500">Pulse <strong>Guardar hoja</strong> para registrar cambios. <strong>Estado</strong> (aprobado / no aprobado) es el dato clave al final de cada fila.</p>
+            </div>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                <a href="{% url 'hechos:profesor_escuela_notas_excel' escuela.id %}"
+                   class="inline-flex items-center gap-2 rounded-sm border border-neutral-400 bg-white px-3 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 min-h-[44px]">
+                    <i class="fas fa-file-excel text-indigo-700" aria-hidden="true"></i>
+                    Exportar .xlsx
+                </a>
+                <button type="submit" class="inline-flex items-center gap-2 rounded-sm border border-indigo-900 bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-800 min-h-[44px]">
+                    <i class="fas fa-save text-xs opacity-90" aria-hidden="true"></i>
+                    Guardar hoja
+                </button>
+            </div>
+        </div>
+    </form>
+    {% for fila in filas %}
+    <form id="form-quitar-matricula-notas-{{ fila.estudiante.id }}" method="post"
+          action="{% url 'hechos:profesor_escuela_estudiante_quitar_matricula' escuela.id fila.estudiante.id %}" class="hidden">
+        {% csrf_token %}
+        <input type="hidden" name="redirect_to" value="notas"/>
+    </form>
+    {% endfor %}
+    {% endif %}
+
+    <details class="excel-import-panel border-t border-neutral-300 bg-[#fffbeb] shrink-0">
+        <summary class="list-none cursor-pointer px-3 py-2.5 text-sm font-semibold text-amber-950 hover:bg-amber-100/50 flex items-center gap-2 [&::-webkit-details-marker]:hidden">
+            <i class="fas fa-file-import text-amber-800" aria-hidden="true"></i>
+            Importar desde Excel (.xlsx)
+            <i class="fas fa-chevron-down ml-auto text-xs text-amber-800/70 opacity-80" aria-hidden="true"></i>
+        </summary>
+        <div class="space-y-2 border-t border-amber-200/80 px-3 py-3 text-xs text-amber-950">
+            <p>
+                Use el mismo orden de columnas que al exportar (<strong>Nota 1…</strong>, <strong>Promedio</strong>, <strong>Estado</strong>).
+                Celda vacía = no cambia el valor guardado. Las filas se cruzan por <strong>documento</strong> (columna B).
+            </p>
+            <form method="post" action="{% url 'hechos:profesor_escuela_notas_import_excel' escuela.id %}"
+                  enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+                {% csrf_token %}
+                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-none">
+                    <input id="archivo-excel-notas" type="file" name="archivo_excel"
+                           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                           class="sr-only" aria-describedby="archivo-excel-notas-nombre"/>
+                    <label for="archivo-excel-notas"
+                           class="inline-flex cursor-pointer items-center justify-center rounded-sm border border-amber-700 bg-white px-3 py-2 text-sm font-medium text-amber-950 shadow-sm hover:bg-amber-50 min-h-[44px] shrink-0">
+                        Elegir archivo…
+                    </label>
+                    <span id="archivo-excel-notas-nombre" class="min-w-0 truncate text-sm text-amber-950/90" aria-live="polite">Ningún archivo seleccionado</span>
+                </div>
+                <button type="submit" class="rounded-sm border border-[#b45309] bg-[#b45309] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#92400e] min-h-[44px]">
+                    Aplicar al libro
+                </button>
+            </form>
+        </div>
+    </details>
+</div>
+
+<div id="notas-fila-menu-backdrop" class="fixed inset-0 z-[104] hidden cursor-default bg-black/20" aria-hidden="true"></div>
+<div id="notas-fila-menu-flyout" class="fixed z-[105] hidden w-[13rem] rounded-sm border border-neutral-300 bg-white py-1 text-left shadow-2xl" role="menu" aria-hidden="true">
+    <button type="button" id="notas-fila-menu-btn-ficha" class="js-resumen-estudiante flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-neutral-800 hover:bg-indigo-50" data-resumen-url="" role="menuitem">
+        <i class="fas fa-address-card w-4 shrink-0 text-center text-indigo-700" aria-hidden="true"></i>
+        Ver ficha del estudiante
+    </button>
+    <button type="button" id="notas-fila-menu-btn-quitar" class="js-confirmar-post-form flex w-full items-center gap-2 border-t border-neutral-200 px-3 py-2.5 text-left text-sm text-red-800 hover:bg-red-50" role="menuitem"
+            data-confirm-title="Quitar matrícula"
+            data-confirm-message="¿Anular la matrícula de este estudiante en esta escuela? La persona no se elimina del sistema; puede volver a matricular al estudiante con el documento y el nombre correctos."
+            data-confirm-form="">
+        <i class="fas fa-user-minus w-4 shrink-0 text-center" aria-hidden="true"></i>
+        Quitar de esta escuela
+    </button>
+</div>
+
+<div id="modal-cambios-sin-guardar-notas" class="fixed inset-0 z-[110] hidden" role="dialog" aria-modal="true" aria-labelledby="modal-cambios-notas-titulo" aria-hidden="true">
+    <button type="button" id="modal-cambios-notas-backdrop" class="absolute inset-0 w-full h-full border-0 bg-stone-900/50 cursor-default" aria-label="Cancelar"></button>
+    <div class="absolute z-10 inset-x-4 top-[max(1rem,8vh)] sm:left-1/2 sm:-translate-x-1/2 w-full max-w-lg rounded-xl border border-stone-200 bg-white shadow-2xl overflow-hidden flex flex-col">
+        <div class="flex gap-3 p-4 sm:p-5 border-b border-stone-100">
+            <div class="shrink-0 text-amber-500 text-3xl leading-none pt-0.5" aria-hidden="true"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="min-w-0 space-y-2">
+                <h2 id="modal-cambios-notas-titulo" class="text-base font-semibold text-stone-900">Cambios sin guardar</h2>
+                <p class="text-sm text-stone-700">¿Desea guardar las notas antes de salir?</p>
+            </div>
+        </div>
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 p-4 sm:p-5 bg-stone-50 border-t border-stone-100">
+            <button type="button" id="modal-cambios-notas-cancelar" class="w-full sm:w-auto rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 min-h-[44px]">Cancelar</button>
+            <button type="button" id="modal-cambios-notas-no-guardar" class="w-full sm:w-auto rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 min-h-[44px]">No guardar</button>
+            <button type="button" id="modal-cambios-notas-guardar" class="w-full sm:w-auto rounded-lg border border-indigo-700 bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white min-h-[44px]">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-matricular-estudiante-notas" class="fixed inset-0 z-[120] hidden" role="dialog" aria-modal="true" aria-labelledby="modal-matricular-notas-titulo" aria-hidden="true">
+    <button type="button" id="modal-matricular-notas-backdrop" class="absolute inset-0 w-full h-full border-0 bg-stone-900/50 cursor-default" aria-label="Cerrar"></button>
+    <div class="absolute z-10 inset-x-2 sm:inset-x-4 top-[max(0.5rem,3vh)] bottom-[max(0.5rem,3vh)] sm:left-1/2 sm:-translate-x-1/2 w-full max-w-lg flex flex-col rounded-2xl border border-stone-200 bg-white shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-stone-100 bg-stone-50 shrink-0">
+            <h2 id="modal-matricular-notas-titulo" class="text-base font-semibold text-stone-900">Matricular estudiante</h2>
+            <button type="button" id="modal-matricular-notas-cerrar" class="rounded-lg p-2 text-stone-600 hover:bg-stone-200/80 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Cerrar"><i class="fas fa-times" aria-hidden="true"></i></button>
+        </div>
+        <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-white p-3 sm:p-4">
+            {% if matricular_modal_activo %}
+            {% with escuela_matricular=matricular_modal_escuela matricular_embed=True matricular_return_url=matricular_modal_return_url matricular_form_en_modal=True matricular_form_action=matricular_modal_post_url matricular_field_id_suffix='-notas' %}
+            {% include 'hechos/_matricular_estudiante_simple_form_inner.html' %}
+            {% endwith %}
+            {% else %}
+            {% include 'hechos/_matricular_estudiante_simple_empty_ediciones.html' %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div id="modal-resumen-estudiante-notas" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true" aria-labelledby="modal-resumen-notas-titulo">
+    <button type="button" id="modal-resumen-notas-backdrop" class="absolute inset-0 bg-stone-900/50 w-full h-full border-0 cursor-default" aria-label="Cerrar"></button>
+    <div class="absolute z-10 inset-x-4 top-[max(1rem,6vh)] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 w-full max-w-md sm:max-w-2xl max-h-[min(92vh,44rem)] overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl flex flex-col">
+        <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-stone-100 bg-stone-50 shrink-0">
+            <h2 id="modal-resumen-notas-titulo" class="text-base font-semibold text-stone-900">Estudiante</h2>
+            <button type="button" id="modal-resumen-notas-cerrar" class="rounded-lg p-2 text-stone-600 hover:bg-stone-200/80 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Cerrar"><i class="fas fa-times" aria-hidden="true"></i></button>
+        </div>
+        <div id="modal-resumen-notas-body" class="overflow-y-auto p-4 sm:p-5 text-sm text-stone-800 min-h-0 flex-1"><p class="text-stone-500">Cargando…</p></div>
+    </div>
+</div>
+
+{% include 'hechos/_modal_confirmar_post.html' %}
+
+<style>
+    .excel-grid-border { border: 1px solid #d0d0d0; }
+    .excel-th-frozen { background: #e7e7e7; box-shadow: 4px 0 8px -2px rgba(0,0,0,0.08); }
+    .excel-td-frozen { box-shadow: 4px 0 8px -2px rgba(0,0,0,0.06); }
+    .notas-sticky-ver { left: 11.5rem; }
+    @media (min-width: 640px) { .notas-sticky-ver { left: 14.5rem; } }
+    .asistencia-grilla-scroll { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+    .grilla-nota-estado.estado-aprobado {
+        background-color: #dcfce7;
+        color: #166534;
+        font-weight: 700;
+    }
+    .grilla-nota-estado.estado-no-aprobado {
+        background-color: #fee2e2;
+        color: #991b1b;
+        font-weight: 700;
+    }
+    .grilla-nota-estado.estado-vacio {
+        background-color: transparent;
+        color: #111827;
+    }
+    .js-notas-estado-td.estado-aprobado-td { background-color: #dcfce7 !important; }
+    .js-notas-estado-td.estado-no-aprobado-td { background-color: #fee2e2 !important; }
+    .js-notas-estado-td.estado-vacio-td { background-color: rgba(254, 243, 199, 0.5) !important; }
+</style>
+<script>
+(function () {
+    var btn = document.getElementById('btn-abrir-matricular-notas');
+    var modal = document.getElementById('modal-matricular-estudiante-notas');
+    var backdrop = document.getElementById('modal-matricular-notas-backdrop');
+    var cerrar = document.getElementById('modal-matricular-notas-cerrar');
+    if (!btn || !modal) return;
+    function abrir() { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; var d = document.getElementById('numero_documento-notas'); if (d) d.focus(); }
+    function cerrarModal() { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
+    btn.addEventListener('click', abrir);
+    cerrar?.addEventListener('click', cerrarModal);
+    backdrop?.addEventListener('click', cerrarModal);
+    modal.querySelectorAll('.matricular-modal-btn-cancelar').forEach(function (b) { b.addEventListener('click', cerrarModal); });
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !modal.classList.contains('hidden')) cerrarModal(); });
+})();
+</script>
+{% if matricular_modal_activo %}
+{% include 'hechos/_matricular_estudiante_simple_scripts.html' with sugerencias_doc_url=matricular_modal_sugerencias_url escuela_matricular=matricular_modal_escuela matricular_field_id_suffix='-notas' %}
+{% endif %}
+<script>
+(function () {
+    var el = document.getElementById('grilla-notas-scroll');
+    if (el) {
+        document.getElementById('grilla-notas-scroll-inicio')?.addEventListener('click', function () { el.scrollTo({ left: 0, behavior: 'smooth' }); });
+        document.getElementById('grilla-notas-scroll-fin')?.addEventListener('click', function () { el.scrollTo({ left: el.scrollWidth - el.clientWidth, behavior: 'smooth' }); });
+    }
+})();
+</script>
+<script>
+(function () {
+    function syncEstadoColor(sel) {
+        if (!sel) return;
+        var v = (sel.value || '').toLowerCase();
+        sel.classList.remove('estado-aprobado', 'estado-no-aprobado', 'estado-vacio');
+        var td = sel.closest('td.js-notas-estado-td');
+        if (td) td.classList.remove('estado-aprobado-td', 'estado-no-aprobado-td', 'estado-vacio-td');
+        if (v === 'aprobado') {
+            sel.classList.add('estado-aprobado');
+            if (td) td.classList.add('estado-aprobado-td');
+        } else if (v === 'no_aprobado') {
+            sel.classList.add('estado-no-aprobado');
+            if (td) td.classList.add('estado-no-aprobado-td');
+        } else {
+            sel.classList.add('estado-vacio');
+            if (td) td.classList.add('estado-vacio-td');
+        }
+    }
+
+    function parseNum(s) {
+        if (s == null || String(s).trim() === '') return null;
+        var t = String(s).trim().replace(',', '.');
+        var n = parseFloat(t);
+        return isNaN(n) ? null : n;
+    }
+    function promedioFila(tr) {
+        var inputs = tr.querySelectorAll('input.grilla-nota-input');
+        var nums = [];
+        inputs.forEach(function (inp) {
+            var n = parseNum(inp.value);
+            if (n !== null) nums.push(n);
+        });
+        var td = tr.querySelector('.js-notas-promedio');
+        if (!td) return;
+        if (!nums.length) { td.textContent = ''; return; }
+        var avg = nums.reduce(function (a, b) { return a + b; }, 0) / nums.length;
+        td.textContent = avg.toFixed(4).replace('.', ',');
+    }
+    var form = document.getElementById('form-notas-grilla');
+    if (!form) return;
+    form.addEventListener('input', function (ev) {
+        var t = ev.target;
+        if (t && t.classList && t.classList.contains('grilla-nota-input')) {
+            var tr = t.closest('tr');
+            if (tr) promedioFila(tr);
+        }
+    });
+    form.addEventListener('change', function (ev) {
+        var t = ev.target;
+        if (t && t.classList && t.classList.contains('grilla-nota-estado')) {
+            syncEstadoColor(t);
+        }
+    });
+    form.querySelectorAll('select.grilla-nota-estado').forEach(syncEstadoColor);
+    form.querySelectorAll('tr.js-notas-fila-estudiante').forEach(promedioFila);
+})();
+</script>
+<script>
+(function () {
+    var input = document.getElementById('grilla-buscar-estudiante-notas');
+    var tbody = document.getElementById('grilla-notas-tbody');
+    var sinRes = document.getElementById('grilla-notas-sin-resultados');
+    if (!input || !tbody) return;
+    var filas = Array.prototype.slice.call(tbody.querySelectorAll('tr.js-notas-fila-estudiante'));
+    function fold(s) {
+        if (s == null || s === '') return '';
+        s = String(s).toLowerCase();
+        if (typeof s.normalize === 'function') s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return s;
+    }
+    function soloDigitos(s) { return String(s || '').replace(/\D/g, ''); }
+    function aplicarFiltro() {
+        var q = (input.value || '').trim();
+        var qFold = fold(q);
+        var qDig = soloDigitos(q);
+        var visibles = 0;
+        for (var i = 0; i < filas.length; i++) {
+            var tr = filas[i];
+            var mostrar = !q;
+            if (!mostrar) {
+                var nombreAttr = tr.getAttribute('data-buscar-nombre') || '';
+                var docAttr = tr.getAttribute('data-buscar-doc') || '';
+                if (qFold && fold(nombreAttr).indexOf(qFold) !== -1) mostrar = true;
+                else if (qFold && fold(docAttr).indexOf(qFold) !== -1) mostrar = true;
+                else if (qDig && soloDigitos(docAttr).indexOf(qDig) !== -1) mostrar = true;
+            }
+            tr.classList.toggle('hidden', !mostrar);
+            if (mostrar) {
+                visibles++;
+                var numTd = tr.querySelector('.js-grilla-fila-num');
+                if (numTd) numTd.textContent = String(visibles);
+            }
+        }
+        if (sinRes) sinRes.classList.toggle('hidden', !(q.length > 0 && visibles === 0));
+    }
+    input.addEventListener('input', aplicarFiltro);
+    input.addEventListener('search', function () { if (!input.value) aplicarFiltro(); });
+})();
+</script>
+<script>
+(function () {
+    var form = document.getElementById('form-notas-grilla');
+    var modal = document.getElementById('modal-cambios-sin-guardar-notas');
+    if (!form || !modal) return;
+    var dirty = false;
+    var pendingAction = null;
+    var skipIntercept = false;
+    form.addEventListener('change', function (ev) {
+        var t = ev.target;
+        if (t && (t.matches('input.grilla-nota-input') || t.matches('select.grilla-nota-estado'))) dirty = true;
+    });
+    form.addEventListener('input', function (ev) {
+        if (ev.target && ev.target.matches && ev.target.matches('input.grilla-nota-input')) dirty = true;
+    });
+    form.addEventListener('submit', function () { dirty = false; });
+    window.addEventListener('beforeunload', function (e) { if (!dirty) return; e.preventDefault(); e.returnValue = ''; });
+    function openM() { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; }
+    function closeM() { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; pendingAction = null; }
+    document.body.addEventListener('click', function (e) {
+        if (!dirty || skipIntercept) return;
+        var a = e.target.closest('a[href]');
+        if (!a || a.closest('#modal-cambios-sin-guardar-notas')) return;
+        var href = a.getAttribute('href');
+        if (!href || href === '#' || href.indexOf('javascript:') === 0 || href.charAt(0) === '#') return;
+        if (a.target === '_blank' || a.hasAttribute('download')) return;
+        e.preventDefault(); e.stopPropagation(); pendingAction = { type: 'link', url: a.href }; openM();
+    }, true);
+    document.body.addEventListener('submit', function (e) {
+        if (!dirty || skipIntercept) return;
+        var f = e.target;
+        if (!f || f.nodeName !== 'FORM' || f.id === 'form-notas-grilla') return;
+        e.preventDefault(); e.stopPropagation(); pendingAction = { type: 'form', el: f }; openM();
+    }, true);
+    function armSkip() { skipIntercept = true; setTimeout(function () { skipIntercept = false; }, 300); }
+    document.getElementById('modal-cambios-notas-cancelar')?.addEventListener('click', closeM);
+    document.getElementById('modal-cambios-notas-backdrop')?.addEventListener('click', closeM);
+    document.getElementById('modal-cambios-notas-guardar')?.addEventListener('click', function () {
+        pendingAction = null; closeM(); dirty = false; armSkip();
+        if (form.requestSubmit) form.requestSubmit(); else form.submit();
+    });
+    document.getElementById('modal-cambios-notas-no-guardar')?.addEventListener('click', function () {
+        var pa = pendingAction; closeM(); dirty = false; if (!pa) return; armSkip();
+        if (pa.type === 'link') window.location.href = pa.url; else if (pa.type === 'form') pa.el.submit();
+    });
+})();
+</script>
+<script>
+(function () {
+    var modal = document.getElementById('modal-resumen-estudiante-notas');
+    var modalBody = document.getElementById('modal-resumen-notas-body');
+    var btnCerrar = document.getElementById('modal-resumen-notas-cerrar');
+    var backdrop = document.getElementById('modal-resumen-notas-backdrop');
+    if (!modal || !modalBody) return;
+    function cerrar() { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
+    function abrir() { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; }
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('#notas-fila-menu-flyout .js-resumen-estudiante');
+        if (!btn) return;
+        var url = btn.getAttribute('data-resumen-url');
+        if (!url) return;
+        ev.preventDefault();
+        if (typeof window.notasFilaMenuClose === 'function') window.notasFilaMenuClose();
+        modalBody.innerHTML = '<p class="text-stone-500">Cargando…</p>';
+        abrir();
+        fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { if (!r.ok) throw new Error('No se pudo cargar.'); return r.text(); })
+            .then(function (html) { modalBody.innerHTML = html; })
+            .catch(function (err) { modalBody.innerHTML = '<p class="text-red-600 text-sm">' + (err.message || 'Error') + '</p>'; });
+    });
+    btnCerrar?.addEventListener('click', cerrar);
+    backdrop?.addEventListener('click', cerrar);
+})();
+</script>
+<script>
+(function () {
+    var inp = document.getElementById('archivo-excel-notas');
+    var nom = document.getElementById('archivo-excel-notas-nombre');
+    if (!inp || !nom) return;
+    inp.addEventListener('change', function () { nom.textContent = (inp.files && inp.files.length) ? inp.files[0].name : 'Ningún archivo seleccionado'; });
+})();
+</script>
+<script>
+(function () {
+    var fly = document.getElementById('notas-fila-menu-flyout');
+    var bd = document.getElementById('notas-fila-menu-backdrop');
+    var btnFicha = document.getElementById('notas-fila-menu-btn-ficha');
+    var btnQuitar = document.getElementById('notas-fila-menu-btn-quitar');
+    if (!fly || !bd || !btnFicha || !btnQuitar) return;
+    var menuAnchor = null;
+    var margin = 8;
+    function hayModalEncima() {
+        return !!document.querySelector('#modal-resumen-estudiante-notas:not(.hidden), #modal-confirmar-post:not(.hidden), #modal-cambios-sin-guardar-notas:not(.hidden), #modal-matricular-estudiante-notas:not(.hidden)');
+    }
+    function cerrar() {
+        fly.classList.add('hidden'); fly.setAttribute('aria-hidden', 'true');
+        bd.classList.add('hidden'); bd.setAttribute('aria-hidden', 'true');
+        fly.style.left = ''; fly.style.top = ''; fly.style.visibility = '';
+        document.querySelectorAll('.js-notas-fila-menu-trigger').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+        menuAnchor = null;
+    }
+    window.notasFilaMenuClose = cerrar;
+    window.asistenciaFilaMenuClose = cerrar;
+    function colocar(anchor) {
+        fly.style.visibility = 'hidden'; fly.style.left = '0'; fly.style.top = '0'; void fly.offsetWidth;
+        var fw = fly.offsetWidth, fh = fly.offsetHeight, r = anchor.getBoundingClientRect();
+        var vh = window.innerHeight, vw = window.innerWidth;
+        var top = r.bottom + 4;
+        if (fh + margin > vh - r.bottom && r.top > vh - r.bottom) top = r.top - fh - 4;
+        top = Math.max(margin, Math.min(top, vh - fh - margin));
+        var left = Math.max(margin, Math.min(r.left, vw - fw - margin));
+        fly.style.left = left + 'px'; fly.style.top = top + 'px'; fly.style.visibility = '';
+    }
+    function abrir(anchor) {
+        btnFicha.setAttribute('data-resumen-url', anchor.getAttribute('data-resumen-url') || '');
+        btnQuitar.setAttribute('data-confirm-form', anchor.getAttribute('data-quitar-form-id') || '');
+        menuAnchor = anchor;
+        document.querySelectorAll('.js-notas-fila-menu-trigger').forEach(function (b) { b.setAttribute('aria-expanded', b === anchor ? 'true' : 'false'); });
+        bd.classList.remove('hidden'); bd.setAttribute('aria-hidden', 'false');
+        fly.classList.remove('hidden'); fly.setAttribute('aria-hidden', 'false');
+        requestAnimationFrame(function () { requestAnimationFrame(function () { if (menuAnchor === anchor) colocar(anchor); }); });
+    }
+    document.addEventListener('click', function (e) {
+        var t = e.target.closest('.js-notas-fila-menu-trigger');
+        if (t) { e.preventDefault(); e.stopPropagation(); if (!fly.classList.contains('hidden') && menuAnchor === t) cerrar(); else abrir(t); return; }
+        if (fly.classList.contains('hidden')) return;
+        if (fly.contains(e.target)) return;
+        cerrar();
+    });
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Escape' || fly.classList.contains('hidden') || hayModalEncima()) return;
+        ev.preventDefault(); cerrar();
+    });
+    var scrollGrilla = document.getElementById('grilla-notas-scroll');
+    if (scrollGrilla) scrollGrilla.addEventListener('scroll', cerrar, { passive: true });
+})();
+</script>
+{% endblock %}

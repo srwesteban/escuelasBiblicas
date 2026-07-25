@@ -227,27 +227,27 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    {% if matricula.edicion_curso and matricula.edicion_curso.curso %}
-                                    <div class="text-sm font-medium text-gray-900">{{ matricula.edicion_curso.curso.nombre }}</div>
-                                    <div class="text-sm text-gray-500">{{ matricula.edicion_curso.nombre_edicion }}</div>
+                                    {% if matricula.curso %}
+                                    <div class="text-sm font-medium text-gray-900">{{ matricula.curso.nombre }}</div>
+                                    <div class="text-sm text-gray-500">{{ matricula.escuela.nombre }}</div>
                                     {% else %}
-                                    <div class="text-sm font-medium text-gray-500">Sin curso asignado</div>
-                                    <div class="text-sm text-gray-400">Edición no disponible</div>
+                                    <div class="text-sm font-medium text-gray-900">{{ matricula.escuela.nombre }}</div>
+                                    <div class="text-sm text-gray-500">Sin curso en la ruta</div>
                                     {% endif %}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    {% if matricula.edicion_curso and matricula.edicion_curso.curso and matricula.edicion_curso.curso.ruta_estudio %}
-                                    <div class="text-sm text-gray-900">{{ matricula.edicion_curso.curso.ruta_estudio.nombre }}</div>
-                                    <div class="text-sm text-gray-500">{{ matricula.edicion_curso.curso.ruta_estudio.get_nivel_display }}</div>
+                                    {% if matricula.curso and matricula.curso.ruta_estudio %}
+                                    <div class="text-sm text-gray-900">{{ matricula.curso.ruta_estudio.nombre }}</div>
+                                    <div class="text-sm text-gray-500">{{ matricula.curso.ruta_estudio.get_nivel_display }}</div>
                                     {% else %}
                                     <div class="text-sm text-gray-500">Sin ruta asignada</div>
                                     {% endif %}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    {% if matricula.edicion_curso and matricula.edicion_curso.profesor %}
-                                    <div class="text-sm text-gray-900">{{ matricula.edicion_curso.profesor.user.get_full_name }}</div>
+                                    {% if matricula.escuela.maestro %}
+                                    <div class="text-sm text-gray-900">{{ matricula.escuela.maestro.user.get_full_name }}</div>
                                     {% else %}
-                                    <div class="text-sm text-gray-500">Sin profesor asignado</div>
+                                    <div class="text-sm text-gray-500">Sin docente titular</div>
                                     {% endif %}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -278,8 +278,8 @@
                                            class="text-blue-600 hover:text-blue-900" title="Ver estudiante">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        {% if matricula.edicion_curso and matricula.edicion_curso.curso %}
-                                        <a href="{% url 'hechos:detalle_curso' matricula.edicion_curso.curso.id %}" 
+                                        {% if matricula.curso %}
+                                        <a href="{% url 'hechos:detalle_curso' matricula.curso.id %}" 
                                            class="text-green-600 hover:text-green-900" title="Ver curso">
                                             <i class="fas fa-book"></i>
                                         </a>

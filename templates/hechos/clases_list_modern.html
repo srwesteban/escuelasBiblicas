@@ -10,13 +10,13 @@
         <div class="min-w-0">
             {% if docente_mis_escuelas_modo == 'clases_por_escuela' and escuela_filtro %}
             <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 break-words">{{ escuela_filtro.nombre }}</h1>
-            <p class="text-gray-600 mt-1 text-sm sm:text-base break-words max-w-3xl">{{ escuela_filtro.titulo_tarjeta }} · Calendario de sesiones.</p>
+            <p class="text-gray-600 mt-1 text-sm sm:text-base break-words max-w-3xl">{{ escuela_filtro.titulo_tarjeta }} · Usa las acciones de abajo para gestionar la escuela.</p>
             {% elif docente_mis_escuelas_modo == 'escuelas' %}
             <h1 class="text-3xl font-bold text-gray-900">Mis escuelas</h1>
-            <p class="text-gray-600 mt-1 break-words max-w-3xl">Escuelas donde figuras como maestro asignado. Entra a cada una para ver clases y tomar asistencia.</p>
+            <p class="text-gray-600 mt-1 break-words max-w-3xl">Escuelas donde figuras como maestro. En cada tarjeta ves año, ciclo, horario y estudiantes.</p>
             {% elif user.profesor_profile %}
             <h1 class="text-3xl font-bold text-gray-900">Mis escuelas</h1>
-            <p class="text-gray-600 mt-1 break-words max-w-3xl">Clases y sesiones de las escuelas donde impartes.</p>
+            <p class="text-gray-600 mt-1 break-words max-w-3xl">Escuelas donde impartes.</p>
             {% else %}
             <h1 class="text-3xl font-bold text-gray-900">Clases</h1>
             <p class="text-gray-600 mt-1 break-words max-w-3xl">Gestión de clases del sistema</p>
@@ -25,35 +25,109 @@
         <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:items-center w-full">
             {% if docente_mis_escuelas_modo == 'clases_por_escuela' %}
             <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex">
-                <i class="fas fa-arrow-left mr-2"></i>Mis escuelas
+                <i class="fas fa-arrow-left mr-2"></i>Todas mis escuelas
             </a>
             {% else %}
             <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex">
                 <i class="fas fa-arrow-left mr-2"></i>Volver
             </a>
             {% endif %}
-            {% if docente_mis_escuelas_modo != 'escuelas' %}
-                {% if user.profesor_profile or user.is_super_admin or user.admin_escuela_profile %}
-                <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
-                    {% if docente_mis_escuelas_modo == 'clases_por_escuela' and escuela_filtro and user.profesor_profile %}
-                    <a href="{% url 'hechos:profesor_escuela_estudiantes' escuela_filtro.id %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex border-emerald-200 text-emerald-900 hover:bg-emerald-50">
-                        <i class="fas fa-users mr-2"></i>Mis estudiantes
-                    </a>
-                    <a href="{% url 'hechos:profesor_escuela_asistencia_panel' escuela_filtro.id %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex border-green-200 text-green-900 hover:bg-green-50">
-                        <i class="fas fa-clipboard-check mr-2"></i>Asistencia
-                    </a>
-                    <a href="{% url 'hechos:escuela_crear_actividad' escuela_filtro.id %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex border-violet-200 text-violet-900 hover:bg-violet-50">
-                        <i class="fas fa-pen-to-square mr-2"></i>Crear actividad
-                    </a>
-                    <a href="{% url 'hechos:escuela_archivos' escuela_filtro.id %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex border-sky-200 text-sky-900 hover:bg-sky-50">
-                        <i class="fas fa-file-arrow-up mr-2"></i>Archivos
-                    </a>
-                    {% endif %}
-                </div>
-                {% endif %}
-            {% endif %}
         </div>
     </div>
+
+    {% if docente_mis_escuelas_modo == 'clases_por_escuela' and escuela_filtro and user.profesor_profile %}
+    <nav class="text-sm text-stone-600 -mt-2" aria-label="Miga de pan">
+        <a href="{% url 'core:dashboard' %}" class="hover:text-stone-900">Inicio</a>
+        <span class="mx-2 text-stone-400">/</span>
+        <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="hover:text-stone-900">Mis escuelas</a>
+        <span class="mx-2 text-stone-400">/</span>
+        <span class="text-stone-900 font-medium">{{ escuela_filtro.nombre }}</span>
+    </nav>
+
+    {% if escuelas_asignadas|length > 1 %}
+    <div class="card p-4 sm:p-5 border-stone-200">
+        <label for="cambiar-escuela-docente" class="block text-sm font-semibold text-stone-800">Cambiar de escuela</label>
+        <p class="text-xs text-stone-500 mt-0.5 mb-2">Elige otra escuela donde eres maestro.</p>
+        <select id="cambiar-escuela-docente" name="cambiar-escuela" class="input max-w-lg"
+                onchange="window.location.href='{% url 'hechos:mis_escuelas_profesor' %}?escuela='+this.value">
+            {% for e in escuelas_asignadas %}
+            <option value="{{ e.id }}" {% if e.id == escuela_filtro.id %}selected{% endif %}>{{ e.titulo_tarjeta }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    <div class="card p-4 sm:p-5 border-stone-200 bg-stone-50/50">
+        <h2 class="text-sm font-semibold text-stone-900 uppercase tracking-wide">Acciones de esta escuela</h2>
+        <p class="text-xs text-stone-500 mt-1 mb-4">Lo que uses con más frecuencia, a un clic.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <a href="{% url 'hechos:profesor_escuela_estudiantes' escuela_filtro.id %}" class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-medium text-emerald-900 shadow-sm hover:bg-emerald-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"><i class="fas fa-users" aria-hidden="true"></i></span>
+                <span class="text-left min-w-0"><span class="block">Estudiantes</span><span class="block text-xs font-normal text-stone-500">Listado e inscritos</span></span>
+            </a>
+            <a href="{% url 'hechos:matricular_estudiante' %}?escuela={{ escuela_filtro.id }}" class="flex items-center gap-3 rounded-xl border border-teal-200 bg-white px-4 py-3 text-sm font-medium text-teal-900 shadow-sm hover:bg-teal-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-800"><i class="fas fa-user-plus" aria-hidden="true"></i></span>
+                <span class="text-left min-w-0"><span class="block">Agregar estudiantes</span><span class="block text-xs font-normal text-stone-500">Por número de documento (cualquier tipo); búsqueda global y edición sin orden fijo</span></span>
+            </a>
+            <a href="{% url 'hechos:profesor_escuela_asistencia_panel' escuela_filtro.id %}" class="flex items-center gap-3 rounded-xl border border-green-200 bg-white px-4 py-3 text-sm font-medium text-green-900 shadow-sm hover:bg-green-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-800"><i class="fas fa-clipboard-check" aria-hidden="true"></i></span>
+                <span class="text-left min-w-0"><span class="block">Asistencia</span></span>
+            </a>
+            <a href="{% url 'hechos:profesor_escuela_notas_panel' escuela_filtro.id %}" class="flex items-center gap-3 rounded-xl border border-indigo-200 bg-white px-4 py-3 text-sm font-medium text-indigo-900 shadow-sm hover:bg-indigo-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-800"><i class="fas fa-table-list" aria-hidden="true"></i></span>
+                <span class="text-left min-w-0"><span class="block">Notas</span><span class="block text-xs font-normal text-stone-500">Grilla por escuela</span></span>
+            </a>
+            <a href="{% url 'hechos:escuela_crear_actividad' escuela_filtro.id %}" class="flex items-center gap-3 rounded-xl border border-violet-200 bg-white px-4 py-3 text-sm font-medium text-violet-900 shadow-sm hover:bg-violet-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-800"><i class="fas fa-pen-to-square" aria-hidden="true"></i></span>
+                <span class="text-left min-w-0"><span class="block">Actividad</span><span class="block text-xs font-normal text-stone-500">Crear tarea o trabajo</span></span>
+            </a>
+            <a href="{% url 'hechos:escuela_archivos' escuela_filtro.id %}" class="flex items-center gap-3 rounded-xl border border-sky-200 bg-white px-4 py-3 text-sm font-medium text-sky-900 shadow-sm hover:bg-sky-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-800"><i class="fas fa-file-arrow-up" aria-hidden="true"></i></span>
+                <span class="text-left min-w-0"><span class="block">Archivos</span><span class="block text-xs font-normal text-stone-500">Recursos de la escuela</span></span>
+            </a>
+        </div>
+    </div>
+
+    <details class="card p-4 sm:p-5 border border-red-200 bg-red-50/40 open:shadow-sm group">
+        <summary class="cursor-pointer list-none flex flex-wrap items-center gap-2 text-sm font-semibold text-red-950 marker:content-none">
+            <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-800" aria-hidden="true">
+                <i class="fas fa-exclamation-triangle text-sm"></i>
+            </span>
+            <span>Zona delicada: dar de baja esta instancia de escuela</span>
+            <i class="fas fa-chevron-down text-xs text-red-700/80 ml-auto transition-transform group-open:rotate-180" aria-hidden="true"></i>
+        </summary>
+        <div class="mt-4 space-y-4 text-sm text-red-950 border-t border-red-200/80 pt-4">
+            <p class="font-medium">Use esto solo si creó esta escuela por error o debe cerrarla del todo en la plataforma.</p>
+            <ul class="list-disc pl-5 space-y-1.5 text-red-950/95">
+                <li>La escuela dejará de mostrarse en <strong>Mis escuelas</strong> y los estudiantes perderán el acceso a esta oferta.</li>
+                <li>{% if num_estudiantes_escuela %}Hay <strong>{{ num_estudiantes_escuela }}</strong> estudiante{% if num_estudiantes_escuela != 1 %}s{% endif %} con matrícula activa: esas matrículas se <strong>cancelan</strong> (las personas siguen en el sistema).{% else %}No hay estudiantes con matrícula activa en esta escuela.{% endif %}</li>
+                <li>Se desactivan cursos, ediciones y clases vinculados; la asistencia en <strong>grilla</strong> de esta escuela se elimina de la vista.</li>
+                <li>Si había <strong>salón</strong> asignado a esta escuela, quedará libre para asignarlo a otra.</li>
+                <li>No borra usuarios ni contraseñas; <strong>no hay «deshacer»</strong> desde esta pantalla.</li>
+            </ul>
+            <form id="form-prof-escuela-dar-baja" method="post" action="{% url 'hechos:profesor_escuela_dar_de_baja' escuela_filtro.id %}" class="hidden" aria-hidden="true">
+                {% csrf_token %}
+            </form>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+                <label class="flex items-start gap-2.5 cursor-pointer select-none max-w-xl">
+                    <input type="checkbox" id="chk-prof-escuela-dar-baja" class="mt-1 rounded border-red-300 text-red-700 focus:ring-red-500" autocomplete="off"/>
+                    <span class="text-sm leading-snug">Confirmo que leí lo anterior y quiero dar de baja <strong>«{{ escuela_filtro.titulo_tarjeta }}»</strong> en mi sede.</span>
+                </label>
+            </div>
+            <button type="button" id="btn-prof-escuela-dar-baja" disabled
+                    class="js-confirmar-post-form inline-flex items-center justify-center gap-2 rounded-lg border border-red-800 bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-800 disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-red-700 min-h-[44px]"
+                    data-confirm-title="Dar de baja la escuela"
+                    data-confirm-message="Última confirmación.&#10;&#10;Se cancelarán las matrículas activas de esta escuela, se ocultará la oferta y se desactivarán cursos y clases. Las personas no se borran del sistema.&#10;&#10;¿Desea continuar?"
+                    data-confirm-form="form-prof-escuela-dar-baja">
+                <i class="fas fa-ban" aria-hidden="true"></i>
+                Dar de baja esta escuela…
+            </button>
+        </div>
+    </details>
+
+    {% include 'hechos/_modal_confirmar_post.html' %}
+
+    {% endif %}
 
     {% if docente_mis_escuelas_modo == 'escuelas' %}
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -61,7 +135,7 @@
         <div class="card p-6 flex flex-col h-full">
             <div class="min-w-0 flex-1">
                 <h2 class="text-lg font-semibold text-slate-900">{{ item.escuela.nombre }}</h2>
-                <p class="text-sm text-slate-500 mt-1">{{ item.escuela.titulo_tarjeta }}</p>
+                <p class="text-sm text-slate-500 mt-1 leading-snug">{{ item.escuela.titulo_tarjeta }}</p>
                 <div class="mt-3 space-y-1 text-xs text-slate-600">
                     <p>
                         <span class="font-semibold text-slate-700">Horario:</span>
@@ -77,12 +151,6 @@
                     </p>
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2">
-                    {% if item.num_ediciones %}
-                    <span class="badge">{{ item.num_ediciones }} {% if item.num_ediciones == 1 %}edición{% else %}ediciones{% endif %}</span>
-                    {% endif %}
-                    <span class="badge bg-slate-50 text-slate-800 border border-slate-200">
-                        {{ item.num_clases }} {% if item.num_clases == 1 %}sesión{% else %}sesiones{% endif %}
-                    </span>
                     <span class="badge bg-amber-50 text-amber-900 border border-amber-200">
                         {{ item.num_estudiantes }} {% if item.num_estudiantes == 1 %}inscrito{% else %}inscritos{% endif %}
                     </span>
@@ -90,7 +158,7 @@
             </div>
             <div class="mt-6">
                 <a href="{% url 'hechos:mis_escuelas_profesor' %}?escuela={{ item.escuela.id }}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
-                    <i class="fas fa-chalkboard-teacher mr-2"></i>Ver clases y asistencia
+                    <i class="fas fa-school mr-2"></i>Gestionar escuela
                 </a>
             </div>
         </div>
@@ -109,7 +177,7 @@
 
     {% else %}
     {% if docente_mis_escuelas_modo == 'clases_por_escuela' and escuela_filtro %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div class="max-w-md">
         <div class="card p-5 flex items-center gap-4">
             <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
                 <i class="fas fa-user-graduate text-xl"></i>
@@ -117,15 +185,6 @@
             <div>
                 <p class="text-sm font-medium text-gray-500">Estudiantes inscritos en la escuela</p>
                 <p class="text-2xl font-bold text-gray-900">{{ num_estudiantes_escuela|default:"0" }}</p>
-            </div>
-        </div>
-        <div class="card p-5 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                <i class="fas fa-calendar-check text-xl"></i>
-            </div>
-            <div>
-                <p class="text-sm font-medium text-gray-500">Sesiones programadas</p>
-                <p class="text-2xl font-bold text-gray-900">{{ clases|length }}</p>
             </div>
         </div>
     </div>
@@ -191,59 +250,9 @@
     </div>
     {% endif %}
 
-    <!-- Classes List -->
-    <div class="card {% if docente_mis_escuelas_modo == 'clases_por_escuela' %}mt-4{% endif %}">
-        {% if docente_mis_escuelas_modo == 'clases_por_escuela' %}
-        <div class="px-4 py-4 sm:px-6 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-900">Sesiones de esta escuela</h2>
-            <p class="text-sm text-stone-500 mt-1">Agrupadas por mes (como en un aula virtual). Toca <strong class="font-medium text-stone-700">Asistencia</strong> en la sesión que corresponda. Actividades y archivos están arriba, a nivel de escuela.</p>
-        </div>
-        <div class="p-4 sm:p-6 space-y-10">
-            {% for bloque in sesiones_por_mes %}
-            <section class="space-y-4" aria-labelledby="mes-escuela-{{ bloque.year }}-{{ bloque.month }}">
-                <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-stone-200 pb-2">
-                    <h3 id="mes-escuela-{{ bloque.year }}-{{ bloque.month }}" class="text-base font-bold text-stone-900 tracking-tight">
-                        {{ bloque.label }}
-                    </h3>
-                    <span class="text-xs font-medium text-stone-500">
-                        {{ bloque.clases|length }} {% if bloque.clases|length == 1 %}sesión{% else %}sesiones{% endif %}
-                    </span>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {% for clase in bloque.clases %}
-                    <article class="flex flex-col h-full rounded-xl border border-stone-200 bg-white p-4 shadow-sm hover:border-stone-300 transition-colors">
-                        <div class="flex gap-3 min-w-0 flex-1">
-                            <div class="w-14 shrink-0 rounded-xl bg-blue-600 text-white flex flex-col items-center justify-center py-2 px-1 shadow-inner" aria-hidden="true">
-                                <span class="text-xl font-bold leading-none tabular-nums">{{ clase.fecha_clase|date:"j" }}</span>
-                                <span class="text-[10px] font-semibold uppercase opacity-95 mt-0.5 tracking-wide">{{ clase.fecha_clase|date:"D" }}</span>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <h4 class="font-semibold text-stone-900 text-sm leading-snug line-clamp-2">{{ clase.titulo }}</h4>
-                                <p class="text-xs text-stone-600 mt-1.5 tabular-nums">
-                                    <time datetime="{{ clase.fecha_clase|date:'c' }}">{{ clase.fecha_clase|date:"l j" }}, {{ clase.fecha_clase|time:"H:i" }}</time>
-                                    <span class="text-stone-300 mx-1">·</span>
-                                    {{ clase.duracion_minutos }} min
-                                </p>
-                            </div>
-                        </div>
-                        <a href="{% url 'hechos:asistencia_clase' clase.id %}" class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-green-200 bg-green-50 text-green-900 text-sm font-medium hover:bg-green-100 active:scale-[0.99] transition-transform">
-                            <i class="fas fa-clipboard-check" aria-hidden="true"></i>Asistencia
-                        </a>
-                    </article>
-                    {% endfor %}
-                </div>
-            </section>
-            {% empty %}
-            <div class="text-center py-12 px-4">
-                <div class="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-calendar text-stone-400 text-2xl"></i>
-                </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">No hay sesiones</h3>
-                <p class="text-gray-600 text-sm">No se encontraron sesiones para esta escuela.</p>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
+    <!-- Lista de clases (no se usa en detalle Mis escuelas del docente) -->
+    {% if docente_mis_escuelas_modo != 'clases_por_escuela' %}
+    <div class="card">
         <div class="px-6 py-4 border-b border-gray-200">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <h2 class="text-lg font-semibold text-gray-900">
@@ -333,9 +342,6 @@
                         <td class="px-6 py-4 text-sm font-medium">
                             <div class="flex items-center space-x-2">
                                 {% if user.profesor_profile or user.is_super_admin or user.admin_escuela_profile %}
-                                <a href="{% url 'hechos:asistencia_clase' clase.id %}" class="text-green-600 hover:text-green-900" title="Asistencia">
-                                    <i class="fas fa-clipboard-check"></i>
-                                </a>
                                 <a href="{% url 'admin:hechos_clase_change' clase.id %}" class="text-blue-600 hover:text-blue-900" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>
@@ -355,15 +361,27 @@
                                 <i class="fas fa-calendar text-gray-400 text-2xl"></i>
                             </div>
                             <h3 class="text-lg font-medium text-gray-900 mb-2">No hay clases</h3>
-                            <p class="text-gray-600">No se encontraron sesiones para mostrar.</p>
+                            <p class="text-gray-600">No se encontraron clases para mostrar.</p>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        {% endif %}
     </div>
     {% endif %}
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var chk = document.getElementById('chk-prof-escuela-dar-baja');
+    var btn = document.getElementById('btn-prof-escuela-dar-baja');
+    if (!chk || !btn) return;
+    function sync() { btn.disabled = !chk.checked; }
+    chk.addEventListener('change', sync);
+})();
+</script>
 {% endblock %}
