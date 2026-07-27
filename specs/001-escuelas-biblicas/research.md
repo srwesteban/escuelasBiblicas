@@ -24,7 +24,6 @@ El profesor es quien revisa solicitudes de sus escuelas, valida el pago manual y
 
 - El dominio actual del proyecto contiene conceptos legacy que no coinciden totalmente con la semantica nueva.
 - Puede haber solapamiento entre modelos actuales y los conceptos `escuela`, `nivel`, `grupo` y `solicitud`.
-- El modulo `guias` existe pero no entra en el alcance actual.
 
 ## Recomendacion
 Implementar por etapas, empezando por el flujo estudiante -> solicitud -> aprobacion profesor, y despues ajustar la administracion por sede y el modelo academico completo.

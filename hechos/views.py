@@ -3,9 +3,11 @@ from django.urls import reverse, resolve
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+import io
 import os
 
 from django.http import FileResponse, Http404, JsonResponse, HttpResponse
+from django.core.paginator import Paginator
 from django.db.models import Q, Count, Avg, Exists, OuterRef, Sum, Max
 from django.db import IntegrityError
 from django.db import models
@@ -229,26 +231,33 @@ def seleccionar_sede_estudiante(request):
 @login_required
 def estudiantes_list(request):
     """
-    Lista de estudiantes (para admins y profesores)
+    Directorio de estudiantes. El profesor ve solo los suyos (su sede); el coordinador
+    (de sede o académico) ve los de su sede; el director, sin sede propia, ve todas las
+    sedes. Búsqueda por nombre, correo, documento o (para el director) sede.
     """
     allowed = (
         request.user.is_super_admin()
         or hasattr(request.user, 'profesor_profile')
         or (
             hasattr(request.user, 'admin_escuela_profile')
-            and ca.has_capacidad(request.user, 'academico')
+            and (
+                ca.has_capacidad(request.user, 'academico')
+                or request.user.admin_escuela_profile.tipo_coordinador
+                == AdminEscuela.TipoCoordinador.SEDE
+            )
         )
     )
     if not allowed:
         messages.error(request, 'No tienes permisos para ver esta página.')
         return redirect('core:dashboard')
-    
-    # Obtener la sede del usuario
+
+    # Obtener la sede del usuario (el director, si no tiene una propia, ve todas)
     user_sede = get_user_sede(request.user)
-    if not user_sede:
+    ve_todas_las_sedes = request.user.is_super_admin() and not user_sede
+    if not user_sede and not ve_todas_las_sedes:
         messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
         return redirect('core:dashboard')
-    
+
     # Filtrar estudiantes según el perfil del usuario
     if hasattr(request.user, 'profesor_profile'):
         # Profesor ve solo estudiantes de sus cursos
@@ -258,10 +267,12 @@ def estudiantes_list(request):
             matriculas__is_active=True,
             sede=user_sede,
             is_active=True
-        ).distinct().select_related('user').prefetch_related('matriculas')
+        ).distinct().select_related('user', 'sede').prefetch_related('matriculas')
+    elif ve_todas_las_sedes:
+        estudiantes = Estudiante.objects.filter(is_active=True).select_related('user', 'sede').prefetch_related('matriculas')
     else:
-        # Admin ve todos los estudiantes
-        estudiantes = Estudiante.objects.filter(sede=user_sede, is_active=True).select_related('user').prefetch_related('matriculas')
+        # Coordinador/director con sede propia: solo su sede
+        estudiantes = Estudiante.objects.filter(sede=user_sede, is_active=True).select_related('user', 'sede').prefetch_related('matriculas')
 
     busqueda = (request.GET.get('busqueda') or '').strip()
     filtro_estado = (request.GET.get('estado') or '').strip()
@@ -270,19 +281,15 @@ def estudiantes_list(request):
             Q(user__first_name__icontains=busqueda)
             | Q(user__last_name__icontains=busqueda)
             | Q(user__email__icontains=busqueda)
-            | Q(codigo_estudiante__icontains=busqueda)
-            | Q(iglesia__icontains=busqueda)
+            | Q(numero_documento__icontains=busqueda)
+            | Q(sede__nombre__icontains=busqueda)
         ).distinct()
     if filtro_estado == 'matriculados':
-        estudiantes = estudiantes.filter(
-            matriculas__is_active=True,
-            matriculas__sede=user_sede,
-        ).distinct()
+        estudiantes = estudiantes.filter(matriculas__is_active=True).distinct()
     elif filtro_estado == 'no_matriculados':
         matricula_activa = Matricula.objects.filter(
             estudiante_id=OuterRef('pk'),
             is_active=True,
-            sede=user_sede,
         )
         estudiantes = estudiantes.filter(~Exists(matricula_activa))
 
@@ -291,13 +298,13 @@ def estudiantes_list(request):
     estudiantes_matriculados = estudiantes.filter(
         matriculas__is_active=True
     ).distinct()
-    
+
     # Calcular promedio general
     from django.db.models import Avg
     promedio_general = estudiantes.aggregate(
         promedio=Avg('notas__puntaje_obtenido')
     )['promedio'] or 0
-    
+
     # Calcular estadísticas por estudiante
     estudiantes_con_estadisticas = []
     for estudiante in estudiantes:
@@ -308,76 +315,19 @@ def estudiantes_list(request):
             'matriculas_activas': matriculas_activas,
             'total_matriculas': total_matriculas
         })
-    
+
     context = {
         'estudiantes_con_estadisticas': estudiantes_con_estadisticas,
         'estudiantes_activos': estudiantes_activos,
         'estudiantes_matriculados': estudiantes_matriculados,
         'promedio_general': round(promedio_general, 1),
         'user_sede': user_sede,
+        've_todas_las_sedes': ve_todas_las_sedes,
         'busqueda': busqueda,
         'filtro_estado': filtro_estado,
     }
-    
+
     return render(request, 'hechos/estudiantes_list_modern.html', context)
-
-
-@login_required
-def estudiantes_listado_por_sede(request):
-    """
-    Directorio global: todos los estudiantes activos de todas las sedes, con búsqueda transversal
-    (nombre, correo, documento, código, nombre de sede). Para investigación y localizar dónde cursa.
-    """
-    allowed = (
-        request.user.is_super_admin()
-        or hasattr(request.user, 'profesor_profile')
-        or (
-            hasattr(request.user, 'admin_escuela_profile')
-            and ca.has_capacidad(request.user, 'academico')
-        )
-    )
-    if not allowed:
-        messages.error(request, 'No tienes permisos para ver esta página.')
-        return redirect('core:dashboard')
-
-    user_sede = get_user_sede(request.user)
-
-    base_qs = (
-        Estudiante.objects.filter(is_active=True)
-        .select_related('user', 'sede')
-        .order_by('sede__nombre', 'user__last_name', 'user__first_name', 'user__email')
-    )
-    total_plataforma = base_qs.count()
-
-    q = (request.GET.get('q') or '').strip()
-    qs = base_qs
-    if q:
-        qs = qs.filter(
-            Q(user__first_name__icontains=q)
-            | Q(user__last_name__icontains=q)
-            | Q(user__email__icontains=q)
-            | Q(numero_documento__icontains=q)
-            | Q(codigo_estudiante__icontains=q)
-            | Q(sede__nombre__icontains=q)
-        ).distinct()
-
-    total_coincidencias = qs.count()
-    estudiantes = list(qs)
-
-    puede_ver_detalle_estudiante = allowed
-
-    return render(
-        request,
-        'hechos/estudiantes_listado_por_sede.html',
-        {
-            'user_sede': user_sede,
-            'estudiantes': estudiantes,
-            'busqueda_q': q,
-            'total_plataforma': total_plataforma,
-            'total_coincidencias': total_coincidencias,
-            'puede_ver_detalle_estudiante': puede_ver_detalle_estudiante,
-        },
-    )
 
 
 def _time_from_hora_12_am_pm(hour_1_12, am_pm: str) -> dt_time | None:
@@ -423,10 +373,160 @@ def _horario_texto_dia_hora_12(dia_idx: int, t: dt_time) -> str:
     dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     if dia_idx < 0 or dia_idx > 6:
         return ''
+    return f'{dias[dia_idx]}, {_hora_texto_12(t)}'
+
+
+def _hora_texto_12(t: dt_time) -> str:
+    """Hora en formato 12 h (español)."""
     h24 = t.hour
     h12 = h24 % 12 or 12
     suf = 'a. m.' if h24 < 12 else 'p. m.'
-    return f'{dias[dia_idx]}, {h12}:00 {suf}'
+    return f'{h12}:{t.minute:02d} {suf}'
+
+
+def _horario_slots_de_escuela(escuela) -> list[dict]:
+    """Lista de {dia_semana, dia_label, hora, hora_label} para una escuela."""
+    dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    slots = []
+    for h in sorted(
+        list(escuela.estructura_horarios.all()),
+        key=lambda x: (x.dia_semana, x.hora),
+    ):
+        slots.append(
+            {
+                'dia_semana': h.dia_semana,
+                'dia_label': dias[h.dia_semana] if 0 <= h.dia_semana <= 6 else '—',
+                'hora': h.hora,
+                'hora_label': _hora_texto_12(h.hora),
+            }
+        )
+    if not slots and (escuela.horario or '').strip():
+        slots.append(
+            {
+                'dia_semana': None,
+                'dia_label': 'Horario',
+                'hora': None,
+                'hora_label': (escuela.horario or '').strip(),
+            }
+        )
+    return slots
+
+
+def _horario_estudiante_activo(estudiante, user_sede=None) -> list[dict]:
+    """
+    Escuelas activas/vigentes del estudiante con slots de horario para la UI.
+    """
+    hoy = timezone.localdate()
+    qs = (
+        Matricula.objects.filter(
+            estudiante=estudiante,
+            is_active=True,
+            estado='activa',
+            escuela__is_active=True,
+        )
+        .filter(Q(escuela__fecha_fin__isnull=True) | Q(escuela__fecha_fin__gte=hoy))
+        .select_related(
+            'escuela',
+            'escuela__maestro__user',
+            'escuela__sede',
+        )
+        .prefetch_related('escuela__estructura_horarios')
+        .order_by('escuela__nombre', 'id')
+    )
+    if user_sede:
+        qs = qs.filter(Q(sede=user_sede) | Q(escuela__sede=user_sede))
+
+    accents = [
+        {
+            'card': 'border-sky-200 bg-sky-50/80',
+            'dot': 'bg-sky-500',
+            'chip': 'bg-sky-100 text-sky-900',
+            'bar': 'bg-sky-600',
+        },
+        {
+            'card': 'border-amber-200 bg-amber-50/80',
+            'dot': 'bg-amber-500',
+            'chip': 'bg-amber-100 text-amber-950',
+            'bar': 'bg-amber-600',
+        },
+        {
+            'card': 'border-emerald-200 bg-emerald-50/80',
+            'dot': 'bg-emerald-500',
+            'chip': 'bg-emerald-100 text-emerald-950',
+            'bar': 'bg-emerald-600',
+        },
+        {
+            'card': 'border-violet-200 bg-violet-50/80',
+            'dot': 'bg-violet-500',
+            'chip': 'bg-violet-100 text-violet-950',
+            'bar': 'bg-violet-600',
+        },
+        {
+            'card': 'border-rose-200 bg-rose-50/80',
+            'dot': 'bg-rose-500',
+            'chip': 'bg-rose-100 text-rose-950',
+            'bar': 'bg-rose-600',
+        },
+    ]
+
+    filas = []
+    for i, mat in enumerate(qs):
+        esc = mat.escuela
+        if not esc:
+            continue
+        aula = (esc.aula or '').strip()
+        if not aula and user_sede:
+            salon = (
+                Salon.objects.filter(sede=user_sede, escuela=esc, is_active=True)
+                .order_by('nombre')
+                .first()
+            )
+            if salon:
+                aula = salon.nombre
+        prof = ''
+        if esc.maestro_id and esc.maestro and esc.maestro.user_id:
+            prof = (esc.maestro.user.get_full_name() or '').strip()
+        filas.append(
+            {
+                'matricula': mat,
+                'escuela': esc,
+                'profesor': prof or 'Por asignar',
+                'aula': aula,
+                'slots': _horario_slots_de_escuela(esc),
+                'horario_resumen': _horario_edicion_a_texto_ui(esc),
+                'accent': accents[i % len(accents)],
+            }
+        )
+    return filas
+
+
+def _grilla_semanal_horario(filas: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Agrupa slots por día (0–6) para la vista semanal."""
+    dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    grilla = [
+        {'dia_semana': i, 'dia_label': dias[i], 'sesiones': []} for i in range(7)
+    ]
+    sin_dia = []
+    for fila in filas:
+        for slot in fila['slots']:
+            item = {
+                'escuela': fila['escuela'],
+                'profesor': fila['profesor'],
+                'aula': fila['aula'],
+                'hora_label': slot['hora_label'],
+                'hora': slot['hora'],
+                'accent': fila['accent'],
+            }
+            d = slot['dia_semana']
+            if d is None or d < 0 or d > 6:
+                sin_dia.append(item)
+            else:
+                grilla[d]['sesiones'].append(item)
+    for dia in grilla:
+        dia['sesiones'].sort(
+            key=lambda s: (s['hora'] is None, s['hora'] or dt_time(0, 0), s['escuela'].nombre)
+        )
+    return grilla, sin_dia
 
 
 def _parse_horario_filas_crear_instancia(request) -> list[tuple[int, dt_time]]:
@@ -538,8 +638,8 @@ def profesor_crear_instancia_escuela(request):
             anio = int(request.POST.get('anio_escuela') or '0')
         except ValueError:
             anio = 0
-        if anio < 2016 or anio > 2030:
-            messages.error(request, 'Elige un año académico entre 2016 y 2030.')
+        if anio < timezone.now().year:
+            messages.error(request, 'Elige un año académico válido.')
             return redirect('hechos:profesor_crear_instancia_escuela')
         ciclo_post = (request.POST.get('ciclo') or Escuela.Ciclo.A).strip().upper()
         if ciclo_post not in (Escuela.Ciclo.A, Escuela.Ciclo.B):
@@ -616,6 +716,14 @@ def profesor_crear_instancia_escuela(request):
         if modalidad not in modalidades_validas:
             modalidad = Escuela.Modalidad.PRESENCIAL
 
+        try:
+            cupo_maximo_post = int(request.POST.get('cupo_maximo') or '0')
+        except ValueError:
+            cupo_maximo_post = 0
+        if cupo_maximo_post < 1:
+            messages.error(request, 'Indica un cupo máximo válido (al menos 1 estudiante).')
+            return redirect('hechos:profesor_crear_instancia_escuela')
+
         creadas = 0
         try:
             with transaction.atomic():
@@ -631,7 +739,7 @@ def profesor_crear_instancia_escuela(request):
                     modalidad=modalidad,
                     horario=horario_txt,
                     aula='',
-                    cupo_maximo=30,
+                    cupo_maximo=cupo_maximo_post,
                     is_active=True,
                 )
 
@@ -712,7 +820,7 @@ def profesor_crear_instancia_escuela(request):
         except Exception as e:
             messages.error(request, f'Error al crear la instancia: {e}')
 
-    y0 = max(2016, min(2030, default_anio_escuela()))
+    anio_actual = timezone.now().year
     hoy = timezone.localdate()
     return render(
         request,
@@ -722,11 +830,12 @@ def profesor_crear_instancia_escuela(request):
             'niveles': niveles,
             'plantillas_data': plantillas_data,
             'salones_libres': salones_libres,
-            'anios_academicos': list(range(2016, 2031)),
-            'anio_escuela_default': y0,
+            'anios_academicos': list(range(anio_actual, anio_actual + 5)),
+            'anio_escuela_default': anio_actual,
             'fecha_inicio_default': hoy.strftime('%Y-%m-%d'),
             'fecha_fin_default': (hoy + timedelta(weeks=12)).strftime('%Y-%m-%d'),
             'modalidad_default': Escuela.Modalidad.PRESENCIAL,
+            'cupo_maximo_default': 30,
         },
     )
 
@@ -1096,8 +1205,10 @@ def estructura_ediciones(request):
         messages.warning(request, "No tienes una sede asignada. Contacta al administrador.")
         return redirect("core:dashboard")
 
-    escuelas = Escuela.objects.filter(sede=user_sede, is_active=True).order_by(
-        "nombre", "-anio", "ciclo"
+    escuelas = (
+        Escuela.objects.filter(sede=user_sede, is_active=True)
+        .select_related('maestro__user')
+        .order_by('nombre', '-anio', 'ciclo')
     )
 
     escuelas_feed = []
@@ -1531,20 +1642,6 @@ def estructura_configurar_paso(request, escuela_id, step):
 
 
 @login_required
-def estructura_edicion_legacy_redirect(request, edicion_id):
-    """Enlaces antiguos con id de edición: ya no aplica; usar estructura por escuela."""
-    if not request.user.is_super_admin():
-        r = ca.require_pedagogico(request)
-        if r:
-            return r
-    messages.info(
-        request,
-        'Las rutas antiguas por «edición» ya no se usan. Abre la escuela desde la lista y configura la estructura.',
-    )
-    return redirect("hechos:estructura_ediciones")
-
-
-@login_required
 def cursos_list(request):
     """
     Lista de cursos
@@ -1622,19 +1719,28 @@ def escuelas_disponibles(request):
         Matricula.objects.filter(estudiante=estudiante, is_active=True).values_list('escuela_id', flat=True)
     )
 
-    escuelas_operativas = (
+    escuelas_operativas = list(
         Escuela.objects.filter(sede=user_sede, is_active=True)
+        .vigentes()
         .select_related('sede', 'maestro__user')
+        .prefetch_related('estructura_horarios')
         .order_by('nombre', 'id')
     )
 
+    primer_curso_por_escuela = {}
+    for curso in (
+        Curso.objects.filter(
+            ruta_estudio__escuela_id__in=[e.id for e in escuelas_operativas],
+            is_active=True,
+        )
+        .select_related('ruta_estudio')
+        .order_by('ruta_estudio__escuela_id', 'orden', 'id')
+    ):
+        primer_curso_por_escuela.setdefault(curso.ruta_estudio.escuela_id, curso)
+
     escuelas_by_id = {}
     for escuela in escuelas_operativas:
-        curso = (
-            Curso.objects.filter(ruta_estudio__escuela=escuela, is_active=True)
-            .order_by('orden', 'id')
-            .first()
-        )
+        curso = primer_curso_por_escuela.get(escuela.id)
         escuela_data = escuelas_by_id.setdefault(
             escuela.id,
             {
@@ -1702,10 +1808,20 @@ def escuelas_disponibles(request):
         for n in niveles:
             if n['curso']:
                 partes.append(n['curso'].nombre or '')
-            if n['edicion'].maestro and n['edicion'].maestro.user:
-                partes.append(n['edicion'].maestro.user.get_full_name() or '')
+
+        maestro = escuela.maestro
+        profesor_nombre = ''
+        if maestro and maestro.user_id:
+            profesor_nombre = (maestro.user.get_full_name() or '').strip()
+        if profesor_nombre:
+            partes.append(profesor_nombre)
+        horario_ui = _horario_edicion_a_texto_ui(ed_pri or escuela)
+        if horario_ui:
+            partes.append(horario_ui)
 
         escuela_data['search_text'] = ' '.join(p for p in partes if p)
+        escuela_data['profesor_nombre'] = profesor_nombre
+        escuela_data['horario_ui'] = horario_ui
         escuela_data['oferta'] = {
             'edicion': ed_pri,
             'curso': next((n['curso'] for n in niveles if n.get('curso')), None),
@@ -1714,6 +1830,8 @@ def escuelas_disponibles(request):
             'ya_matriculado': ya_mat,
             'solicitud': solicitud_any,
             'puede_solicitar': puede,
+            'horario_ui': horario_ui,
+            'profesor_nombre': profesor_nombre,
         }
         del escuela_data['niveles']
         escuelas_list.append(escuela_data)
@@ -1884,7 +2002,50 @@ def mis_certificados(request):
     if not hasattr(request.user, "estudiante_profile"):
         messages.error(request, "Solo los estudiantes pueden acceder a esta sección.")
         return redirect("core:dashboard")
-    return render(request, "hechos/mis_certificados.html")
+    estudiante = request.user.estudiante_profile
+    certificados = list(
+        NotasGrillaEstadoFinal.objects.filter(
+            estudiante=estudiante, certificado_activo=True,
+        )
+        .select_related('escuela', 'escuela__sede')
+        .order_by('-certificado_emitido_en')
+    )
+    return render(
+        request,
+        "hechos/mis_certificados.html",
+        {'certificados': certificados},
+    )
+
+
+@login_required
+def ver_certificado_escuela(request, escuela_id):
+    if not hasattr(request.user, 'estudiante_profile'):
+        messages.error(request, 'Solo los estudiantes pueden ver certificados.')
+        return redirect('core:dashboard')
+    estudiante = request.user.estudiante_profile
+    ef = (
+        NotasGrillaEstadoFinal.objects.select_related('escuela__sede')
+        .filter(escuela_id=escuela_id, estudiante=estudiante, certificado_activo=True)
+        .first()
+    )
+    if not ef:
+        messages.error(request, 'No se encontró un certificado activo para esta escuela.')
+        return redirect('hechos:mis_certificados')
+    matricula = (
+        Matricula.objects.filter(estudiante=estudiante, escuela=ef.escuela)
+        .order_by('-fecha_matricula')
+        .first()
+    )
+    return render(
+        request,
+        'hechos/certificado_escuela.html',
+        {
+            'estudiante': estudiante,
+            'escuela': ef.escuela,
+            'certificado_emitido_en': ef.certificado_emitido_en,
+            'matricula': matricula,
+        },
+    )
 
 
 def _procesar_solicitud_matricula_estudiante(request, estudiante, escuela: Escuela):
@@ -1914,11 +2075,16 @@ def _procesar_solicitud_matricula_estudiante(request, estudiante, escuela: Escue
         messages.warning(request, 'Esta escuela no tiene cupos disponibles por ahora.')
         return redirect('hechos:escuelas_disponibles')
 
-    SolicitudMatricula.objects.create(
-        sede=escuela.sede,
-        estudiante=estudiante,
-        escuela=escuela,
-    )
+    try:
+        SolicitudMatricula.objects.create(
+            sede=escuela.sede,
+            estudiante=estudiante,
+            escuela=escuela,
+        )
+    except IntegrityError:
+        messages.info(request, 'Ya enviaste una solicitud para esta escuela.')
+        return redirect('hechos:escuelas_disponibles')
+
     messages.success(request, f'Solicitud enviada para {escuela.nombre}.')
     return redirect('hechos:mis_escuelas')
 
@@ -1939,7 +2105,7 @@ def solicitar_matricula_escuela(request, escuela_id):
         messages.info(request, 'Selecciona tu sede para solicitar matrícula.')
         return redirect('hechos:seleccionar_sede_estudiante')
 
-    escuela = get_object_or_404(Escuela, id=escuela_id, sede=user_sede, is_active=True)
+    escuela = get_object_or_404(Escuela.objects.vigentes(), id=escuela_id, sede=user_sede, is_active=True)
     return _procesar_solicitud_matricula_estudiante(request, estudiante, escuela)
 
 
@@ -1959,7 +2125,7 @@ def solicitar_matricula(request, edicion_id):
     estudiante = request.user.estudiante_profile
     user_sede = get_user_sede(request.user)
     escuela = get_object_or_404(
-        Escuela.objects.select_related('sede', 'maestro__user'),
+        Escuela.objects.vigentes().select_related('sede', 'maestro__user'),
         id=edicion_id,
         is_active=True,
         sede=user_sede,
@@ -1968,44 +2134,409 @@ def solicitar_matricula(request, edicion_id):
     return _procesar_solicitud_matricula_estudiante(request, estudiante, escuela)
 
 
+def _matriculas_estudiante_enriquecidas(estudiante):
+    """
+    Parte matrículas del estudiante en activas (no vencidas) e historial (vencidas/cerradas).
+    """
+    matriculas = list(
+        Matricula.objects.filter(estudiante=estudiante)
+        .select_related(
+            'escuela',
+            'escuela__sede',
+            'escuela__maestro__user',
+            'sede',
+        )
+        .order_by('-fecha_matricula', '-id')
+    )
+    sede_ids = {
+        m.escuela.sede_id
+        for m in matriculas
+        if m.escuela_id and m.escuela.sede_id
+    }
+    sede_ids.update(m.sede_id for m in matriculas if m.sede_id)
+    ep_lookup = _build_escuela_programa_lookup_por_nombre(sede_ids)
+
+    escuela_ids = [m.escuela_id for m in matriculas if m.escuela_id]
+    primer_curso_por_escuela = {}
+    if escuela_ids:
+        for curso in (
+            Curso.objects.filter(
+                ruta_estudio__escuela_id__in=escuela_ids,
+                is_active=True,
+            )
+            .select_related('ruta_estudio')
+            .order_by('ruta_estudio__escuela_id', 'orden', 'id')
+        ):
+            primer_curso_por_escuela.setdefault(curso.ruta_estudio.escuela_id, curso.id)
+
+    matriculas_en_curso = []
+    matriculas_historial = []
+    for mat in matriculas:
+        esc = mat.escuela
+        sid = (esc.sede_id if esc else None) or mat.sede_id
+        ep = _escuela_programa_para_escuela_operativa(esc, sid, ep_lookup) if esc else None
+        mat.nivel_programa_catalogo = ep.nivel_programa.titulo_acordeon() if ep else ''
+        mat.curso_portal_id = primer_curso_por_escuela.get(mat.escuela_id)
+        mat.sede_display = (
+            (esc.sede.nombre if esc and esc.sede_id else None)
+            or (mat.sede.nombre if mat.sede_id else None)
+            or 'Sin sede'
+        )
+        finalizada = bool(esc and esc.ha_finalizado)
+        es_pasada = (
+            (not mat.is_active)
+            or mat.estado in ('completada', 'cancelada', 'suspendida')
+            or finalizada
+        )
+        if es_pasada:
+            if mat.estado == 'cancelada' or (
+                not mat.is_active and mat.estado not in ('completada', 'suspendida')
+            ):
+                mat.historial_etiqueta = 'Cancelada'
+                mat.historial_badge = 'danger'
+            elif mat.estado == 'suspendida':
+                mat.historial_etiqueta = 'Suspendida'
+                mat.historial_badge = 'warning'
+            else:
+                mat.historial_etiqueta = 'Finalizada'
+                mat.historial_badge = ''
+            mat.puede_entrar = False
+            matriculas_historial.append(mat)
+        else:
+            mat.historial_etiqueta = 'En curso'
+            mat.historial_badge = 'success'
+            mat.puede_entrar = bool(mat.curso_portal_id)
+            matriculas_en_curso.append(mat)
+
+    return matriculas_en_curso, matriculas_historial, ep_lookup
+
+
 @login_required
 def mis_escuelas(request):
-    """
-    Lista de solicitudes de matrícula del estudiante (Mis escuelas).
-    """
+    """Escuelas en las que el estudiante está inscrito y que aún no están vencidas."""
     if not hasattr(request.user, 'estudiante_profile'):
         messages.error(request, 'Solo los estudiantes pueden ver sus escuelas.')
         return redirect('core:dashboard')
 
     estudiante = request.user.estudiante_profile
-    solicitudes = list(
-        SolicitudMatricula.objects.filter(estudiante=estudiante).select_related(
-            'escuela',
-            'escuela__sede',
-            'escuela__maestro__user',
-        )
+    matriculas_en_curso, _historial, ep_lookup = _matriculas_estudiante_enriquecidas(estudiante)
+
+    solicitudes_pendientes = list(
+        SolicitudMatricula.objects.filter(estudiante=estudiante, estado='pendiente')
+        .select_related('escuela', 'escuela__sede', 'escuela__maestro__user', 'sede')
+        .order_by('-fecha_solicitud')
     )
-    sede_ids = {s.escuela.sede_id for s in solicitudes if s.escuela_id and s.escuela.sede_id}
-    ep_lookup = _build_escuela_programa_lookup_por_nombre(sede_ids)
-    for sol in solicitudes:
+    for sol in solicitudes_pendientes:
         esc = sol.escuela
         sid = esc.sede_id if esc else None
         ep = _escuela_programa_para_escuela_operativa(esc, sid, ep_lookup) if esc else None
         sol.nivel_programa_catalogo = ep.nivel_programa.titulo_acordeon() if ep else ''
-        sol.curso_portal_id = None
-        if esc:
-            sol.curso_portal_id = (
-                Curso.objects.filter(ruta_estudio__escuela=esc, sede=sol.sede, is_active=True)
-                .order_by('orden', 'id')
-                .values_list('id', flat=True)
-                .first()
+
+    return render(
+        request,
+        'hechos/mis_escuelas.html',
+        {
+            'matriculas_en_curso': matriculas_en_curso,
+            'solicitudes_pendientes': solicitudes_pendientes,
+            'estudiante': estudiante,
+            'tiene_registros': bool(matriculas_en_curso or solicitudes_pendientes),
+        },
+    )
+
+
+@login_required
+def historial_escuelas(request):
+    """Historial: escuelas vencidas o matrículas ya cerradas."""
+    if not hasattr(request.user, 'estudiante_profile'):
+        messages.error(request, 'Solo los estudiantes pueden ver el historial.')
+        return redirect('core:dashboard')
+
+    estudiante = request.user.estudiante_profile
+    _en_curso, matriculas_historial, _ep = _matriculas_estudiante_enriquecidas(estudiante)
+
+    return render(
+        request,
+        'hechos/historial_escuelas.html',
+        {
+            'matriculas_historial': matriculas_historial,
+            'estudiante': estudiante,
+        },
+    )
+
+
+@login_required
+def mi_horario(request):
+    """Vista semanal del horario de clases del estudiante (escuelas activas)."""
+    if not hasattr(request.user, 'estudiante_profile'):
+        messages.error(request, 'Solo los estudiantes pueden ver su horario.')
+        return redirect('core:dashboard')
+
+    estudiante = request.user.estudiante_profile
+    user_sede = get_user_sede(request.user)
+    filas = _horario_estudiante_activo(estudiante, user_sede)
+    grilla, sin_dia = _grilla_semanal_horario(filas)
+    hoy_idx = timezone.localdate().weekday()  # 0=lunes
+
+    return render(
+        request,
+        'hechos/mi_horario.html',
+        {
+            'estudiante': estudiante,
+            'user_sede': user_sede,
+            'filas_horario': filas,
+            'grilla_semanal': grilla,
+            'sesiones_sin_dia': sin_dia,
+            'hoy_idx': hoy_idx,
+            'tiene_horario': bool(filas),
+        },
+    )
+
+
+@login_required
+def mi_horario_descargar(request):
+    """Descarga el horario del estudiante en PDF (diseño tipo calendario)."""
+    if not hasattr(request.user, 'estudiante_profile'):
+        messages.error(request, 'Solo los estudiantes pueden descargar su horario.')
+        return redirect('core:dashboard')
+
+    estudiante = request.user.estudiante_profile
+    user_sede = get_user_sede(request.user)
+    filas = _horario_estudiante_activo(estudiante, user_sede)
+    if not filas:
+        messages.info(request, 'No hay horario para descargar todavía.')
+        return redirect('hechos:mi_horario')
+
+    nombre_base = slugify(
+        f"horario-{(request.user.get_full_name() or request.user.username)}"
+    ) or 'horario'
+
+    try:
+        pdf_bytes = _mi_horario_pdf_bytes(
+            filas=filas,
+            estudiante_nombre=request.user.get_full_name() or request.user.username,
+            sede_nombre=(user_sede.nombre if user_sede else ''),
+        )
+    except Exception as exc:
+        messages.error(request, f'No se pudo generar el PDF: {exc}')
+        return redirect('hechos:mi_horario')
+
+    resp = HttpResponse(pdf_bytes, content_type='application/pdf')
+    resp['Content-Disposition'] = f'attachment; filename="{nombre_base}.pdf"'
+    return resp
+
+
+def _pdf_font(size: int, bold: bool = False):
+    """Carga una fuente TrueType usable en Windows/Linux; si no, la por defecto."""
+    from PIL import ImageFont
+
+    candidates = []
+    if bold:
+        candidates.extend(
+            [
+                r'C:\Windows\Fonts\segoeuib.ttf',
+                r'C:\Windows\Fonts\arialbd.ttf',
+                r'C:\Windows\Fonts\calibrib.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+            ]
+        )
+    else:
+        candidates.extend(
+            [
+                r'C:\Windows\Fonts\segoeui.ttf',
+                r'C:\Windows\Fonts\arial.ttf',
+                r'C:\Windows\Fonts\calibri.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+                '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+            ]
+        )
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _pdf_truncate(draw, text: str, font, max_w: int) -> str:
+    text = (text or '').strip()
+    if not text:
+        return ''
+    if draw.textlength(text, font=font) <= max_w:
+        return text
+    ell = '…'
+    while text and draw.textlength(text + ell, font=font) > max_w:
+        text = text[:-1]
+    return (text + ell) if text else ell
+
+
+def _mi_horario_pdf_bytes(*, filas, estudiante_nombre: str, sede_nombre: str) -> bytes:
+    """
+    PDF horizontal tipo Google Calendar / póster Canva:
+    cabecera + 7 columnas de días con tarjetas de clase.
+    """
+    from PIL import Image, ImageDraw
+
+    grilla, sin_dia = _grilla_semanal_horario(filas)
+
+    # Landscape ~ A4 @ 150 dpi
+    W, H = 1754, 1240
+    img = Image.new('RGB', (W, H), '#F1F5F9')
+    draw = ImageDraw.Draw(img)
+
+    font_hero = _pdf_font(42, bold=True)
+    font_sub = _pdf_font(18, bold=False)
+    font_day = _pdf_font(16, bold=True)
+    font_time = _pdf_font(13, bold=True)
+    font_title = _pdf_font(14, bold=True)
+    font_meta = _pdf_font(11, bold=False)
+    font_foot = _pdf_font(12, bold=False)
+    font_empty = _pdf_font(12, bold=False)
+
+    # Header band
+    draw.rectangle((0, 0, W, 168), fill='#0F172A')
+    draw.ellipse((W - 280, -120, W + 80, 200), fill='#1E3A5F')
+    draw.ellipse((-100, 40, 220, 280), fill='#854D0E')
+
+    draw.text((56, 42), 'Mi horario de clases', fill='#F8FAFC', font=font_hero)
+    sub = estudiante_nombre or 'Estudiante'
+    if sede_nombre:
+        sub = f'{sub}  ·  {sede_nombre}'
+    draw.text((56, 100), sub, fill='#CBD5E1', font=font_sub)
+    draw.text(
+        (56, 130),
+        timezone.localdate().strftime('Generado el %d/%m/%Y'),
+        fill='#94A3B8',
+        font=font_meta,
+    )
+
+    # Day columns
+    margin_x = 40
+    top_y = 200
+    gap = 14
+    cols = 7
+    col_w = (W - margin_x * 2 - gap * (cols - 1)) / cols
+    bottom_y = H - 70
+    col_h = bottom_y - top_y
+
+    day_header_colors = [
+        '#0369A1',  # Lun
+        '#0F766E',  # Mar
+        '#7C3AED',  # Mié
+        '#B45309',  # Jue
+        '#BE123C',  # Vie
+        '#334155',  # Sáb
+        '#475569',  # Dom
+    ]
+    card_palette = [
+        ('#E0F2FE', '#0369A1', '#0C4A6E'),
+        ('#FEF3C7', '#B45309', '#78350F'),
+        ('#D1FAE5', '#047857', '#064E3B'),
+        ('#EDE9FE', '#6D28D9', '#4C1D95'),
+        ('#FFE4E6', '#BE123C', '#881337'),
+    ]
+
+    for i, dia in enumerate(grilla):
+        x0 = margin_x + i * (col_w + gap)
+        x1 = x0 + col_w
+        # Column card
+        draw.rounded_rectangle(
+            (x0, top_y, x1, top_y + col_h),
+            radius=18,
+            fill='#FFFFFF',
+            outline='#E2E8F0',
+            width=2,
+        )
+        # Day header
+        hdr_h = 44
+        draw.rounded_rectangle(
+            (x0 + 8, top_y + 8, x1 - 8, top_y + 8 + hdr_h),
+            radius=12,
+            fill=day_header_colors[i],
+        )
+        day_label = dia['dia_label'].upper()
+        tw = draw.textlength(day_label, font=font_day)
+        draw.text(
+            (x0 + (col_w - tw) / 2, top_y + 18),
+            day_label,
+            fill='#FFFFFF',
+            font=font_day,
+        )
+
+        y = top_y + 8 + hdr_h + 14
+        sesiones = dia['sesiones']
+        if not sesiones:
+            draw.text(
+                (x0 + 16, y + 24),
+                'Sin clases',
+                fill='#94A3B8',
+                font=font_empty,
+            )
+            continue
+
+        max_cards = 5
+        for j, s in enumerate(sesiones[:max_cards]):
+            bg, accent, ink = card_palette[j % len(card_palette)]
+            card_h = 86
+            if y + card_h > top_y + col_h - 16:
+                more = len(sesiones) - j
+                if more > 0:
+                    draw.text(
+                        (x0 + 14, y),
+                        f'+{more} más…',
+                        fill='#64748B',
+                        font=font_meta,
+                    )
+                break
+            draw.rounded_rectangle(
+                (x0 + 10, y, x1 - 10, y + card_h),
+                radius=12,
+                fill=bg,
+                outline=accent,
+                width=1,
+            )
+            # Accent bar
+            draw.rounded_rectangle(
+                (x0 + 10, y, x0 + 16, y + card_h),
+                radius=6,
+                fill=accent,
+            )
+            cx = x0 + 24
+            draw.text((cx, y + 8), s['hora_label'], fill=accent, font=font_time)
+            title = _pdf_truncate(draw, s['escuela'].nombre, font_title, col_w - 44)
+            draw.text((cx, y + 28), title, fill=ink, font=font_title)
+            prof = _pdf_truncate(draw, s['profesor'], font_meta, col_w - 44)
+            draw.text((cx, y + 50), prof, fill='#475569', font=font_meta)
+            if s.get('aula'):
+                aula = _pdf_truncate(draw, f"Salón {s['aula']}", font_meta, col_w - 44)
+                draw.text((cx, y + 66), aula, fill='#64748B', font=font_meta)
+            y += card_h + 10
+
+        if len(sesiones) > max_cards:
+            draw.text(
+                (x0 + 14, min(y, top_y + col_h - 28)),
+                f'+{len(sesiones) - max_cards} más…',
+                fill='#64748B',
+                font=font_meta,
             )
 
-    context = {
-        'solicitudes': solicitudes,
-        'estudiante': estudiante,
-    }
-    return render(request, 'hechos/mis_escuelas.html', context)
+    # Free-text schedules note strip
+    if sin_dia:
+        note = 'También: ' + ' · '.join(
+            f"{s['escuela'].nombre} ({s['hora_label']})" for s in sin_dia[:4]
+        )
+        note = _pdf_truncate(draw, note, font_meta, W - 120)
+        draw.text((56, H - 48), note, fill='#64748B', font=font_meta)
+
+    foot = 'Hechos Hub  ·  Horario semanal'
+    fw = draw.textlength(foot, font=font_foot)
+    draw.text(((W - fw) / 2, H - 36), foot, fill='#94A3B8', font=font_foot)
+
+    buf = io.BytesIO()
+    # Pillow escribe PDF multipágina; una sola hoja landscape
+    img_rgb = img.convert('RGB')
+    img_rgb.save(buf, format='PDF', resolution=150.0)
+    return buf.getvalue()
 
 
 @login_required
@@ -2023,6 +2554,9 @@ def solicitudes_matricula_admin(request):
     pendientes = SolicitudMatricula.objects.filter(
         sede=user_sede,
         estado='pendiente',
+        escuela__is_active=True,
+    ).exclude(
+        escuela__fecha_fin__lt=timezone.localdate(),
     ).select_related(
         'estudiante__user',
         'escuela',
@@ -2068,7 +2602,8 @@ def profesor_solicitudes_matricula(request):
     )
 
     pendientes = (
-        base_qs.filter(estado='pendiente')
+        base_qs.filter(estado='pendiente', escuela__is_active=True)
+        .exclude(escuela__fecha_fin__lt=timezone.localdate())
         .select_related(
             'estudiante__user',
             'escuela',
@@ -2076,23 +2611,103 @@ def profesor_solicitudes_matricula(request):
         )
         .order_by('-fecha_solicitud')
     )
-    revisadas = (
+
+    q = (request.GET.get('q') or '').strip()
+    revisadas_qs = (
         base_qs.exclude(estado='pendiente')
         .select_related(
             'estudiante__user',
             'escuela',
             'revisado_por',
         )
-        .order_by('-fecha_revision', '-updated_at')[:30]
+        .order_by('-fecha_revision', '-updated_at')
     )
+    if q:
+        revisadas_qs = revisadas_qs.filter(
+            Q(estudiante__user__first_name__icontains=q)
+            | Q(estudiante__user__last_name__icontains=q)
+            | Q(estudiante__user__email__icontains=q)
+            | Q(estudiante__numero_documento__icontains=q)
+            | Q(escuela__nombre__icontains=q)
+            | Q(observaciones__icontains=q)
+            | Q(estado__icontains=q)
+        ).distinct()
+
+    paginator = Paginator(revisadas_qs, 15)
+    page_obj = paginator.get_page(request.GET.get('page') or 1)
+
+    filters_qs = request.GET.copy()
+    filters_qs.pop('page', None)
+    filters_enc = filters_qs.urlencode()
+    filters_query = f'&{filters_enc}' if filters_enc else ''
 
     return render(
         request,
         'hechos/solicitudes_matricula_profesor.html',
         {
             'pendientes': pendientes,
-            'revisadas': revisadas,
+            'revisadas': page_obj,
+            'page_obj': page_obj,
+            'search_q': q,
+            'filters_query': filters_query,
             'user_sede': user_sede,
+        },
+    )
+
+
+@login_required
+def profesor_restablecer_contrasena(request):
+    """
+    El profesor busca un estudiante por documento (en todo el sistema) y, si es
+    la persona correcta, puede restablecer su contraseña (queda igual a su
+    número de documento) por si la olvidó.
+    """
+    if not hasattr(request.user, 'profesor_profile'):
+        messages.error(request, 'Solo los profesores pueden acceder a esta sección.')
+        return redirect('core:dashboard')
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
+        return redirect('core:dashboard')
+
+    if request.method == 'POST' and (request.POST.get('accion') or '').strip() == 'restablecer':
+        try:
+            est_id = int(request.POST.get('estudiante_id') or '0')
+        except ValueError:
+            est_id = 0
+        estudiante = Estudiante.objects.filter(id=est_id).select_related('user').first()
+        if not estudiante:
+            messages.error(request, 'No se encontró ese estudiante.')
+            return redirect('hechos:profesor_restablecer_contrasena')
+        nueva_password = (estudiante.numero_documento or '').strip()
+        if not nueva_password:
+            messages.error(
+                request,
+                f'{estudiante.user.get_full_name()} no tiene número de documento registrado; no se puede restablecer.',
+            )
+            return redirect('hechos:profesor_restablecer_contrasena')
+        estudiante.user.set_password(nueva_password)
+        estudiante.user.save(update_fields=['password'])
+        messages.success(
+            request,
+            f'{estudiante.user.get_full_name()} restableció correctamente su contraseña. '
+            f'Nueva contraseña (entregar al estudiante): {nueva_password}',
+        )
+        return redirect('hechos:profesor_restablecer_contrasena')
+
+    doc_buscado = (request.GET.get('doc') or '').strip()
+    estudiante_encontrado = None
+    if doc_buscado:
+        estudiante_encontrado = _find_estudiante_por_documento_global(doc_buscado)
+
+    return render(
+        request,
+        'hechos/profesor_restablecer_contrasena.html',
+        {
+            'user_sede': user_sede,
+            'doc_buscado': doc_buscado,
+            'estudiante_encontrado': estudiante_encontrado,
         },
     )
 
@@ -2137,6 +2752,10 @@ def revisar_solicitud_matricula(request, solicitud_id):
     observaciones = (request.POST.get('observaciones') or '').strip()
     ahora = timezone.now()
 
+    if accion == 'aprobar' and ((not solicitud.escuela.is_active) or solicitud.escuela.ha_finalizado):
+        messages.error(request, 'Esta escuela ya no está activa; no se puede matricular.')
+        return redirect(redirect_target)
+
     if accion == 'aprobar':
         solicitud.estado = 'aprobada'
         solicitud.observaciones = observaciones
@@ -2152,7 +2771,7 @@ def revisar_solicitud_matricula(request, solicitud_id):
             estudiante.user.sede = solicitud.sede
             estudiante.user.save(update_fields=['sede'])
 
-        Matricula.objects.get_or_create(
+        mat, mat_created = Matricula.objects.get_or_create(
             estudiante=estudiante,
             escuela=solicitud.escuela,
             defaults={
@@ -2162,6 +2781,14 @@ def revisar_solicitud_matricula(request, solicitud_id):
                 'is_active': True,
             },
         )
+        reactivada = False
+        if not mat_created and (not mat.is_active or mat.estado != 'activa'):
+            mat.is_active = True
+            mat.estado = 'activa'
+            if mat.sede_id != solicitud.sede_id:
+                mat.sede = solicitud.sede
+            mat.save(update_fields=['is_active', 'estado', 'sede', 'updated_at'])
+            reactivada = True
 
         curso_ref = (
             Curso.objects.filter(
@@ -2183,7 +2810,12 @@ def revisar_solicitud_matricula(request, solicitud_id):
                 + (f" Observación: {observaciones}" if observaciones else "")
             ),
         )
-        messages.success(request, 'Solicitud aprobada y matrícula creada.')
+        if mat_created:
+            messages.success(request, 'Solicitud aprobada y matrícula creada.')
+        elif reactivada:
+            messages.success(request, 'Solicitud aprobada. La matrícula quedó activa.')
+        else:
+            messages.success(request, 'Solicitud aprobada. El estudiante ya estaba matriculado.')
     elif accion == 'rechazar':
         solicitud.estado = 'rechazada'
         solicitud.observaciones = observaciones
@@ -2212,6 +2844,9 @@ def revisar_solicitud_matricula(request, solicitud_id):
             ),
         )
         messages.warning(request, 'Solicitud rechazada.')
+    elif accion == 'eliminar':
+        solicitud.delete()
+        messages.success(request, 'Solicitud eliminada.')
     else:
         messages.error(request, 'Acción no válida.')
 
@@ -2493,16 +3128,39 @@ def clases_list(request):
     if es_mis_escuelas_docente:
         if not profesor:
             return redirect('hechos:clases_list')
-        escuelas_asignadas = list(
-            Escuela.objects.filter(
-                sede=user_sede,
-                maestro=profesor,
-                is_active=True,
-            )
-            .select_related('maestro__user')
-            .prefetch_related('estructura_horarios')
-            .order_by('-anio', 'ciclo', 'nombre')
+
+        hoy = timezone.localdate()
+        estado_vista = (request.GET.get('estado') or 'activas').strip().lower()
+        if estado_vista not in ('activas', 'inactivas'):
+            estado_vista = 'activas'
+        anio_raw = (request.GET.get('anio') or '').strip()
+        anio_filtro = None
+        if anio_raw.isdigit():
+            anio_filtro = int(anio_raw)
+
+        qs_base = Escuela.objects.filter(
+            sede=user_sede,
+            maestro=profesor,
+        ).select_related('maestro__user').prefetch_related('estructura_horarios')
+
+        anios_disponibles = list(
+            qs_base.order_by('-anio')
+            .values_list('anio', flat=True)
+            .distinct()
         )
+
+        if estado_vista == 'activas':
+            qs_lista = qs_base.filter(is_active=True).vigentes()
+        else:
+            qs_lista = qs_base.filter(
+                Q(is_active=False) | Q(fecha_fin__isnull=False, fecha_fin__lt=hoy)
+            )
+
+        if anio_filtro is not None:
+            qs_lista = qs_lista.filter(anio=anio_filtro)
+
+        escuelas_asignadas = list(qs_lista.order_by('-anio', 'ciclo', 'nombre'))
+
         escuela_pk = request.GET.get('escuela')
         if escuela_pk:
             escuela_filtro = get_object_or_404(
@@ -2510,26 +3168,87 @@ def clases_list(request):
                 id=escuela_pk,
                 sede=user_sede,
                 maestro=profesor,
-                is_active=True,
             )
+            escuela_solo_lectura = (not escuela_filtro.is_active) or escuela_filtro.ha_finalizado
+            if not escuela_filtro.is_active:
+                escuela_estado_etiqueta = 'Inactiva'
+            elif escuela_filtro.ha_finalizado:
+                escuela_estado_etiqueta = 'Finalizada'
+            else:
+                escuela_estado_etiqueta = 'Activa'
+
+            matriculas_qs = Matricula.objects.filter(
+                sede=user_sede,
+                escuela=escuela_filtro,
+            ).select_related('estudiante__user')
             num_estudiantes_escuela = (
-                Matricula.objects.filter(
-                    sede=user_sede,
-                    is_active=True,
-                    escuela=escuela_filtro,
-                )
+                matriculas_qs.filter(is_active=True)
                 .values('estudiante_id')
                 .distinct()
                 .count()
             )
+            num_estudiantes_historico = (
+                matriculas_qs.values('estudiante_id').distinct().count()
+            )
+            estudiantes_resumen = list(
+                matriculas_qs.order_by(
+                    'estudiante__user__first_name',
+                    'estudiante__user__last_name',
+                    'id',
+                )
+            )
+            # Un estudiante por fila (última matrícula).
+            vistos = set()
+            estudiantes_unicos = []
+            for mat in estudiantes_resumen:
+                if mat.estudiante_id in vistos:
+                    continue
+                vistos.add(mat.estudiante_id)
+                estudiantes_unicos.append(mat)
+
+            horario_ui = _horario_edicion_a_texto_ui(escuela_filtro)
+            aula_ui = (escuela_filtro.aula or "").strip()
+            if not aula_ui:
+                salon_asignado = (
+                    Salon.objects.filter(
+                        sede=user_sede,
+                        escuela=escuela_filtro,
+                    )
+                    .order_by('nombre')
+                    .first()
+                )
+                if salon_asignado:
+                    aula_ui = salon_asignado.nombre
+
+            num_clases = Clase.objects.filter(
+                sede=user_sede,
+                escuela=escuela_filtro,
+            ).count()
+
+            volver_listado = reverse('hechos:mis_escuelas_profesor')
+            if escuela_solo_lectura:
+                volver_listado += '?estado=inactivas'
+                if escuela_filtro.anio:
+                    volver_listado += f'&anio={escuela_filtro.anio}'
+            else:
+                if escuela_filtro.anio:
+                    volver_listado += f'?anio={escuela_filtro.anio}'
+
             return render(
                 request,
                 'hechos/clases_list_modern.html',
                 {
                     'user_sede': user_sede,
                     'docente_mis_escuelas_modo': 'clases_por_escuela',
-                    'escuelas_asignadas': escuelas_asignadas,
                     'escuela_filtro': escuela_filtro,
+                    'escuela_solo_lectura': escuela_solo_lectura,
+                    'escuela_estado_etiqueta': escuela_estado_etiqueta,
+                    'escuela_horario_ui': horario_ui,
+                    'escuela_aula_ui': aula_ui,
+                    'escuela_estudiantes': estudiantes_unicos,
+                    'num_estudiantes_historico': num_estudiantes_historico,
+                    'num_clases_escuela': num_clases,
+                    'volver_listado_escuelas': volver_listado,
                     'clases': [],
                     'num_estudiantes_escuela': num_estudiantes_escuela,
                     'clases_completadas': [],
@@ -2564,12 +3283,21 @@ def clases_list(request):
                 )
                 if salon_asignado:
                     aula_ui = salon_asignado.nombre
+            es_inactiva = (not escuela.is_active) or escuela.ha_finalizado
+            if not escuela.is_active:
+                estado_etiqueta = 'Inactiva'
+            elif escuela.ha_finalizado:
+                estado_etiqueta = 'Finalizada'
+            else:
+                estado_etiqueta = 'Activa'
             escuelas_feed.append(
                 {
                     'escuela': escuela,
                     'num_estudiantes': n_est,
                     'horario_ui': horario_ui,
                     'aula_ui': aula_ui,
+                    'es_inactiva': es_inactiva,
+                    'estado_etiqueta': estado_etiqueta,
                 }
             )
         return render(
@@ -2580,6 +3308,9 @@ def clases_list(request):
                 'docente_mis_escuelas_modo': 'escuelas',
                 'escuelas_asignadas': escuelas_asignadas,
                 'escuelas_feed': escuelas_feed,
+                'filtro_estado': estado_vista,
+                'filtro_anio': anio_filtro,
+                'anios_disponibles': anios_disponibles,
                 'clases': [],
                 'clases_completadas': [],
                 'clases_en_progreso': [],
@@ -2656,49 +3387,9 @@ def _estudiante_matriculado_en_escuela(estudiante, escuela, user_sede):
     ).exists()
 
 
-def _porcentajes_evaluacion_por_estudiante_escuela(estudiante_ids, user_sede, escuela):
-    """
-    Porcentajes por estudiante: notas de curso (modelo Nota) y entregas de actividad
-    calificadas (EntregaActividad), siempre en el contexto de esta escuela y sede.
-    """
-    pct_by_est = defaultdict(list)
-    if not estudiante_ids:
-        return pct_by_est
-
-    for row in (
-        Nota.objects.filter(
-            sede=user_sede,
-            curso__ruta_estudio__escuela=escuela,
-            puntaje_maximo__gt=0,
-            estudiante_id__in=estudiante_ids,
-        ).values('estudiante_id', 'puntaje_obtenido', 'puntaje_maximo')
-    ):
-        po = float(row['puntaje_obtenido'])
-        pm = float(row['puntaje_maximo'])
-        pct_by_est[row['estudiante_id']].append(po * 100.0 / pm)
-
-    entregas = EntregaActividad.objects.filter(
-        sede=user_sede,
-        actividad__escuela=escuela,
-        actividad__is_active=True,
-        estudiante_id__in=estudiante_ids,
-        puntaje_asignado__isnull=False,
-    ).select_related('actividad')
-    for ent in entregas:
-        max_pts = ent.actividad.puntos_posibles
-        if max_pts is None:
-            continue
-        fm = float(max_pts)
-        if fm <= 0 or ent.puntaje_asignado is None:
-            continue
-        pct_by_est[ent.estudiante_id].append(float(ent.puntaje_asignado) * 100.0 / fm)
-
-    return pct_by_est
-
-
 @login_required
 def profesor_escuela_estudiantes(request, escuela_id):
-    """Listado de estudiantes matriculados en cursos de la escuela (docente asignado)."""
+    """Listado de estudiantes matriculados en la escuela (docente asignado)."""
     pack, redir = _profesor_escuela_docente(request, escuela_id)
     if redir:
         return redir
@@ -2715,21 +3406,8 @@ def profesor_escuela_estudiantes(request, escuela_id):
     estudiantes = (
         Estudiante.objects.filter(id__in=estudiante_ids)
         .select_related('user')
-        .order_by('-id')
+        .order_by('user__last_name', 'user__first_name', 'user__email')
     )
-    pct_by_est = _porcentajes_evaluacion_por_estudiante_escuela(
-        estudiante_ids, user_sede, escuela
-    )
-    filas = []
-    for e in estudiantes:
-        pcts = pct_by_est.get(e.id) or []
-        filas.append(
-            {
-                'estudiante': e,
-                'promedio_pct': (sum(pcts) / len(pcts)) if pcts else None,
-                'n_calificaciones': len(pcts),
-            }
-        )
     volver_url = f"{reverse('hechos:mis_escuelas_profesor')}?escuela={escuela.id}"
     return render(
         request,
@@ -2737,8 +3415,189 @@ def profesor_escuela_estudiantes(request, escuela_id):
         {
             'escuela': escuela,
             'user_sede': user_sede,
-            'filas': filas,
+            'estudiantes': estudiantes,
             'volver_url': volver_url,
+        },
+    )
+
+
+@login_required
+def profesor_escuela_estudiante_editar(request, escuela_id, estudiante_id):
+    """Editar datos del estudiante matriculado (docente). El documento no se puede cambiar."""
+    from core.colombia_geo import ciudad_choices_for_departamento, departamento_choices
+    from django.core.validators import validate_email
+
+    pack, redir = _profesor_escuela_docente(request, escuela_id)
+    if redir:
+        return redir
+    user_sede, escuela, _prof = pack
+
+    estudiante = get_object_or_404(
+        Estudiante.objects.select_related('user'),
+        id=estudiante_id,
+    )
+    if not _estudiante_matriculado_en_escuela(estudiante, escuela, user_sede):
+        messages.error(request, 'Ese estudiante no está matriculado en esta escuela.')
+        return redirect('hechos:profesor_escuela_estudiantes', escuela_id=escuela.id)
+
+    user = estudiante.user
+    volver_url = reverse(
+        'hechos:profesor_escuela_estudiantes', kwargs={'escuela_id': escuela.id}
+    )
+
+    if request.method == 'POST':
+        first_name = (request.POST.get('first_name') or '').strip()
+        last_name = (request.POST.get('last_name') or '').strip()
+        email_raw = (request.POST.get('email') or '').strip().lower()
+        phone_raw = (request.POST.get('phone') or '').strip()
+        phone_digits = ''.join(c for c in phone_raw if c.isdigit())[:15]
+        genero = (request.POST.get('genero') or '').strip()
+        estado_civil = (request.POST.get('estado_civil') or '').strip()
+        fecha_nacimiento = (request.POST.get('fecha_nacimiento') or '').strip()
+        direccion = (request.POST.get('direccion') or '').strip()
+        barrio = (request.POST.get('barrio') or '').strip()
+        departamento = (request.POST.get('departamento') or '').strip()
+        ciudad = (request.POST.get('ciudad') or '').strip()
+        telefono_emergencia = (request.POST.get('telefono_emergencia') or '').strip()
+
+        if not first_name or not last_name:
+            messages.error(request, 'Nombres y apellidos son obligatorios.')
+            return redirect(
+                'hechos:profesor_escuela_estudiante_editar',
+                escuela_id=escuela.id,
+                estudiante_id=estudiante.id,
+            )
+
+        if email_raw:
+            try:
+                validate_email(email_raw)
+            except DjangoValidationError:
+                messages.error(request, 'El correo no tiene un formato válido.')
+                return redirect(
+                    'hechos:profesor_escuela_estudiante_editar',
+                    escuela_id=escuela.id,
+                    estudiante_id=estudiante.id,
+                )
+            UserModel = get_user_model()
+            if (
+                UserModel.objects.filter(email__iexact=email_raw)
+                .exclude(pk=user.pk)
+                .exists()
+            ):
+                messages.error(request, 'Ese correo ya está en uso en otra cuenta.')
+                return redirect(
+                    'hechos:profesor_escuela_estudiante_editar',
+                    escuela_id=escuela.id,
+                    estudiante_id=estudiante.id,
+                )
+
+        if departamento and ciudad:
+            permitidas = {c for c, _ in ciudad_choices_for_departamento(departamento)}
+            if ciudad not in permitidas:
+                messages.error(
+                    request,
+                    'Elige un municipio válido para el departamento seleccionado.',
+                )
+                return redirect(
+                    'hechos:profesor_escuela_estudiante_editar',
+                    escuela_id=escuela.id,
+                    estudiante_id=estudiante.id,
+                )
+
+        genero_ok = {c.value for c in Estudiante.Genero}
+        estado_ok = {c.value for c in Estudiante.EstadoCivil}
+        if genero and genero not in genero_ok:
+            genero = estudiante.genero
+        if estado_civil and estado_civil not in estado_ok:
+            estado_civil = estudiante.estado_civil
+
+        fecha_val = None
+        if fecha_nacimiento:
+            try:
+                fecha_val = date.fromisoformat(fecha_nacimiento)
+            except ValueError:
+                messages.error(request, 'La fecha de nacimiento no es válida.')
+                return redirect(
+                    'hechos:profesor_escuela_estudiante_editar',
+                    escuela_id=escuela.id,
+                    estudiante_id=estudiante.id,
+                )
+
+        try:
+            with transaction.atomic():
+                user.first_name = first_name
+                user.last_name = last_name
+                user.email = email_raw or None
+                user.phone = phone_digits or None
+                user.direccion = direccion
+                user.barrio = barrio
+                user.departamento = departamento
+                user.ciudad = ciudad
+                user.save(
+                    update_fields=[
+                        'first_name',
+                        'last_name',
+                        'email',
+                        'phone',
+                        'direccion',
+                        'barrio',
+                        'departamento',
+                        'ciudad',
+                        'updated_at',
+                    ]
+                )
+                estudiante.genero = genero or estudiante.genero
+                estudiante.estado_civil = estado_civil or estudiante.estado_civil
+                estudiante.fecha_nacimiento = fecha_val
+                estudiante.direccion = direccion
+                estudiante.telefono_emergencia = telefono_emergencia
+                estudiante.save(
+                    update_fields=[
+                        'genero',
+                        'estado_civil',
+                        'fecha_nacimiento',
+                        'direccion',
+                        'telefono_emergencia',
+                        'updated_at',
+                    ]
+                )
+        except IntegrityError:
+            messages.error(request, 'No se pudo guardar (correo duplicado u otro error).')
+            return redirect(
+                'hechos:profesor_escuela_estudiante_editar',
+                escuela_id=escuela.id,
+                estudiante_id=estudiante.id,
+            )
+
+        messages.success(
+            request,
+            f'Datos de {user.get_full_name() or user.username} actualizados.',
+        )
+        return redirect('hechos:profesor_escuela_estudiantes', escuela_id=escuela.id)
+
+    dep_id = (user.departamento or '').strip()
+    dept_choices = [('', 'Seleccione departamento')] + departamento_choices()
+    if dep_id:
+        city_choices = [('', 'Seleccione ciudad o municipio')] + ciudad_choices_for_departamento(
+            dep_id
+        )
+    else:
+        city_choices = [('', 'Primero seleccione departamento')]
+
+    return render(
+        request,
+        'hechos/profesor_escuela_estudiante_editar.html',
+        {
+            'escuela': escuela,
+            'user_sede': user_sede,
+            'estudiante': estudiante,
+            'volver_url': volver_url,
+            'departamento_choices': dept_choices,
+            'ciudad_choices': city_choices,
+            'departamento_perfil': dep_id,
+            'ciudad_perfil': (user.ciudad or '').strip(),
+            'genero_choices': Estudiante.Genero.choices,
+            'estado_civil_choices': Estudiante.EstadoCivil.choices,
         },
     )
 
@@ -2827,107 +3686,6 @@ def profesor_escuela_estudiante_quitar_matricula(request, escuela_id, estudiante
     if redirect_to == 'notas':
         return redirect('hechos:profesor_escuela_notas_panel', escuela_id=escuela.id)
     return redirect('hechos:profesor_escuela_estudiantes', escuela_id=escuela.id)
-
-
-@login_required
-def profesor_escuela_estudiante_notas(request, escuela_id, estudiante_id):
-    """Notas del estudiante en cursos que pertenecen a esta escuela."""
-    pack, redir = _profesor_escuela_docente(request, escuela_id)
-    if redir:
-        return redir
-    user_sede, escuela, _prof = pack
-    inscrito = Matricula.objects.filter(
-        estudiante_id=estudiante_id,
-        sede=user_sede,
-        is_active=True,
-        escuela=escuela,
-    ).exists()
-    if not inscrito:
-        raise Http404
-    estudiante = get_object_or_404(Estudiante, id=estudiante_id)
-    notas = (
-        Nota.objects.filter(
-            estudiante=estudiante,
-            sede=user_sede,
-            curso__ruta_estudio__escuela=escuela,
-        )
-        .select_related('curso', 'profesor__user')
-        .order_by('-fecha_evaluacion', 'curso__nombre')
-    )
-    entregas_calif = (
-        EntregaActividad.objects.filter(
-            estudiante=estudiante,
-            sede=user_sede,
-            actividad__escuela=escuela,
-            actividad__is_active=True,
-            puntaje_asignado__isnull=False,
-        )
-        .select_related('actividad')
-        .order_by('-evaluado_en', '-actualizado_en')
-    )
-    evaluaciones = []
-    for n in notas:
-        pct = float(n.porcentaje) if n.puntaje_maximo and n.puntaje_maximo > 0 else None
-        evaluaciones.append(
-            {
-                'kind': 'nota',
-                'fecha': n.fecha_evaluacion,
-                'curso_o_ctx': n.curso.nombre,
-                'titulo': n.titulo,
-                'tipo_label': n.get_tipo_display(),
-                'puntaje_celda': f'{n.puntaje_obtenido} / {n.puntaje_maximo}',
-                'porcentaje': pct,
-                'nota': n,
-            }
-        )
-    for ent in entregas_calif:
-        max_pts = ent.actividad.puntos_posibles
-        pct = None
-        if max_pts is not None and float(max_pts) > 0 and ent.puntaje_asignado is not None:
-            pct = float(ent.puntaje_asignado) * 100.0 / float(max_pts)
-        fecha_ev = ent.evaluado_en.date() if ent.evaluado_en else None
-        if max_pts is not None:
-            puntaje_celda = f'{ent.puntaje_asignado} / {max_pts}'
-        else:
-            puntaje_celda = str(ent.puntaje_asignado)
-        evaluaciones.append(
-            {
-                'kind': 'entrega',
-                'fecha': fecha_ev,
-                'curso_o_ctx': 'Actividad de escuela',
-                'titulo': ent.actividad.titulo,
-                'tipo_label': 'Entrega calificada',
-                'puntaje_celda': puntaje_celda,
-                'porcentaje': pct,
-                'entrega': ent,
-            }
-        )
-
-    def _sort_key(ev):
-        fd = ev['fecha']
-        if isinstance(fd, datetime):
-            fd = fd.date()
-        return fd or date.min
-
-    evaluaciones.sort(key=_sort_key, reverse=True)
-
-    pcts_prom = [e['porcentaje'] for e in evaluaciones if e['porcentaje'] is not None]
-    promedio_pct = (sum(pcts_prom) / len(pcts_prom)) if pcts_prom else None
-    volver_lista = reverse('hechos:profesor_escuela_estudiantes', kwargs={'escuela_id': escuela.id})
-    volver_escuela = f"{reverse('hechos:mis_escuelas_profesor')}?escuela={escuela.id}"
-    return render(
-        request,
-        'hechos/profesor_escuela_estudiante_notas.html',
-        {
-            'escuela': escuela,
-            'estudiante': estudiante,
-            'evaluaciones': evaluaciones,
-            'promedio_pct': promedio_pct,
-            'user_sede': user_sede,
-            'volver_lista_url': volver_lista,
-            'volver_escuela_url': volver_escuela,
-        },
-    )
 
 
 GRILLA_ASISTENCIA_COLS_MAX = 60
@@ -4161,6 +4919,67 @@ def profesor_escuela_notas_quitar_columna(request, escuela_id):
 
 
 @login_required
+@require_POST
+def profesor_escuela_notas_toggle_certificado(request, escuela_id):
+    """
+    Envía o desactiva el certificado de un estudiante. Solo se puede enviar si el
+    estado final guardado en la grilla es «Aprobado» (verificado server-side).
+    """
+    pack, redir = _profesor_escuela_docente(request, escuela_id)
+    if redir:
+        return redir
+    user_sede, escuela, _prof = pack
+
+    try:
+        est_id = int(request.POST.get('estudiante_id') or '0')
+    except ValueError:
+        est_id = 0
+    accion = (request.POST.get('accion') or '').strip().lower()
+
+    ef = get_object_or_404(
+        NotasGrillaEstadoFinal.objects.select_related('estudiante__user'),
+        escuela=escuela,
+        estudiante_id=est_id,
+    )
+
+    if accion == 'enviar':
+        if ef.estado != NotasGrillaEstadoFinal.Estado.APROBADO:
+            messages.error(
+                request,
+                'Solo se puede enviar el certificado si el estado es «Aprobado». '
+                'Guarda la hoja con ese estado antes de enviarlo.',
+            )
+            return redirect('hechos:profesor_escuela_notas_panel', escuela_id=escuela.id)
+        ef.certificado_activo = True
+        ef.certificado_emitido_en = timezone.now()
+        ef.certificado_emitido_por = request.user
+        ef.save(update_fields=[
+            'certificado_activo', 'certificado_emitido_en', 'certificado_emitido_por', 'updated_at',
+        ])
+        Matricula.objects.filter(
+            estudiante_id=est_id, escuela=escuela, is_active=True,
+        ).update(estado='completada')
+        NotificacionEstudiante.objects.create(
+            estudiante_id=est_id,
+            tipo=NotificacionEstudiante.Tipo.CERTIFICADO,
+            titulo='Certificado disponible',
+            mensaje=f'Tu certificado de {escuela.nombre} ya está disponible en «Mis certificados».',
+        )
+        messages.success(request, f'Certificado enviado a {ef.estudiante.user.get_full_name()}.')
+    elif accion == 'desactivar':
+        ef.certificado_activo = False
+        ef.save(update_fields=['certificado_activo', 'updated_at'])
+        Matricula.objects.filter(
+            estudiante_id=est_id, escuela=escuela, estado='completada',
+        ).update(estado='activa')
+        messages.warning(request, f'Se desactivó el certificado de {ef.estudiante.user.get_full_name()}.')
+    else:
+        messages.error(request, 'Acción no válida.')
+
+    return redirect('hechos:profesor_escuela_notas_panel', escuela_id=escuela.id)
+
+
+@login_required
 def profesor_escuela_notas_import_excel(request, escuela_id):
     if request.method != 'POST':
         return redirect('hechos:profesor_escuela_notas_panel', escuela_id=escuela_id)
@@ -4557,11 +5376,13 @@ def profesor_escuela_notas_panel(request, escuela_id):
             valores[(cel.estudiante_id, cel.columna)] = cel.valor
 
     estados_por_est: dict[int, str] = {}
+    certificados_por_est: dict[int, bool] = {}
     if est_ids:
         for ef in NotasGrillaEstadoFinal.objects.filter(
             escuela=escuela, estudiante_id__in=est_ids
         ):
             estados_por_est[ef.estudiante_id] = ef.estado
+            certificados_por_est[ef.estudiante_id] = ef.certificado_activo
 
     if request.method == 'POST':
         est_set = frozenset(est_ids)
@@ -4622,16 +5443,36 @@ def profesor_escuela_notas_panel(request, escuela_id):
                             NotasGrillaEstadoFinal.Estado.NO_APROBADO,
                         ):
                             continue
+                        existente = NotasGrillaEstadoFinal.objects.filter(
+                            escuela=escuela, estudiante_id=est_id
+                        ).first()
+                        tenia_certificado_activo = bool(
+                            existente and existente.certificado_activo
+                        )
                         if ev == '':
                             NotasGrillaEstadoFinal.objects.filter(
                                 escuela=escuela, estudiante_id=est_id
                             ).delete()
                         else:
+                            defaults = {'sede': user_sede, 'estado': ev}
+                            if (
+                                ev != NotasGrillaEstadoFinal.Estado.APROBADO
+                                and tenia_certificado_activo
+                            ):
+                                defaults['certificado_activo'] = False
                             NotasGrillaEstadoFinal.objects.update_or_create(
                                 escuela=escuela,
                                 estudiante_id=est_id,
-                                defaults={'sede': user_sede, 'estado': ev},
+                                defaults=defaults,
                             )
+                        # Red de seguridad: si ya no queda "aprobado" y tenía un
+                        # certificado activo, se desactiva y la matrícula vuelve a activa.
+                        if tenia_certificado_activo and ev != NotasGrillaEstadoFinal.Estado.APROBADO:
+                            Matricula.objects.filter(
+                                estudiante_id=est_id,
+                                escuela=escuela,
+                                estado='completada',
+                            ).update(estado='activa')
         except Exception as exc:
             messages.error(request, f'No se pudo guardar: {exc}')
             return redirect('hechos:profesor_escuela_notas_panel', escuela_id=escuela.id)
@@ -4652,6 +5493,7 @@ def profesor_escuela_notas_panel(request, escuela_id):
                 'celdas': celdas,
                 'promedio_ui': promedio_ui,
                 'estado_final': estados_por_est.get(est.id, ''),
+                'certificado_activo': certificados_por_est.get(est.id, False),
             }
         )
 
@@ -4698,6 +5540,9 @@ def profesor_escuela_notas_panel(request, escuela_id):
             ),
             'quitar_nota_url': reverse(
                 'hechos:profesor_escuela_notas_quitar_columna', args=[escuela.id]
+            ),
+            'toggle_certificado_url': reverse(
+                'hechos:profesor_escuela_notas_toggle_certificado', args=[escuela.id]
             ),
             'puede_quitar_col': puede_quitar_col,
             'puede_agregar_col': puede_agregar_col,
@@ -4809,44 +5654,6 @@ def asistencia_clase(request, clase_id):
     return render(request, 'hechos/asistencia_clase_modern.html', context)
 
 
-def _sesion_herramienta_placeholder(request, clase_id, titulo, texto_ayuda):
-    if not hasattr(request.user, 'profesor_profile'):
-        messages.error(request, 'Solo los profesores pueden acceder.')
-        return redirect('core:dashboard')
-    user_sede = get_user_sede(request.user)
-    if not user_sede:
-        messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
-        return redirect('core:dashboard')
-    prof = request.user.profesor_profile
-    clase = get_object_or_404(
-        Clase.objects.select_related(
-            'escuela',
-            'escuela',
-        ),
-        id=clase_id,
-        sede=user_sede,
-    )
-    if not _profesor_puede_gestionar_clase(clase, prof):
-        messages.error(request, 'No tienes permisos para gestionar esta clase.')
-        return redirect('core:dashboard')
-    rt = getattr(clase.curso, 'ruta_estudio', None) if clase.escuela_id else None
-    escuela_pk = getattr(rt, 'escuela_id', None) if rt is not None else None
-    volver_url = reverse('hechos:mis_escuelas_profesor')
-    if escuela_pk:
-        volver_url = f'{volver_url}?escuela={escuela_pk}'
-    return render(
-        request,
-        'hechos/sesion_herramienta_placeholder.html',
-        {
-            'clase': clase,
-            'titulo_herramienta': titulo,
-            'texto_ayuda': texto_ayuda,
-            'volver_url': volver_url,
-            'user_sede': user_sede,
-        },
-    )
-
-
 @login_required
 def escuela_crear_actividad(request, escuela_id):
     """
@@ -4914,7 +5721,7 @@ def escuela_crear_actividad(request, escuela_id):
 def _estudiante_matriculado_en_curso(curso, estudiante, sede):
     return Matricula.objects.filter(
         estudiante=estudiante,
-        escuela=curso,
+        escuela=curso.escuela,
         sede=sede,
         is_active=True,
     ).exists()
@@ -5367,34 +6174,6 @@ def descargar_archivo_recurso_escuela(request, escuela_id, archivo_id):
 
 
 @login_required
-def sesion_actividad(request, clase_id):
-    """Reserva de pantalla: crear actividad ligada a la clase (pendiente de implementar)."""
-    return _sesion_herramienta_placeholder(
-        request,
-        clase_id,
-        titulo='Crear actividad',
-        texto_ayuda=(
-            'Aquí podrás crear actividades para esta clase (por ejemplo tareas o ejercicios). '
-            'La función está en preparación.'
-        ),
-    )
-
-
-@login_required
-def sesion_archivos(request, clase_id):
-    """Reserva de pantalla: materiales de la clase (pendiente de implementar)."""
-    return _sesion_herramienta_placeholder(
-        request,
-        clase_id,
-        titulo='Subir archivos',
-        texto_ayuda=(
-            'Aquí podrás subir archivos y materiales para los estudiantes de esta clase. '
-            'La función está en preparación.'
-        ),
-    )
-
-
-@login_required
 def notas_estudiante(request):
     """
     Notas del estudiante
@@ -5694,9 +6473,7 @@ def crear_estudiante(request):
                 user=user,
                 sede=user_sede,
                 telefono_emergencia=request.POST.get('telefono_emergencia', ''),
-                contacto_emergencia=request.POST.get('contacto_emergencia', ''),
                 direccion=request.POST.get('direccion', ''),
-                iglesia=request.POST.get('iglesia', ''),
                 fecha_nacimiento=request.POST.get('fecha_nacimiento') or None,
                 notas_medicas=request.POST.get('notas_medicas', '')
             )
@@ -6013,7 +6790,7 @@ def _matricular_simple_redirect_after_success(request, escuela):
     embed_active, ret_path = _matricular_embed_return_targets(request, escuela.id)
     if embed_active and ret_path:
         return redirect(ret_path)
-    return redirect(f"{reverse('hechos:mis_escuelas_profesor')}?escuela={escuela.id}")
+    return redirect(f"{reverse('hechos:matricular_estudiante')}?escuela={escuela.id}")
 
 
 def _matricula_linea_curso_mensaje(escuela: Escuela | None, curso: Curso | None = None) -> str:
@@ -6023,7 +6800,7 @@ def _matricula_linea_curso_mensaje(escuela: Escuela | None, curso: Curso | None 
     """
     esc_n = (escuela.nombre or '').strip() if escuela else ''
     cur_n = (curso.nombre or '').strip() if curso else ''
-    mod_solo = re.compile(r'^(?i)m[oó]dulo\s*\d+\s*$')
+    mod_solo = re.compile(r'^m[oó]dulo\s*\d+\s*$', re.IGNORECASE)
     es_etiqueta_modulo = bool(cur_n and mod_solo.match(cur_n.strip()))
     if esc_n:
         if cur_n and not es_etiqueta_modulo:
@@ -6037,7 +6814,8 @@ def _matricula_linea_curso_mensaje(escuela: Escuela | None, curso: Curso | None 
 def _matricular_escuela_simple_post(request, user_sede):
     """
     Matrícula rápida desde ?escuela=: documento + nombre (si no existe el usuario).
-    El tipo de documento (CC/TI/CE/etc.) es solo referencia en BD; aquí manda el número/código.
+    Celular opcional al crear persona nueva. El tipo de documento (CC/TI/CE/etc.) es solo
+    referencia en BD; aquí manda el número/código.
     Devuelve HttpResponse o None si no aplica este formulario.
     """
     from hechos.seguimiento_import import (
@@ -6080,7 +6858,11 @@ def _matricular_escuela_simple_post(request, user_sede):
         messages.error(request, 'No puedes matricular en esta escuela.')
         return _matricular_simple_redirect_after_error(request, escuela)
 
-    if escuela.estudiantes_inscritos >= escuela.cupo_maximo:
+    if escuela.ha_finalizado:
+        messages.error(request, f'«{escuela.nombre}» ya finalizó su período de clases; no se pueden hacer nuevas matrículas.')
+        return _matricular_simple_redirect_after_error(request, escuela)
+
+    if escuela.esta_llena():
         messages.warning(request, f'No hay cupo disponible en «{escuela.nombre}».')
         return _matricular_simple_redirect_after_error(request, escuela)
 
@@ -6091,6 +6873,8 @@ def _matricular_escuela_simple_post(request, user_sede):
     )
 
     nombre_completo = (request.POST.get('nombre_completo') or '').strip()
+    celular_raw = (request.POST.get('celular') or request.POST.get('phone') or '').strip()
+    celular_digits = ''.join(c for c in celular_raw if c.isdigit())[:20] or None
     est_existente = _find_estudiante_por_documento_global(doc_raw)
     if not est_existente and not nombre_completo:
         messages.error(
@@ -6188,6 +6972,7 @@ def _matricular_escuela_simple_post(request, user_sede):
                         sede=user_sede,
                         tipo_documento=User.TipoDocumento.CC,
                         documento_identidad=doc_norm,
+                        phone=celular_digits,
                         is_active=True,
                     )
                     user.set_password(password_plain)
@@ -6373,7 +7158,18 @@ def matricular_estudiante(request):
         messages.error(request, 'El filtro por escuela solo aplica al docente desde «Mis escuelas».')
         return redirect('hechos:matricular_estudiante')
 
+    if escuela_matricular and escuela_matricular.ha_finalizado:
+        messages.warning(
+            request,
+            f'«{escuela_matricular.nombre}» ya finalizó su período de clases. No se pueden hacer nuevas matrículas.',
+        )
+
     estudiantes = Estudiante.objects.filter(sede=user_sede, is_active=True).select_related('user')
+
+    hoy = timezone.localdate()
+    cursos_vigentes_q = Q(ruta_estudio__escuela__is_active=True) & (
+        Q(ruta_estudio__escuela__fecha_fin__isnull=True) | Q(ruta_estudio__escuela__fecha_fin__gte=hoy)
+    )
 
     if hasattr(request.user, 'profesor_profile'):
         prof = request.user.profesor_profile
@@ -6382,15 +7178,16 @@ def matricular_estudiante(request):
                 ruta_estudio__escuela=escuela_matricular,
                 sede=user_sede,
                 is_active=True,
-            )
+            ).filter(cursos_vigentes_q)
         else:
             cursos = (
                 Curso.objects.filter(sede=user_sede, is_active=True)
                 .filter(ruta_estudio__escuela__maestro=prof)
+                .filter(cursos_vigentes_q)
                 .distinct()
             )
     else:
-        cursos = Curso.objects.filter(sede=user_sede, is_active=True)
+        cursos = Curso.objects.filter(sede=user_sede, is_active=True).filter(cursos_vigentes_q)
 
     if request.method == 'POST':
         simple_resp = _matricular_escuela_simple_post(request, user_sede)
@@ -6406,6 +7203,13 @@ def matricular_estudiante(request):
             escuela_op = curso.ruta_estudio.escuela
             if escuela_op is None:
                 messages.error(request, 'El curso no está vinculado a una escuela operativa.')
+                return redirect('hechos:matricular_estudiante')
+
+            if (not escuela_op.is_active) or escuela_op.ha_finalizado:
+                messages.error(
+                    request,
+                    f'«{escuela_op.nombre}» ya no está activa; no se pueden hacer nuevas matrículas.',
+                )
                 return redirect('hechos:matricular_estudiante')
 
             if hasattr(request.user, 'profesor_profile'):
@@ -6426,35 +7230,72 @@ def matricular_estudiante(request):
                         messages.error(request, 'Escuela no válida.')
                         return redirect('hechos:matricular_estudiante')
 
-            if Matricula.objects.filter(
+            mat_activa = Matricula.objects.filter(
                 estudiante=estudiante,
                 escuela=escuela_op,
-                sede=user_sede,
                 is_active=True,
-            ).exists():
+            ).exists()
+            if mat_activa:
                 messages.warning(request, 'El estudiante ya está matriculado en esta escuela.')
+            elif escuela_op.esta_llena():
+                messages.warning(
+                    request,
+                    f'No hay cupo disponible en «{escuela_op.nombre}».',
+                )
             else:
-                if escuela_op.estudiantes_inscritos >= escuela_op.cupo_maximo:
-                    messages.warning(
-                        request,
-                        f'No hay cupo disponible en «{escuela_op.nombre}».',
-                    )
+                periodo = get_current_period()
+                fecha_mat = request.POST.get('fecha_matricula') or timezone.now()
+                mat, mat_created = Matricula.objects.get_or_create(
+                    estudiante=estudiante,
+                    escuela=escuela_op,
+                    defaults={
+                        'sede': user_sede,
+                        'periodo': periodo,
+                        'estado': 'activa',
+                        'is_active': True,
+                        'fecha_matricula': fecha_mat,
+                    },
+                )
+                if not mat_created:
+                    if mat.is_active:
+                        messages.warning(
+                            request,
+                            'El estudiante ya está matriculado en esta escuela.',
+                        )
+                    else:
+                        mat.is_active = True
+                        mat.estado = 'activa'
+                        mat.sede = user_sede
+                        mat.periodo = periodo
+                        mat.save(
+                            update_fields=[
+                                'is_active',
+                                'estado',
+                                'sede',
+                                'periodo',
+                                'updated_at',
+                            ]
+                        )
+                        messages.success(
+                            request,
+                            f'Estudiante {estudiante.user.get_full_name()} matriculado en '
+                            f'{_matricula_linea_curso_mensaje(escuela_op, curso)} ({get_period_display(periodo)}).',
+                        )
+                        if post_escuela_id and hasattr(request.user, 'profesor_profile'):
+                            return redirect(
+                                f"{reverse('hechos:mis_escuelas_profesor')}?escuela={post_escuela_id}"
+                            )
+                        return redirect('hechos:cursos_list')
                 else:
-                    periodo = get_current_period()
-                    Matricula.objects.create(
-                        estudiante=estudiante,
-                        escuela=escuela_op,
-                        sede=user_sede,
-                        periodo=periodo,
-                        fecha_matricula=request.POST.get('fecha_matricula') or timezone.now(),
-                    )
                     messages.success(
                         request,
                         f'Estudiante {estudiante.user.get_full_name()} matriculado en '
                         f'{_matricula_linea_curso_mensaje(escuela_op, curso)} ({get_period_display(periodo)}).',
                     )
                     if post_escuela_id and hasattr(request.user, 'profesor_profile'):
-                        return redirect(f"{reverse('hechos:mis_escuelas_profesor')}?escuela={post_escuela_id}")
+                        return redirect(
+                            f"{reverse('hechos:mis_escuelas_profesor')}?escuela={post_escuela_id}"
+                        )
                     return redirect('hechos:cursos_list')
 
         except Exception as e:
@@ -6473,8 +7314,17 @@ def matricular_estudiante(request):
     puede_matricula_escuela_simple = bool(
         matricula_escuela_simple
         and _profesor_puede_gestionar_escuela(prof, escuela_matricular)
+        and not escuela_matricular.ha_finalizado
         and escuela_matricular.cupos_disponibles > 0
     )
+
+    recientes_matriculados = []
+    if matricula_escuela_simple:
+        recientes_matriculados = list(
+            Matricula.objects.filter(escuela=escuela_matricular, is_active=True)
+            .select_related('estudiante__user')
+            .order_by('-fecha_matricula', '-id')[:5]
+        )
 
     matricular_embed = False
     matricular_return_url = ''
@@ -6510,6 +7360,7 @@ def matricular_estudiante(request):
         'matricular_embed': matricular_embed,
         'matricular_return_url': matricular_return_url,
         'matricular_cancel_url': matricular_cancel_url,
+        'recientes_matriculados': recientes_matriculados,
     }
 
     if matricular_embed:
@@ -6874,7 +7725,7 @@ def detalle_estudiante(request, estudiante_id):
     )
     notas = (
         Nota.objects.filter(estudiante=estudiante)
-        .select_related('curso', 'curso__ruta_estudio__escuela', 'curso__sede', 'sede', 'profesor__user')
+        .select_related('escuela', 'escuela__sede', 'sede', 'profesor__user')
         .order_by('-fecha_evaluacion')[:40]
     )
 
@@ -6892,13 +7743,18 @@ def detalle_estudiante(request, estudiante_id):
 def estudiante_resumen_fragment(request, estudiante_id):
     """
     HTML parcial para modal (misma política de acceso que detalle_estudiante).
+    Con ?personal=1 solo carga datos personales (sin matrículas ni notas).
     """
     allowed = (
         request.user.is_super_admin()
         or hasattr(request.user, 'profesor_profile')
         or (
             hasattr(request.user, 'admin_escuela_profile')
-            and ca.has_capacidad(request.user, 'academico')
+            and (
+                request.user.admin_escuela_profile.tipo_coordinador
+                == AdminEscuela.TipoCoordinador.SEDE
+                or ca.has_capacidad(request.user, 'academico')
+            )
         )
     )
     if not allowed:
@@ -6908,6 +7764,19 @@ def estudiante_resumen_fragment(request, estudiante_id):
         Estudiante.objects.select_related('user', 'sede'),
         id=estudiante_id,
     )
+    solo_personal = (request.GET.get('personal') or '').strip() in ('1', 'true', 'yes')
+    if solo_personal:
+        return render(
+            request,
+            'hechos/estudiante_resumen_fragment.html',
+            {
+                'estudiante': estudiante,
+                'matriculas': [],
+                'notas': [],
+                'solo_personal': True,
+            },
+        )
+
     matriculas = (
         Matricula.objects.filter(estudiante=estudiante, is_active=True)
         .select_related(
@@ -6930,6 +7799,7 @@ def estudiante_resumen_fragment(request, estudiante_id):
             'estudiante': estudiante,
             'matriculas': matriculas,
             'notas': notas,
+            'solo_personal': False,
         },
     )
 
@@ -6969,118 +7839,146 @@ def detalle_profesor(request, profesor_id):
 
 
 @login_required
-def detalle_curso(request, curso_id):
+def detalle_mis_escuela(request, curso_id):
     """
-    Ver detalles completos del curso
+    Portal del estudiante: detalle de su escuela matriculada.
+    Solo accesible para estudiantes.
     """
-    if (
-        hasattr(request.user, 'estudiante_profile')
-        and request.resolver_match
-        and request.resolver_match.url_name == 'detalle_curso'
-    ):
-        return redirect('hechos:detalle_mis_escuela', curso_id=curso_id)
-
-    allowed = (
-        request.user.is_super_admin()
-        or hasattr(request.user, 'estudiante_profile')
-        or hasattr(request.user, 'profesor_profile')
-        or (
-            hasattr(request.user, 'admin_escuela_profile')
-            and ca.has_any_capacidad(request.user, ('academico', 'pedagogico'))
-        )
-    )
-    if not allowed:
-        messages.error(request, 'No tienes permisos para ver detalles de cursos.')
+    if not hasattr(request.user, 'estudiante_profile'):
+        messages.error(request, 'Esa página es solo para estudiantes.')
+        if hasattr(request.user, 'profesor_profile'):
+            return redirect('hechos:mis_escuelas_profesor')
         return redirect('core:dashboard')
-    
-    # Obtener la sede del usuario
+
     user_sede = get_user_sede(request.user)
     if not user_sede:
         messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
         return redirect('core:dashboard')
-    
+
     curso = get_object_or_404(Curso, id=curso_id, sede=user_sede, is_active=True)
     escuela_curso = getattr(curso.ruta_estudio, 'escuela', None)
+    estudiante = request.user.estudiante_profile
+    if not escuela_curso:
+        messages.error(request, 'No tienes acceso a esta escuela.')
+        return redirect('hechos:mis_escuelas')
+    matricula = Matricula.objects.filter(
+        estudiante=estudiante,
+        escuela=escuela_curso,
+        sede=user_sede,
+        is_active=True,
+    ).select_related(
+        'escuela__maestro__user',
+        'escuela__sede',
+    ).prefetch_related(
+        'escuela__estructura_horarios',
+    ).first()
+    if not matricula:
+        messages.error(request, 'No tienes acceso a esta escuela.')
+        return redirect('hechos:mis_escuelas')
 
-    if hasattr(request.user, 'estudiante_profile'):
-        estudiante = request.user.estudiante_profile
-        if not escuela_curso:
-            messages.error(request, 'No tienes acceso a este curso.')
-            return redirect('hechos:mis_escuelas')
-        matricula = Matricula.objects.filter(
-            estudiante=estudiante,
-            escuela=escuela_curso,
+    clases = Clase.objects.filter(
+        escuela=escuela_curso,
+        sede=user_sede,
+        is_active=True,
+    ).order_by('fecha_clase')
+    notas_curso = Nota.objects.filter(
+        escuela=escuela_curso,
+        estudiante=estudiante,
+        sede=user_sede,
+    ).order_by('-fecha_evaluacion')
+    promedio = notas_curso.aggregate(promedio=Avg('puntaje_obtenido'))['promedio'] or 0
+    escuela = escuela_curso
+    escuela_horario_ui = _horario_edicion_a_texto_ui(escuela) if escuela else ''
+    escuela_aula_ui = (escuela.aula or '').strip() if escuela else ''
+    if escuela and not escuela_aula_ui:
+        salon_asignado = (
+            Salon.objects.filter(sede=user_sede, escuela=escuela, is_active=True)
+            .order_by('nombre')
+            .first()
+        )
+        if salon_asignado:
+            escuela_aula_ui = salon_asignado.nombre
+    ep_lookup = _build_escuela_programa_lookup_por_nombre(
+        {user_sede.id} if user_sede else set()
+    )
+    ep_escuela = (
+        _escuela_programa_para_escuela_operativa(escuela, user_sede.id, ep_lookup)
+        if escuela
+        else None
+    )
+    nivel_programa_linea = (
+        ep_escuela.nivel_programa.titulo_acordeon() if ep_escuela else ''
+    )
+    if escuela:
+        actividades_qs = ActividadEscuela.objects.filter(
+            escuela=escuela,
             sede=user_sede,
             is_active=True,
-        ).select_related('escuela__maestro__user').first()
-        if not matricula:
-            messages.error(request, 'No tienes acceso a este curso.')
-            return redirect('hechos:mis_escuelas')
-
-        clases = Clase.objects.filter(
-            escuela=escuela_curso,
-            sede=user_sede,
-            is_active=True,
-        ).order_by('fecha_clase')
-        notas_curso = Nota.objects.filter(
-            escuela=escuela_curso,
-            estudiante=estudiante,
-            sede=user_sede,
-        ).order_by('-fecha_evaluacion')
-        promedio = notas_curso.aggregate(promedio=Avg('puntaje_obtenido'))['promedio'] or 0
-        escuela = escuela_curso
-        if escuela:
-            actividades_qs = ActividadEscuela.objects.filter(
+        ).order_by('-created_at')
+        actividades_list = list(actividades_qs)
+        act_ids = [a.id for a in actividades_list]
+        entregas_map = {
+            e.actividad_id: e
+            for e in EntregaActividad.objects.filter(
+                estudiante=estudiante,
+                sede=user_sede,
+                actividad_id__in=act_ids,
+            )
+        }
+        ahora = timezone.now()
+        actividades_con_entrega = []
+        for a in actividades_list:
+            ent = entregas_map.get(a.id)
+            plazo_vencido = bool(a.fecha_limite and ahora > a.fecha_limite)
+            limite_ok = not plazo_vencido
+            puede_entregar = limite_ok and (not ent or not ent.evaluado_en)
+            actividades_con_entrega.append(
+                {
+                    'actividad': a,
+                    'entrega': ent,
+                    'puede_entregar': puede_entregar,
+                    'plazo_vencido': plazo_vencido,
+                }
+            )
+        actividades_escuela = actividades_qs
+        recursos_con_archivo = actividades_qs.exclude(
+            Q(material_adjunto='') | Q(material_adjunto__isnull=True)
+        )
+        archivos_recurso_escuela = list(
+            ArchivoRecursoEscuela.objects.filter(
                 escuela=escuela,
                 sede=user_sede,
                 is_active=True,
-            ).order_by('-created_at')
-            actividades_list = list(actividades_qs)
-            act_ids = [a.id for a in actividades_list]
-            entregas_map = {
-                e.actividad_id: e
-                for e in EntregaActividad.objects.filter(
-                    estudiante=estudiante,
-                    sede=user_sede,
-                    actividad_id__in=act_ids,
-                )
-            }
-            ahora = timezone.now()
-            actividades_con_entrega = []
-            for a in actividades_list:
-                ent = entregas_map.get(a.id)
-                plazo_vencido = bool(a.fecha_limite and ahora > a.fecha_limite)
-                limite_ok = not plazo_vencido
-                puede_entregar = limite_ok and (not ent or not ent.evaluado_en)
-                actividades_con_entrega.append(
-                    {
-                        'actividad': a,
-                        'entrega': ent,
-                        'puede_entregar': puede_entregar,
-                        'plazo_vencido': plazo_vencido,
-                    }
-                )
-            actividades_escuela = actividades_qs
-            recursos_con_archivo = actividades_qs.exclude(
-                Q(material_adjunto='') | Q(material_adjunto__isnull=True)
             )
-            archivos_recurso_escuela = list(
-                ArchivoRecursoEscuela.objects.filter(
-                    escuela=escuela,
-                    sede=user_sede,
-                    is_active=True,
-                )
-                .select_related('subido_por__user')
-                .order_by('-created_at')
-            )
-        else:
-            actividades_escuela = ActividadEscuela.objects.none()
-            recursos_con_archivo = ActividadEscuela.objects.none()
-            actividades_con_entrega = []
-            archivos_recurso_escuela = []
-        context = {
+            .select_related('subido_por__user')
+            .order_by('-created_at')
+        )
+    else:
+        actividades_escuela = ActividadEscuela.objects.none()
+        recursos_con_archivo = ActividadEscuela.objects.none()
+        actividades_con_entrega = []
+        archivos_recurso_escuela = []
+
+    estado_final = ''
+    certificado_activo = False
+    if escuela:
+        ef = NotasGrillaEstadoFinal.objects.filter(
+            escuela=escuela, estudiante=estudiante,
+        ).first()
+        if ef:
+            estado_final = ef.estado
+            certificado_activo = ef.certificado_activo
+
+    return render(
+        request,
+        'hechos/detalle_curso_estudiante.html',
+        {
             'curso': curso,
             'matricula': matricula,
+            'profesor_contacto': matricula.escuela.maestro if matricula and matricula.escuela_id else None,
+            'escuela_horario_ui': escuela_horario_ui,
+            'escuela_aula_ui': escuela_aula_ui,
+            'nivel_programa_linea': nivel_programa_linea,
             'clases': clases,
             'notas_curso': notas_curso,
             'promedio_general': round(promedio, 2),
@@ -7092,82 +7990,40 @@ def detalle_curso(request, curso_id):
             'actividades_con_entrega': actividades_con_entrega,
             'recursos_con_archivo': recursos_con_archivo,
             'archivos_recurso_escuela': archivos_recurso_escuela,
-        }
-        return render(request, 'hechos/detalle_curso_estudiante.html', context)
+            'estado_final': estado_final,
+            'certificado_activo': certificado_activo,
+        },
+    )
 
-    if not escuela_curso:
-        messages.error(request, 'Este curso no está vinculado a una escuela operativa.')
-        return redirect('hechos:cursos_list')
 
+@login_required
+def detalle_curso(request, curso_id):
+    """
+    Antigua ficha de curso para staff/profesor: eliminada.
+    Redirige a la vista adecuada según el rol.
+    """
+    if hasattr(request.user, 'estudiante_profile'):
+        return redirect('hechos:detalle_mis_escuela', curso_id=curso_id)
+
+    user_sede = get_user_sede(request.user)
+    curso = None
+    if user_sede:
+        curso = (
+            Curso.objects.filter(id=curso_id, sede=user_sede)
+            .select_related('ruta_estudio__escuela')
+            .first()
+        )
+    escuela = getattr(getattr(curso, 'ruta_estudio', None), 'escuela', None) if curso else None
+
+    if hasattr(request.user, 'profesor_profile') and escuela:
+        return redirect(
+            f"{reverse('hechos:mis_escuelas_profesor')}?escuela={escuela.id}"
+        )
     if hasattr(request.user, 'profesor_profile'):
-        if escuela_curso.maestro_id != request.user.profesor_profile.id:
-            messages.error(request, 'No tienes permisos para acceder a este curso.')
-            return redirect('hechos:cursos_list')
+        return redirect('hechos:mis_escuelas_profesor')
 
-    if hasattr(request.user, 'profesor_profile'):
-        matriculas = Matricula.objects.filter(
-            escuela=escuela_curso,
-            escuela__maestro=request.user.profesor_profile,
-            sede=user_sede,
-            is_active=True,
-        ).select_related('estudiante__user')
-        clases = Clase.objects.filter(
-            escuela=escuela_curso,
-            escuela__maestro=request.user.profesor_profile,
-            sede=user_sede,
-            is_active=True,
-        ).order_by('fecha_clase')
-    else:
-        matriculas = Matricula.objects.filter(
-            escuela=escuela_curso, sede=user_sede, is_active=True
-        ).select_related('estudiante__user')
-        clases = Clase.objects.filter(
-            escuela=escuela_curso, sede=user_sede, is_active=True
-        ).order_by('fecha_clase')
-
-    total_estudiantes = matriculas.count()
-    total_clases = clases.count()
-
-    notas_qs = Nota.objects.filter(
-        escuela=escuela_curso,
-        sede=user_sede,
-    ).select_related('estudiante__user').order_by('-fecha_evaluacion')
-
-    promedio_general = notas_qs.aggregate(
-        promedio=Avg('puntaje_obtenido')
-    )['promedio'] or 0
-
-    estudiantes_con_notas = []
-    for matricula in matriculas:
-        notas_estudiante = notas_qs.filter(estudiante=matricula.estudiante)
-        
-        # Calcular promedio del estudiante
-        if notas_estudiante.exists():
-            promedio_estudiante = notas_estudiante.aggregate(
-                promedio=Avg('puntaje_obtenido')
-            )['promedio'] or 0
-        else:
-            promedio_estudiante = 0
-        
-        estudiantes_con_notas.append({
-            'matricula': matricula,
-            'promedio': round(promedio_estudiante, 2),
-            'total_notas': notas_estudiante.count(),
-            'notas': notas_estudiante[:3]  # Últimas 3 notas
-        })
-    
-    context = {
-        'curso': curso,
-        'matriculas': matriculas,
-        'clases': clases,
-        'estudiantes_con_notas': estudiantes_con_notas,
-        'total_estudiantes': total_estudiantes,
-        'total_clases': total_clases,
-        'promedio_general': round(promedio_general, 2),
-        'user_sede': user_sede,
-    }
-
-    return render(request, 'hechos/detalle_curso.html', context)
+    messages.info(request, 'La ficha antigua de curso ya no está disponible.')
+    return redirect('hechos:cursos_list')
 
 
 @login_required
@@ -7466,54 +8322,6 @@ def desmatricular_estudiante(request, matricula_id):
     }
     
     return render(request, 'hechos/desmatricular_estudiante.html', context)
-
-
-# ===== VISTAS PARA GESTIONAR EDICIONES DE CURSOS =====
-
-@login_required
-def ediciones_curso_list(request, curso_id):
-    """Compatibilidad: ya no hay listado de ediciones; la oferta vive en la escuela."""
-    if not request.user.is_super_admin():
-        r = ca.require_academico_o_pedagogico(request)
-        if r:
-            return r
-
-    user_sede = get_user_sede(request.user)
-    if not user_sede:
-        messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
-        return redirect('core:dashboard')
-
-    curso = get_object_or_404(Curso, id=curso_id, sede=user_sede, is_active=True)
-    esc = getattr(curso.ruta_estudio, 'escuela', None)
-    if esc:
-        messages.info(
-            request,
-            'La oferta (fechas, cupo, horario, docente) se configura en la escuela. '
-            'Usa el asistente de estructura.',
-        )
-        return redirect('hechos:estructura_configurar', escuela_id=esc.id, step=1)
-    messages.warning(request, 'Este curso no tiene una escuela operativa vinculada.')
-    return redirect('hechos:cursos_list')
-
-
-@login_required
-def crear_edicion_curso(request, curso_id):
-    """Compatibilidad: redirige a configuración por escuela."""
-    return ediciones_curso_list(request, curso_id)
-
-
-@login_required
-def editar_edicion_curso(request, edicion_id):
-    """Compatibilidad: rutas antiguas por id de edición."""
-    if not request.user.is_super_admin():
-        r = ca.require_academico_o_pedagogico(request)
-        if r:
-            return r
-    messages.info(
-        request,
-        'Las rutas por «edición» ya no se usan. Abre la escuela desde Estructura y edita la oferta allí.',
-    )
-    return redirect('hechos:estructura_ediciones')
 
 
 def _coordinador_financiero_gate(request):

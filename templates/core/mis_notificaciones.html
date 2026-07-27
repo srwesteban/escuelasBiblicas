@@ -1,0 +1,47 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Notificaciones{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <header>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900">Notificaciones</h1>
+        <p class="mt-2 text-sm text-stone-600">Avisos de tus escuelas: aprobaciones, certificados y otros mensajes.</p>
+    </header>
+
+    <div class="card border border-stone-200 overflow-hidden">
+        {% if notificaciones %}
+        <ul class="divide-y divide-stone-100">
+            {% for n in notificaciones %}
+            <li class="px-4 sm:px-5 py-4 flex items-start gap-3">
+                {% if n.tipo == 'aprobacion' %}
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><i class="fas fa-circle-check text-sm"></i></span>
+                {% elif n.tipo == 'rechazo' %}
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-700"><i class="fas fa-circle-xmark text-sm"></i></span>
+                {% elif n.tipo == 'certificado' %}
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700"><i class="fas fa-award text-sm"></i></span>
+                {% else %}
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-600"><i class="fas fa-bell text-sm"></i></span>
+                {% endif %}
+                <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <p class="text-sm font-semibold text-stone-900">{{ n.titulo }}</p>
+                        <time class="text-[11px] text-stone-400 tabular-nums shrink-0" datetime="{{ n.created_at|date:'c' }}">{{ n.created_at|date:"d/m/Y H:i" }}</time>
+                    </div>
+                    {% if n.mensaje %}
+                    <p class="mt-1 text-sm text-stone-600 whitespace-pre-wrap">{{ n.mensaje }}</p>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="px-4 py-12 text-center text-stone-500 text-sm">
+            <i class="fas fa-bell-slash text-2xl text-stone-300 mb-2 block"></i>
+            No tienes notificaciones todavía.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

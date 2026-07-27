@@ -1,0 +1,86 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Certificado — {{ escuela.nombre }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .certificado-card {
+        border: 2px solid #d9c7a1;
+        border-radius: 1.25rem;
+        padding: 3rem 2.5rem;
+        background: linear-gradient(180deg, #fffdf8 0%, #fffaf0 100%);
+        position: relative;
+        overflow: hidden;
+    }
+    .certificado-card::before {
+        content: "";
+        position: absolute;
+        inset: 0.6rem;
+        border: 1px solid #d9c7a1;
+        border-radius: 0.9rem;
+        pointer-events: none;
+    }
+    @media print {
+        .topbar, .sidebar, .no-print { display: none !important; }
+        main { overflow: visible !important; }
+        body { background: #fff !important; }
+        .certificado-card { border-color: #000; box-shadow: none !important; }
+        .certificado-card::before { border-color: #000; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 no-print">
+        <a href="{% url 'hechos:mis_certificados' %}" class="btn-outline px-4 py-2.5 text-sm font-medium inline-flex items-center justify-center">
+            <i class="fas fa-arrow-left mr-2"></i>Mis certificados
+        </a>
+        <button type="button" onclick="window.print()" class="btn-primary px-4 py-2.5 text-sm font-medium inline-flex items-center">
+            <i class="fas fa-print mr-2"></i>Imprimir / Guardar como PDF
+        </button>
+    </div>
+
+    <div class="certificado-card shadow-sm">
+        <div class="relative z-10 text-center space-y-6">
+            <div class="flex items-center justify-center gap-2 text-amber-800">
+                <i class="fas fa-award text-3xl" aria-hidden="true"></i>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Certificado de aprobación</p>
+                <h1 class="mt-2 text-2xl sm:text-3xl font-bold text-stone-900">{{ estudiante.user.get_full_name }}</h1>
+            </div>
+            <p class="text-stone-700 max-w-xl mx-auto leading-relaxed">
+                Ha aprobado satisfactoriamente la escuela
+                <strong class="text-stone-900">«{{ escuela.nombre }}»</strong>
+                ({{ escuela.anio }} · {{ escuela.get_ciclo_display }}) en
+                <strong class="text-stone-900">{{ escuela.sede.nombre }}</strong>.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto text-sm text-left border-t border-stone-200/80 pt-5">
+                {% if matricula.fecha_matricula %}
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Matriculado desde</dt>
+                    <dd class="mt-0.5 text-stone-800">{{ matricula.fecha_matricula|date:"d/m/Y" }}</dd>
+                </div>
+                {% endif %}
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Fecha de emisión</dt>
+                    <dd class="mt-0.5 text-stone-800">{{ certificado_emitido_en|date:"d/m/Y" }}</dd>
+                </div>
+            </div>
+            {% if escuela.maestro %}
+            <div class="pt-8 mt-4">
+                <p class="inline-block border-t border-stone-400 pt-2 text-sm text-stone-700">
+                    {{ escuela.maestro.user.get_full_name }}<br>
+                    <span class="text-xs text-stone-500">Docente de la escuela</span>
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <p class="text-xs text-stone-500 text-center no-print">
+        Este certificado se generó automáticamente a partir del registro de notas de la escuela.
+    </p>
+</div>
+{% endblock %}

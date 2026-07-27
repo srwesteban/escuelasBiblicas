@@ -70,14 +70,6 @@
         border: 1px solid rgba(120, 113, 108, 0.12);
     }
 
-    .media-frame-pastor.thumb-slot {
-        width: fit-content;
-        max-width: 7rem;
-        max-height: 7rem;
-        border-radius: 1rem;
-        border: 1px solid rgba(120, 113, 108, 0.12);
-    }
-
     .media-frame-coordinator.thumb-slot {
         width: 4rem;
         height: 4rem;
@@ -119,6 +111,18 @@
 
 {% block content %}
 <div class="space-y-6">
+    {% if not sede.is_active %}
+    <div class="rounded-xl border border-stone-300 bg-stone-100 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2 text-sm text-stone-700">
+            <i class="fas fa-circle-minus text-stone-500"></i>
+            <span><strong>Esta sede está desactivada.</strong> No aparece como activa para las demás pantallas, pero sus datos siguen aquí.</span>
+        </div>
+        <form method="post" action="{% url 'core:sede_reactivate' sede.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Reactivar sede</button>
+        </form>
+    </div>
+    {% endif %}
     <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
             <div class="media-frame media-frame-header thumb-slot bg-stone-50">
@@ -144,9 +148,11 @@
         <div class="flex items-center gap-3">
             <a href="{% url 'core:director_dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">Volver</a>
             <a href="{% url 'core:sede_edit' sede.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Editar sede</a>
+            {% if sede.is_active %}
             <button type="button" id="open-delete-sede-dialog" class="btn-outline px-4 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50">
-                Eliminar sede
+                Desactivar sede
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -169,47 +175,29 @@
             <div class="text-sm text-gray-500">Teléfono</div>
             <div class="mt-1 font-medium text-gray-900">{{ sede.telefono|default:"No definido" }}</div>
         </div>
-        <div class="card p-5">
-            <div class="text-sm text-gray-500">Pastor responsable</div>
-            <div class="mt-1 font-medium text-gray-900">{{ sede.pastor_responsable|default:"No definido" }}</div>
-        </div>
     </div>
 
-    {% if sede.pastor_responsable or sede.foto_pastor %}
-        <div class="card p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Pastor responsable</h2>
-            <div class="flex items-center gap-4">
-                <div class="media-frame media-frame-coordinator thumb-slot bg-stone-50">
-                    {% if sede.foto_pastor %}
-                        <img class="thumb-img" src="{{ sede.foto_pastor.url }}" alt="{{ sede.pastor_responsable }}"
-                             onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
-                        <div class="thumb-fallback hidden" aria-hidden="true">
-                            <span class="thumb-fallback-icon thumb-fallback-icon--person"><i class="fas fa-user"></i></span>
-                        </div>
-                    {% else %}
-                        <div class="thumb-fallback" aria-hidden="true">
-                            <span class="thumb-fallback-icon thumb-fallback-icon--person"><i class="fas fa-user"></i></span>
-                        </div>
-                    {% endif %}
-                </div>
-                <div>
-                    <div class="text-lg font-medium text-gray-900">{{ sede.pastor_responsable|default:"—" }}</div>
-                    <div class="text-sm text-gray-500">{{ sede.ciudad|default:"" }}</div>
-                </div>
+    <div class="card p-6">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-900">Coordinador de sede</h2>
+                <p class="text-sm text-gray-600 mt-1">Responsable principal. La sede no puede quedar sin este rol.</p>
             </div>
+            {% if not coordinadores_sede %}
+            <a href="{% url 'core:coordinador_create' sede.id %}" class="btn-primary px-4 py-2 text-sm font-medium inline-flex items-center">
+                <i class="fas fa-user-plus mr-2"></i>Agregar coordinador de sede
+            </a>
+            {% endif %}
         </div>
-    {% endif %}
 
-    {% if pastores_adicionales %}
-        <div class="card p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Pastores adicionales</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for pastor in pastores_adicionales %}
-                    <div class="rounded-xl border border-stone-200 p-4">
+        <div class="space-y-4">
+            {% for coordinador in coordinadores_sede %}
+                <div class="rounded-xl border border-amber-200 bg-amber-50/40 p-5">
+                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div class="flex items-center gap-4">
-                            <div class="media-frame media-frame-pastor thumb-slot bg-stone-50">
-                                {% if pastor.foto %}
-                                    <img class="thumb-img" src="{{ pastor.foto.url }}" alt="{{ pastor.nombre }}"
+                            <div class="media-frame media-frame-coordinator thumb-slot bg-stone-50">
+                                {% if coordinador.user.avatar %}
+                                    <img class="thumb-img" src="{{ coordinador.user.avatar.url }}" alt="{{ coordinador.user.get_full_name }}"
                                          onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
                                     <div class="thumb-fallback hidden" aria-hidden="true">
                                         <span class="thumb-fallback-icon thumb-fallback-icon--person"><i class="fas fa-user"></i></span>
@@ -221,32 +209,38 @@
                                 {% endif %}
                             </div>
                             <div>
-                                <div class="font-medium text-gray-900">{{ pastor.nombre }}</div>
-                                <div class="text-sm text-gray-500">Pastor adicional</div>
+                                <h3 class="text-lg font-semibold text-gray-900">{{ coordinador.user.get_full_name }}</h3>
+                                <p class="text-sm text-gray-600 mt-1">{{ coordinador.roles_display }}</p>
+                                <div class="mt-2 text-sm text-gray-500">
+                                    {{ coordinador.user.email }}
+                                </div>
                             </div>
                         </div>
+                        <div class="flex items-center gap-3">
+                            <a href="{% url 'core:coordinador_edit' sede.id coordinador.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Editar</a>
+                        </div>
                     </div>
-                {% endfor %}
-            </div>
+                </div>
+            {% empty %}
+                <div class="rounded-xl border border-dashed border-amber-300 bg-amber-50/30 p-10 text-center">
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Sin coordinador de sede</h3>
+                    <p class="text-gray-600 mb-6">Asigna un coordinador de sede para que pueda gestionar el equipo y la operación.</p>
+                    <a href="{% url 'core:coordinador_create' sede.id %}" class="btn-primary px-4 py-2 text-sm font-medium inline-flex items-center">
+                        <i class="fas fa-user-plus mr-2"></i>Crear coordinador de sede
+                    </a>
+                </div>
+            {% endfor %}
         </div>
-    {% endif %}
+    </div>
 
     <div class="card p-6">
-        <div class="flex items-center justify-between mb-6">
-            <div>
-                <h2 class="text-xl font-semibold text-gray-900">Coordinadores</h2>
-                <p class="text-sm text-gray-600 mt-1">Solo se muestran coordinadores asignados a esta sede.</p>
-            </div>
-            <div class="flex items-center gap-3">
-                <span class="badge badge-primary">{{ coordinadores|length }} coordinador{{ coordinadores|length|pluralize:"es" }}</span>
-                <a href="{% url 'core:coordinador_create' sede.id %}" class="btn-primary px-4 py-2 text-sm font-medium inline-flex items-center">
-                    <i class="fas fa-user-plus mr-2"></i>Agregar coordinador
-                </a>
-            </div>
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold text-gray-900">Equipo de la sede</h2>
+            <p class="text-sm text-gray-600 mt-1">Coordinadores académicos, pedagógicos y demás. Los gestiona el coordinador de sede; desde aquí solo podés consultar su ficha.</p>
         </div>
 
         <div class="space-y-4">
-            {% for coordinador in coordinadores %}
+            {% for coordinador in coordinadores_otros %}
                 <div class="rounded-xl border border-stone-200 p-5">
                     <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div class="flex items-center gap-4">
@@ -265,28 +259,25 @@
                             </div>
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-900">{{ coordinador.user.get_full_name }}</h3>
-                                <p class="text-sm text-gray-600 mt-1">{{ coordinador.get_tipo_coordinador_display }}</p>
+                                <p class="text-sm text-gray-600 mt-1">{{ coordinador.roles_display }}</p>
                                 <div class="mt-2 text-sm text-gray-500">
                                     {{ coordinador.user.email }}
                                 </div>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <a href="{% url 'core:coordinador_edit' sede.id coordinador.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Editar</a>
-                            <form method="post" action="{% url 'core:coordinador_delete' sede.id coordinador.id %}">
-                                {% csrf_token %}
-                                <button type="submit" class="btn-outline px-4 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50">Eliminar</button>
-                            </form>
+                        <div class="flex items-center gap-3 shrink-0">
+                            <button type="button"
+                                    class="js-ver-ficha-coord btn-outline px-4 py-2 text-sm font-medium"
+                                    data-ficha-url="{% url 'core:director_coordinador_ficha_fragment' sede.id coordinador.id %}"
+                                    data-nombre="{{ coordinador.user.get_full_name|default:coordinador.user.username }}">
+                                Ver ficha
+                            </button>
                         </div>
                     </div>
                 </div>
             {% empty %}
-                <div class="rounded-xl border border-dashed border-stone-300 p-10 text-center">
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">No hay coordinadores en esta sede</h3>
-                    <p class="text-gray-600 mb-6">Agrega el primer coordinador con su correo y contraseña.</p>
-                    <a href="{% url 'core:coordinador_create' sede.id %}" class="btn-primary px-4 py-2 text-sm font-medium inline-flex items-center">
-                        <i class="fas fa-user-plus mr-2"></i>Crear coordinador
-                    </a>
+                <div class="rounded-xl border border-dashed border-stone-300 p-8 text-center">
+                    <p class="text-sm text-gray-600">Todavía no hay otros coordinadores en esta sede.</p>
                 </div>
             {% endfor %}
         </div>
@@ -296,8 +287,8 @@
         <form method="post" action="{% url 'core:sede_delete' sede.id %}" class="rounded-xl border border-stone-200 bg-white shadow-xl overflow-hidden">
             {% csrf_token %}
             <div class="p-6 space-y-4">
-                <h3 id="delete-sede-dialog-title" class="text-lg font-semibold text-gray-900">Eliminar sede</h3>
-                <p class="text-sm text-gray-600">Se desactivará la sede <span class="font-medium text-gray-900">{{ sede.nombre }}</span>. Introduce tu contraseña para confirmar.</p>
+                <h3 id="delete-sede-dialog-title" class="text-lg font-semibold text-gray-900">Desactivar sede</h3>
+                <p class="text-sm text-gray-600">La sede <span class="font-medium text-gray-900">{{ sede.nombre }}</span> pasará a Inactivas. Sus datos se conservan y podrás reactivarla después. Introduce tu contraseña para confirmar.</p>
                 <div>
                     <label for="sede-delete-password" class="block text-sm font-medium text-stone-700 mb-1">Tu contraseña</label>
                     <input type="password" name="confirm_password" id="sede-delete-password" required
@@ -308,10 +299,25 @@
             </div>
             <div class="flex items-center justify-end gap-3 px-6 py-4 bg-stone-50 border-t border-stone-200">
                 <button type="button" class="btn-outline px-4 py-2 text-sm font-medium" data-close-delete-sede-dialog>Cancelar</button>
-                <button type="submit" class="btn-outline px-4 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50">Eliminar definitivamente</button>
+                <button type="submit" class="btn-outline px-4 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50">Confirmar desactivación</button>
             </div>
         </form>
     </dialog>
+
+    <div id="modal-ficha-coord" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true" aria-labelledby="modal-ficha-coord-titulo">
+        <button type="button" id="modal-ficha-coord-backdrop" class="absolute inset-0 bg-stone-900/50 w-full h-full border-0 cursor-default" aria-label="Cerrar ventana"></button>
+        <div class="relative z-10 mx-auto mt-8 sm:mt-12 w-[calc(100%-1.5rem)] max-w-2xl max-h-[min(85vh,40rem)] flex flex-col rounded-2xl border border-stone-200 bg-stone-50 shadow-xl overflow-hidden">
+            <div class="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-stone-200 bg-white shrink-0">
+                <h2 id="modal-ficha-coord-titulo" class="text-base font-semibold text-stone-900 truncate">Ficha del coordinador</h2>
+                <button type="button" id="modal-ficha-coord-cerrar" class="rounded-lg p-2 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Cerrar">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div id="modal-ficha-coord-body" class="overflow-y-auto p-4 sm:p-5 text-sm text-stone-800 min-h-0 flex-1">
+                <p class="text-stone-500">Cargando…</p>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -319,29 +325,73 @@
     var dlg = document.getElementById('delete-sede-dialog');
     var openBtn = document.getElementById('open-delete-sede-dialog');
     var pw = document.getElementById('sede-delete-password');
-    if (!dlg || !openBtn) return;
+    if (dlg && openBtn) {
+        function clearPassword() {
+            if (pw) pw.value = '';
+        }
 
-    function clearPassword() {
-        if (pw) pw.value = '';
+        openBtn.addEventListener('click', function () {
+            if (typeof dlg.showModal === 'function') {
+                dlg.showModal();
+                if (pw) {
+                    pw.focus();
+                }
+            }
+        });
+
+        dlg.querySelectorAll('[data-close-delete-sede-dialog]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                dlg.close();
+                clearPassword();
+            });
+        });
+
+        dlg.addEventListener('close', clearPassword);
     }
 
-    openBtn.addEventListener('click', function () {
-        if (typeof dlg.showModal === 'function') {
-            dlg.showModal();
-            if (pw) {
-                pw.focus();
-            }
+    var modal = document.getElementById('modal-ficha-coord');
+    var modalBody = document.getElementById('modal-ficha-coord-body');
+    var modalTitulo = document.getElementById('modal-ficha-coord-titulo');
+    var btnCerrar = document.getElementById('modal-ficha-coord-cerrar');
+    var backdrop = document.getElementById('modal-ficha-coord-backdrop');
+    if (modal && modalBody) {
+        function openModal() {
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
         }
-    });
-
-    dlg.querySelectorAll('[data-close-delete-sede-dialog]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            dlg.close();
-            clearPassword();
+        function closeModal() {
+            modal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+            modalBody.innerHTML = '<p class="text-stone-500">Cargando…</p>';
+        }
+        if (btnCerrar) btnCerrar.addEventListener('click', closeModal);
+        if (backdrop) backdrop.addEventListener('click', closeModal);
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
         });
-    });
 
-    dlg.addEventListener('close', clearPassword);
+        document.querySelectorAll('.js-ver-ficha-coord').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var url = btn.getAttribute('data-ficha-url');
+                var nombre = btn.getAttribute('data-nombre') || 'Ficha del coordinador';
+                if (!url) return;
+                if (modalTitulo) modalTitulo.textContent = nombre;
+                modalBody.innerHTML = '<p class="text-stone-500">Cargando…</p>';
+                openModal();
+                fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.text();
+                    })
+                    .then(function (html) {
+                        modalBody.innerHTML = html;
+                    })
+                    .catch(function () {
+                        modalBody.innerHTML = '<p class="text-red-700">No se pudo cargar la ficha. Probá de nuevo.</p>';
+                    });
+            });
+        });
+    }
 })();
 </script>
 {% endblock %}

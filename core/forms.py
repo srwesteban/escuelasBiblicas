@@ -1,11 +1,10 @@
 import re
 
 from django import forms
-from django.forms import inlineformset_factory
 from allauth.account.forms import SignupForm
 
 from core.colombia_geo import ciudad_choices_for_departamento, departamento_choices, nombre_departamento
-from core.models import AppModule, PastorSede, Sede, User, UserAppPermission, generate_unique_username
+from core.models import AppModule, Sede, User, UserAppPermission, generate_unique_username
 from hechos.models import (
     AdminEscuela,
     CapacidadCoordinador,
@@ -19,6 +18,26 @@ from hechos.models import (
     capacidades_default_por_tipo,
     default_anio_escuela,
 )
+
+
+MSG_DOCUMENTO_YA_EXISTE = (
+    "Este usuario ya existe. Ingresa con tu número de documento y contraseña "
+    "(si te registró un profesor, no hace falta volver a crear la cuenta)."
+)
+
+
+def documento_ya_registrado(doc: str) -> bool:
+    """True si el documento ya identifica a un usuario o estudiante en el sistema."""
+    value = (doc or "").strip()
+    if not value:
+        return False
+    if User.objects.filter(documento_identidad__iexact=value).exists():
+        return True
+    if User.objects.filter(username__iexact=value).exists():
+        return True
+    if Estudiante.objects.filter(numero_documento__iexact=value).exists():
+        return True
+    return False
 
 
 def _normalize_and_validate_documento_plausible(raw: str, tipo: str) -> str:
@@ -82,11 +101,15 @@ class StudentSignupForm(SignupForm):
         choices=Estudiante.TipoDocumento.choices,
         label="Tipo de documento",
     )
-    phone = forms.CharField(max_length=20, label="Celular")
+    phone = forms.CharField(
+        max_length=15,
+        label="Celular (WhatsApp)",
+        help_text="Solo números (10 a 15 dígitos).",
+    )
     fecha_nacimiento = forms.DateField(required=True, label="Fecha de nacimiento")
 
-    direccion_detallada = forms.CharField(required=True, label="Direccion de residencia", max_length=500)
-    barrio = forms.CharField(required=True, label="Barrio", max_length=120)
+    direccion_detallada = forms.CharField(required=False, label="Direccion de residencia", max_length=500)
+    barrio = forms.CharField(required=False, label="Barrio", max_length=120)
     departamento = forms.ChoiceField(
         choices=[("", "Seleccione departamento")],
         label="Departamento",
@@ -121,9 +144,29 @@ class StudentSignupForm(SignupForm):
         )
         if "username" in self.fields:
             self.fields["username"].label = "Numero de documento"
+        if "phone" in self.fields:
+            self.fields["phone"].widget.attrs.update(
+                {
+                    "inputmode": "numeric",
+                    "maxlength": "15",
+                    "autocomplete": "tel",
+                    "pattern": "[0-9]{10,15}",
+                }
+            )
+        # Contraseña = número de documento; no se pide en el formulario.
         for _pw in ("password1", "password2"):
-            if _pw in self.fields:
-                self.fields[_pw].help_text = ""
+            self.fields.pop(_pw, None)
+
+    def clean_phone(self):
+        raw = (self.cleaned_data.get("phone") or "").strip()
+        digits = re.sub(r"\D", "", raw)
+        if not digits:
+            raise forms.ValidationError("El celular es obligatorio.")
+        if len(digits) < 10:
+            raise forms.ValidationError("Ingresa un celular válido (al menos 10 dígitos).")
+        if len(digits) > 15:
+            raise forms.ValidationError("El número parece demasiado largo.")
+        return digits
 
     def clean_username(self):
         tipo = (self.data.get("tipo_documento") or "").strip() or Estudiante.TipoDocumento.CC
@@ -131,15 +174,17 @@ class StudentSignupForm(SignupForm):
             self.cleaned_data.get("username", ""), tipo
         )
         self.cleaned_data["username"] = normalized
-        value = super().clean_username()
-        if Estudiante.objects.filter(numero_documento__iexact=value).exists():
-            raise forms.ValidationError(
-                "Ya existe un estudiante con este numero de documento."
-            )
-        return value
+        if documento_ya_registrado(normalized):
+            raise forms.ValidationError(MSG_DOCUMENTO_YA_EXISTE)
+        return super().clean_username()
 
     def clean(self):
         cleaned = super().clean()
+        # Sin campos de contraseña en UI: fijar password = documento antes de guardar.
+        doc = (cleaned.get("username") or "").strip()
+        if doc:
+            cleaned["password1"] = doc
+            cleaned["password2"] = doc
         dep = cleaned.get("departamento")
         ciu = (cleaned.get("ciudad") or "").strip()
         if dep and ciu:
@@ -149,6 +194,10 @@ class StudentSignupForm(SignupForm):
         return cleaned
 
     def save(self, request):
+        # Misma regla que matrícula por profesor: contraseña inicial = documento.
+        doc = (self.cleaned_data.get("username") or "").strip()
+        self.cleaned_data["password1"] = doc
+        self.cleaned_data["password2"] = doc
         user = super().save(request)
         user.first_name = (self.cleaned_data.get("first_name") or "").strip()
         user.last_name = (self.cleaned_data.get("last_name") or "").strip()
@@ -156,7 +205,34 @@ class StudentSignupForm(SignupForm):
         user.role = "user"
         email = (self.cleaned_data.get("email") or "").strip()
         user.email = email.lower() if email else None
-        user.save(update_fields=["first_name", "last_name", "phone", "role", "email"])
+        user.tipo_documento = self.cleaned_data.get("tipo_documento") or User.TipoDocumento.CC
+        user.documento_identidad = doc
+        direccion_det = (self.cleaned_data.get("direccion_detallada") or "").strip()
+        barrio = (self.cleaned_data.get("barrio") or "").strip()
+        departamento = (self.cleaned_data.get("departamento") or "").strip()
+        ciudad = (self.cleaned_data.get("ciudad") or "").strip()
+        user.direccion = direccion_det
+        user.barrio = barrio
+        user.departamento = departamento
+        user.ciudad = ciudad
+        # Por si el adapter no aplicó password1 (edge cases).
+        user.set_password(doc)
+        user.save(
+            update_fields=[
+                "first_name",
+                "last_name",
+                "phone",
+                "role",
+                "email",
+                "tipo_documento",
+                "documento_identidad",
+                "direccion",
+                "barrio",
+                "departamento",
+                "ciudad",
+                "password",
+            ]
+        )
 
         Estudiante.objects.update_or_create(
             user=user,
@@ -166,21 +242,7 @@ class StudentSignupForm(SignupForm):
                 "tipo_documento": self.cleaned_data.get("tipo_documento"),
                 "numero_documento": (self.cleaned_data.get("username") or "").strip(),
                 "fecha_nacimiento": self.cleaned_data.get("fecha_nacimiento"),
-                "direccion": ", ".join(
-                    [
-                        (self.cleaned_data.get("direccion_detallada") or "").strip(),
-                        (self.cleaned_data.get("barrio") or "").strip(),
-                        ", ".join(
-                            p
-                            for p in [
-                                (self.cleaned_data.get("ciudad") or "").strip(),
-                                nombre_departamento(self.cleaned_data.get("departamento")),
-                            ]
-                            if p
-                        ),
-                    ]
-                ).strip(", "),
-                "iglesia": "",
+                "direccion": direccion_det,
             },
         )
 
@@ -216,8 +278,6 @@ class SedeForm(forms.ModelForm):
     )
     telefono = forms.CharField(required=False, label="Teléfono")
     email = forms.EmailField(required=False, label="Email")
-    pastor_responsable = forms.CharField(required=False, label="Pastor responsable")
-    foto_pastor = forms.ImageField(required=False, label="Foto pastor")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -253,7 +313,6 @@ class SedeForm(forms.ModelForm):
         self.fields["ciudad"].widget.attrs.update({"class": input_class})
         self.fields["telefono"].widget.attrs.update({"class": input_class, "placeholder": "Opcional"})
         self.fields["email"].widget.attrs.update({"class": input_class, "placeholder": "Opcional"})
-        self.fields["pastor_responsable"].widget.attrs.update({"class": input_class, "placeholder": "Opcional"})
 
         self.fields["direccion"].widget = forms.Textarea(
             attrs={
@@ -263,7 +322,6 @@ class SedeForm(forms.ModelForm):
             }
         )
         self.fields["imagen_referencia"].widget = forms.FileInput(attrs={"class": file_input_class, "accept": "image/*"})
-        self.fields["foto_pastor"].widget = forms.FileInput(attrs={"class": file_input_class, "accept": "image/*"})
 
     def clean(self):
         cleaned = super().clean()
@@ -305,42 +363,7 @@ class SedeForm(forms.ModelForm):
             "ciudad",
             "telefono",
             "email",
-            "pastor_responsable",
-            "foto_pastor",
         ]
-
-
-class PastorSedeForm(forms.ModelForm):
-    nombre = forms.CharField(required=False, label="Nombre")
-    foto = forms.ImageField(required=False, label="Foto")
-
-    class Meta:
-        model = PastorSede
-        fields = ["nombre", "foto"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        input_class = (
-            "w-full rounded-xl border-2 border-stone-300 bg-stone-50 px-4 py-3 "
-            "text-slate-900 shadow-sm transition focus:border-stone-500 "
-            "focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200"
-        )
-        file_input_class = (
-            "w-full rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 px-4 py-3 "
-            "text-sm text-slate-700 shadow-sm transition hover:border-stone-400 "
-            "focus:outline-none focus:ring-4 focus:ring-stone-200"
-        )
-        self.fields["nombre"].widget.attrs.update({"class": input_class, "placeholder": "Nombre del pastor opcional"})
-        self.fields["foto"].widget = forms.FileInput(attrs={"class": file_input_class, "accept": "image/*"})
-
-
-PastorSedeFormSet = inlineformset_factory(
-    Sede,
-    PastorSede,
-    form=PastorSedeForm,
-    extra=0,
-    can_delete=True,
-)
 
 
 class EscuelaSedeBasicaForm(forms.ModelForm):
@@ -670,9 +693,9 @@ class NivelProgramaPlantillaForm(forms.Form):
     """Alta de nivel global (todas las sedes heredan)."""
 
     jerarquia = forms.IntegerField(
-        min_value=0,
-        label="Nivel",
-        help_text="Número entero (0 = Fundamentos, 1, 2, 3…). Debe ser único en todo el programa.",
+        min_value=1,
+        label="Jerarquía",
+        help_text="Número de orden que verán las sedes (1 = Fundamentos, 2, 3…). Debe ser único en todo el programa.",
     )
     nombre = forms.CharField(
         max_length=200,
@@ -703,7 +726,7 @@ class NivelProgramaPlantillaForm(forms.Form):
             "focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200"
         )
         self.fields["jerarquia"].widget.attrs.update(
-            {"class": input_class, "inputmode": "numeric", "min": "0"}
+            {"class": input_class, "inputmode": "numeric", "min": "1"}
         )
         self.fields["nombre"].widget.attrs.update({"class": input_class})
 
@@ -711,20 +734,22 @@ class NivelProgramaPlantillaForm(forms.Form):
         cleaned = super().clean()
         if self._errors:
             return cleaned
-        j = cleaned.get("jerarquia")
-        if j is None:
+        j_visible = cleaned.get("jerarquia")
+        if j_visible is None:
             return cleaned
+        j = j_visible - 1  # jerarquia interna: 0 = Fundamentos
         nombre = (cleaned.get("nombre") or "").strip()
         if j == 0:
             cleaned["nombre"] = nombre or "Fundamentos"
         elif not nombre:
             raise forms.ValidationError(
-                {"nombre": "Indica el nombre (excepto en el nivel 0)."}
+                {"nombre": "Indica el nombre (excepto en el nivel 1)."}
             )
         if NivelProgramaPlantilla.objects.filter(jerarquia=j).exists():
             raise forms.ValidationError(
                 {"jerarquia": "Ya existe un nivel con este número en el programa global."}
             )
+        cleaned["jerarquia"] = j
         cleaned["descripcion"] = (cleaned.get("descripcion") or "").strip()
         return cleaned
 
@@ -732,7 +757,11 @@ class NivelProgramaPlantillaForm(forms.Form):
 class NivelProgramaPlantillaEditForm(forms.Form):
     """Edición de nivel global."""
 
-    jerarquia = forms.IntegerField(min_value=0, label="Nivel")
+    jerarquia = forms.IntegerField(
+        min_value=1,
+        label="Nivel",
+        help_text="Número que verán las sedes (1 = Fundamentos, 2, 3…).",
+    )
     nombre = forms.CharField(max_length=200, label="Nombre", required=False)
     descripcion = forms.CharField(
         required=False,
@@ -758,7 +787,7 @@ class NivelProgramaPlantillaEditForm(forms.Form):
             "focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200"
         )
         self.fields["jerarquia"].widget.attrs.update(
-            {"class": input_class, "inputmode": "numeric", "min": "0"}
+            {"class": input_class, "inputmode": "numeric", "min": "1"}
         )
         self.fields["nombre"].widget.attrs.update({"class": input_class})
 
@@ -766,21 +795,23 @@ class NivelProgramaPlantillaEditForm(forms.Form):
         cleaned = super().clean()
         if self._errors or self.nivel_plantilla_pk is None:
             return cleaned
-        j = cleaned.get("jerarquia")
-        if j is None:
+        j_visible = cleaned.get("jerarquia")
+        if j_visible is None:
             return cleaned
+        j = j_visible - 1  # jerarquia interna: 0 = Fundamentos
         nombre = (cleaned.get("nombre") or "").strip()
         if j == 0:
             cleaned["nombre"] = nombre or "Fundamentos"
         elif not nombre:
             raise forms.ValidationError(
-                {"nombre": "Indica el nombre (excepto en el nivel 0)."}
+                {"nombre": "Indica el nombre (excepto en el nivel 1)."}
             )
         qs = NivelProgramaPlantilla.objects.filter(jerarquia=j).exclude(pk=self.nivel_plantilla_pk)
         if qs.exists():
             raise forms.ValidationError(
                 {"jerarquia": "Ya existe otro nivel con este número en el programa global."}
             )
+        cleaned["jerarquia"] = j
         cleaned["descripcion"] = (cleaned.get("descripcion") or "").strip()
         return cleaned
 
@@ -1316,7 +1347,7 @@ class DirectorProfesorEditForm(forms.Form):
     first_name = forms.CharField(max_length=150, label="Nombre")
     last_name = forms.CharField(max_length=150, label="Apellido")
     email = forms.EmailField(label="Correo electrónico")
-    phone = forms.CharField(max_length=20, required=False, label="Celular")
+    phone = forms.CharField(max_length=20, required=False, label="Celular (WhatsApp)")
     tipo_documento = forms.ChoiceField(
         choices=[("", "Sin especificar")] + list(User.TipoDocumento.choices),
         required=False,

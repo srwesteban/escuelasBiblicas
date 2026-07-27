@@ -80,17 +80,17 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     
     # Third party apps
+    'storages',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.github',
-    
+
     # Local apps
     'core',
     'hechos',
     'ofrendas',
-    'guias',
 ]
 
 MIDDLEWARE = [
@@ -139,13 +139,20 @@ DATABASES = {
 _default_db = DATABASES['default']
 _db_host = str(_default_db.get('HOST') or '')
 _db_port = str(_default_db.get('PORT') or '')
-_use_pooler_fix = (
-    _db_port == '6543'
-    and ('supabase.co' in _db_host or 'pooler.supabase.com' in _db_host)
-) or ('neon.tech' in _db_host and '-pooler' in _db_host)
-if _use_pooler_fix:
-    _default_db['CONN_MAX_AGE'] = 0
+_is_supabase_pooler = _db_port == '6543' and (
+    'supabase.co' in _db_host or 'pooler.supabase.com' in _db_host
+)
+_is_neon_pooler = 'neon.tech' in _db_host and '-pooler' in _db_host
+if _is_supabase_pooler or _is_neon_pooler:
     _default_db['DISABLE_SERVER_SIDE_CURSORS'] = True
+if _is_supabase_pooler:
+    # CONN_MAX_AGE=0 evita el error "Tenant not found" visto con conexiones
+    # reutilizadas contra el pooler de Supabase.
+    _default_db['CONN_MAX_AGE'] = 0
+elif _is_neon_pooler:
+    # Neon soporta reutilizar la conexión; evita pagar el handshake TCP/TLS
+    # completo en cada request (impacto notable en el tiempo de login).
+    _default_db['CONN_MAX_AGE'] = 60
 
 
 # Password validation
@@ -184,6 +191,40 @@ MEDIA_URL = '/media/'
 # Entregas de actividades: escuelasBiblicas/media/actividades/<año>/<mes>/ (ver FileField upload_to)
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Almacenamiento de archivos subidos (avatars, entregas, recursos): Supabase Storage
+# (S3-compatible) si hay credenciales en el entorno; si no, disco local (MEDIA_ROOT arriba).
+# El disco local de Render (plan free) es efímero: se pierde en cada redeploy/reinicio.
+_supabase_s3_access_key = os.getenv('SUPABASE_S3_ACCESS_KEY_ID', '').strip()
+_supabase_s3_secret_key = os.getenv('SUPABASE_S3_SECRET_ACCESS_KEY', '').strip()
+_supabase_s3_bucket = os.getenv('SUPABASE_S3_BUCKET', '').strip()
+_supabase_s3_endpoint = os.getenv('SUPABASE_S3_ENDPOINT_URL', '').strip()
+_supabase_s3_region = os.getenv('SUPABASE_S3_REGION', '').strip()
+
+USE_SUPABASE_STORAGE = bool(
+    _supabase_s3_access_key and _supabase_s3_secret_key and _supabase_s3_bucket and _supabase_s3_endpoint
+)
+
+if USE_SUPABASE_STORAGE:
+    AWS_ACCESS_KEY_ID = _supabase_s3_access_key
+    AWS_SECRET_ACCESS_KEY = _supabase_s3_secret_key
+    AWS_STORAGE_BUCKET_NAME = _supabase_s3_bucket
+    AWS_S3_ENDPOINT_URL = _supabase_s3_endpoint
+    AWS_S3_REGION_NAME = _supabase_s3_region or None
+    # Supabase (como la mayoría de S3-compatibles) no soporta addressing virtual-hosted-style
+    # ni el header ACL de AWS: hay que forzar path-style y no mandar ACL.
+    AWS_S3_ADDRESSING_STYLE = 'path'
+    AWS_DEFAULT_ACL = None
+    AWS_S3_FILE_OVERWRITE = False
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -200,6 +241,8 @@ SITE_ID = 1
 
 # Allauth settings
 ACCOUNT_LOGIN_METHODS = {'username', 'email'}
+# password1/password2 deben seguir en la config: allauth los usa también para el login.
+# El formulario de registro los oculta y asigna la contraseña = documento.
 ACCOUNT_SIGNUP_FIELDS = ['username*', 'password1*', 'password2*', 'email']
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # Deshabilitado para desarrollo
 ACCOUNT_RATE_LIMITS = {

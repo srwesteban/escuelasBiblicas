@@ -29,15 +29,21 @@ urlpatterns = [
     path('quejas-reclamos/', views.quejas_reclamos, name='quejas_reclamos'),
     path('escuelas/<int:edicion_id>/solicitar-matricula/', views.solicitar_matricula, name='solicitar_matricula'),
     path('estructura/', views.estructura_ediciones, name='estructura_ediciones'),
-    path('estructura/escuela/<int:escuela_id>/', views.estructura_escuela_portal, name='estructura_escuela'),
+    path(
+        'estructura/escuela/<int:escuela_id>/',
+        views.estructura_escuela_portal,
+        name='estructura_escuela',
+    ),
     path(
         'estructura/escuela/<int:escuela_id>/paso/<int:step>/',
         views.estructura_configurar_paso,
         name='estructura_configurar',
     ),
-    path('estructura/<int:edicion_id>/', views.estructura_edicion_legacy_redirect, name='estructura_edicion_edit'),
     path('mis-certificados/', views.mis_certificados, name='mis_certificados'),
     path('mis-escuelas/', views.mis_escuelas, name='mis_escuelas'),
+    path('historial-escuelas/', views.historial_escuelas, name='historial_escuelas'),
+    path('horario/', views.mi_horario, name='mi_horario'),
+    path('horario/descargar/', views.mi_horario_descargar, name='mi_horario_descargar'),
     path(
         'mis-escuelas/escuela/<int:escuela_id>/recursos/',
         views.estudiante_escuela_recursos,
@@ -49,6 +55,11 @@ urlpatterns = [
         name='descargar_archivo_recurso_escuela',
     ),
     path(
+        'mis-escuelas/escuela/<int:escuela_id>/certificado/',
+        views.ver_certificado_escuela,
+        name='ver_certificado_escuela',
+    ),
+    path(
         'mis-escuelas/<int:curso_id>/actividad/<int:actividad_id>/entregar/',
         views.entregar_actividad_estudiante,
         name='entregar_actividad_estudiante',
@@ -58,7 +69,7 @@ urlpatterns = [
         views.descargar_archivo_entrega_actividad,
         name='descargar_entrega_actividad_archivo',
     ),
-    path('mis-escuelas/<int:curso_id>/', views.detalle_curso, name='detalle_mis_escuela'),
+    path('mis-escuelas/<int:curso_id>/', views.detalle_mis_escuela, name='detalle_mis_escuela'),
     path(
         'mis-solicitudes/',
         RedirectView.as_view(pattern_name='hechos:mis_escuelas', permanent=False),
@@ -71,7 +82,6 @@ urlpatterns = [
     
     # Estudiantes
     path('estudiantes/', views.estudiantes_list, name='estudiantes_list'),
-    path('estudiantes/por-sede/', views.estudiantes_listado_por_sede, name='estudiantes_listado_por_sede'),
     path('estudiantes/crear/', views.crear_estudiante, name='crear_estudiante'),
     path('estudiantes/<int:estudiante_id>/', views.detalle_estudiante, name='detalle_estudiante'),
     path(
@@ -127,6 +137,11 @@ urlpatterns = [
         views.profesor_solicitudes_matricula,
         name='profesor_solicitudes_matricula',
     ),
+    path(
+        'profesor/restablecer-contrasena/',
+        views.profesor_restablecer_contrasena,
+        name='profesor_restablecer_contrasena',
+    ),
     path('profesor/mis-escuelas/', views.clases_list, name='mis_escuelas_profesor'),
     path(
         'profesor/crear-instancia-escuela/',
@@ -162,6 +177,11 @@ urlpatterns = [
         'profesor/escuelas/<int:escuela_id>/estudiantes/',
         views.profesor_escuela_estudiantes,
         name='profesor_escuela_estudiantes',
+    ),
+    path(
+        'profesor/escuelas/<int:escuela_id>/estudiantes/<int:estudiante_id>/editar/',
+        views.profesor_escuela_estudiante_editar,
+        name='profesor_escuela_estudiante_editar',
     ),
     path(
         'profesor/escuelas/<int:escuela_id>/estudiantes/<int:estudiante_id>/quitar-matricula/',
@@ -229,26 +249,18 @@ urlpatterns = [
         name='profesor_escuela_notas_quitar_columna',
     ),
     path(
-        'profesor/escuelas/<int:escuela_id>/estudiantes/<int:estudiante_id>/notas/',
-        views.profesor_escuela_estudiante_notas,
-        name='profesor_escuela_estudiante_notas',
+        'profesor/escuelas/<int:escuela_id>/notas-grilla/certificado/',
+        views.profesor_escuela_notas_toggle_certificado,
+        name='profesor_escuela_notas_toggle_certificado',
     ),
     path('clases/', views.clases_list, name='clases_list'),
     path('clases/<int:clase_id>/asistencia/', views.asistencia_clase, name='asistencia_clase'),
-    path('clases/<int:clase_id>/actividad/', views.sesion_actividad, name='sesion_actividad'),
-    path('clases/<int:clase_id>/archivos/', views.sesion_archivos, name='sesion_archivos'),
 
     # Notas
     path('notas/', views.notas_estudiante, name='notas_estudiante'),
     path('notas/ruta/<int:ruta_id>/', views.notas_estudiante_ruta, name='notas_estudiante_ruta'),
-    # Progreso del Estudiante
-    
+
     # Gestión de Matrículas
     path('matriculas/', views.matriculas_list, name='matriculas_list'),
     path('matriculas/<int:matricula_id>/desmatricular/', views.desmatricular_estudiante, name='desmatricular_estudiante'),
-    
-    # Ediciones de Cursos
-    path('cursos/<int:curso_id>/ediciones/', views.ediciones_curso_list, name='ediciones_curso_list'),
-    path('cursos/<int:curso_id>/ediciones/crear/', views.crear_edicion_curso, name='crear_edicion_curso'),
-    path('ediciones/<int:edicion_id>/editar/', views.editar_edicion_curso, name='editar_edicion_curso'),
 ]

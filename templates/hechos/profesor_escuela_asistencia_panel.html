@@ -1,4 +1,5 @@
 {% extends 'base_modern.html' %}
+{% load static %}
 
 {# Hoja a ancho completo (sin max-w-7xl) para alinear con Excel en pantalla. #}
 {% block main_container_class %}w-full max-w-none mx-auto px-0 py-0 sm:px-0 lg:px-0{% endblock %}
@@ -26,6 +27,11 @@
             {% endif %}
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2">
+            <button type="button" id="open-tour"
+                    class="inline-flex items-center justify-center rounded-sm border border-white/35 bg-white/15 h-10 w-10 text-white shadow-sm hover:bg-white/25 shrink-0"
+                    title="Ver tutorial">
+                <i class="fas fa-question text-xs" aria-hidden="true"></i>
+            </button>
             {% if matricular_modal_activo %}
             <button type="button" id="btn-abrir-matricular-asistencia"
                     class="inline-flex items-center justify-center gap-2 rounded-sm border border-white/35 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-white/25 min-h-[40px] shrink-0">
@@ -33,7 +39,7 @@
                 Matricular
             </button>
             {% endif %}
-            <a href="{% url 'hechos:profesor_escuela_asistencia_excel_formato' escuela.id %}"
+            <a id="tour-plantilla-excel" href="{% url 'hechos:profesor_escuela_asistencia_excel_formato' escuela.id %}"
                class="inline-flex items-center justify-center gap-2 rounded-sm border border-white/35 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-white/25 min-h-[40px] shrink-0">
                 <i class="fas fa-file-excel text-xs" aria-hidden="true"></i>
                 Plantilla Excel
@@ -42,7 +48,7 @@
     </div>
 
     {# Barra tipo “cinta” + convención de celdas (como formato condicional de Excel) #}
-    <div class="flex flex-col gap-2 border-b border-neutral-300 bg-[#f3f3f3] px-2 py-2 sm:flex-row sm:items-center sm:gap-3 shrink-0">
+    <div id="tour-convencion" class="flex flex-col gap-2 border-b border-neutral-300 bg-[#f3f3f3] px-2 py-2 sm:flex-row sm:items-center sm:gap-3 shrink-0">
         <div class="flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs text-neutral-700">
             <span class="font-semibold text-neutral-600 mr-1">Celdas:</span>
             <span class="inline-flex items-center gap-1 rounded-sm border border-neutral-300 bg-white px-2 py-1 shadow-sm">
@@ -51,13 +57,12 @@
             </span>
             <span class="inline-flex items-center gap-1 rounded-sm border border-neutral-300 bg-white px-2 py-1 shadow-sm">
                 <span class="h-3.5 w-3.5 rounded-sm border border-neutral-300 excel-swatch-p" aria-hidden="true"></span>
-                <strong>P</strong>
+                <strong>P</strong> permiso
             </span>
             <span class="inline-flex items-center gap-1 rounded-sm border border-neutral-300 bg-white px-2 py-1 shadow-sm">
                 <span class="h-3.5 w-3.5 rounded-sm border border-neutral-300 excel-swatch-n" aria-hidden="true"></span>
                 <strong>N</strong> falta
             </span>
-            <span class="text-neutral-500 hidden md:inline">· <strong>% Inas.</strong> = N ÷ nº sesiones (igual que en el libro)</span>
         </div>
         {% if tiene_estudiantes %}
         <div class="flex flex-1 min-w-0 items-center gap-2 sm:justify-end">
@@ -78,7 +83,7 @@
     </p>
     {% endif %}
 
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-neutral-300 bg-white px-3 py-1.5 text-[11px] text-neutral-600 shrink-0">
+    <div id="tour-nueva-sesion" class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-neutral-300 bg-white px-3 py-1.5 text-[11px] text-neutral-600 shrink-0">
         <span><span class="text-neutral-400">Docente</span> <span class="font-medium text-neutral-800">{{ nombre_docente }}</span></span>
         <span class="hidden sm:inline text-neutral-300">|</span>
         <span><span class="text-neutral-400">Horario</span> <span class="font-medium text-neutral-800">{{ horario_txt }}</span></span>
@@ -186,6 +191,7 @@
                             title="{{ e.user.get_full_name }}">{{ e.user.get_full_name }}</td>
                         <td class="asistencia-sticky-ver excel-td-frozen sticky z-10 w-10 min-w-[2.5rem] max-w-[2.5rem] excel-grid-border p-0.5 text-center align-middle">
                             <button type="button"
+                                    {% if forloop.first %}id="tour-fila-menu"{% endif %}
                                     class="js-asistencia-fila-menu-trigger mx-auto flex h-9 w-9 items-center justify-center rounded-sm border border-neutral-400 bg-white text-neutral-600 hover:bg-[#f0f0f0] text-lg font-bold leading-none shadow-sm select-none"
                                     title="Ficha del estudiante o quitar matrícula"
                                     aria-label="Menú de esta fila"
@@ -222,7 +228,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="excel-status-bar flex flex-wrap items-center justify-between gap-3 border-t-2 border-[#107C41] bg-[#f3f3f3] px-3 py-2.5 shrink-0">
+        <div id="tour-guardar" class="excel-status-bar flex flex-wrap items-center justify-between gap-3 border-t-2 border-[#107C41] bg-[#f3f3f3] px-3 py-2.5 shrink-0">
             <div class="min-w-0 flex flex-col gap-0.5 text-[12px] text-neutral-600">
                 <p class="flex flex-wrap items-center gap-x-2 gap-y-0">
                     <span class="inline-flex items-center gap-1 font-semibold text-[#107C41]">
@@ -263,7 +269,7 @@
     </form>
     {% endfor %}
     {% endif %}
-    <details class="excel-import-panel border-t border-neutral-300 bg-[#fffbeb] shrink-0">
+    <details id="tour-importar-excel" class="excel-import-panel border-t border-neutral-300 bg-[#fffbeb] shrink-0">
         <summary class="list-none cursor-pointer px-3 py-2.5 text-sm font-semibold text-amber-950 hover:bg-amber-100/50 flex items-center gap-2 [&::-webkit-details-marker]:hidden">
             <i class="fas fa-file-import text-amber-800" aria-hidden="true"></i>
             Importar desde libro Excel (.xlsx)
@@ -1027,6 +1033,58 @@
             colocar(menuAnchor);
         });
     }
+})();
+</script>
+
+<script src="{% static 'js/site-tour.js' %}"></script>
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                selector: '#btn-abrir-matricular-asistencia',
+                title: 'Matricular estudiante',
+                text: 'Abre un formulario rápido para inscribir a alguien por número de documento, sin salir de esta pantalla.'
+            },
+            {
+                selector: '#tour-plantilla-excel',
+                title: 'Plantilla Excel',
+                text: 'Descarga un .xlsx vacío con la misma estructura de esta escuela (estudiantes y columnas de fecha) para trabajar sin conexión.'
+            },
+            {
+                selector: '#tour-convencion',
+                title: 'Cómo leer la grilla',
+                text: '«A» asistió, «P» permiso, «N» falta. El % de inasistencia se calcula igual que en Excel: N ÷ número de sesiones. Usa el buscador para encontrar un estudiante rápido.'
+            },
+            {
+                selector: '#tour-nueva-sesion',
+                title: 'Agregar una fecha de clase',
+                text: 'Cada sesión es una columna. Toca «Nueva fecha (sesión)» para sumar una; la ✕ en el encabezado de una columna la elimina junto con lo registrado ahí.'
+            },
+            {
+                selector: '#grilla-asistencia-scroll',
+                title: 'Marca la asistencia',
+                text: 'Elige A, P o N en cada celda. Con el teclado podés moverte con las flechas, igual que en Excel.'
+            },
+            {
+                selector: '#tour-fila-menu',
+                title: 'Ficha o quitar matrícula',
+                text: 'El botón «⋯» de cada fila abre la ficha del estudiante o te deja quitar su matrícula de esta escuela.'
+            },
+            {
+                selector: '#tour-guardar',
+                title: 'Guarda o exporta',
+                text: 'Los cambios no quedan registrados hasta tocar «Guardar hoja». «Exportar .xlsx» descarga la hoja tal como está, con lo ya guardado.'
+            },
+            {
+                selector: '#tour-importar-excel',
+                title: 'Importar desde Excel',
+                text: 'Sube un libro ya diligenciado para aplicar A/P/N en bloque. Las celdas vacías del archivo no borran lo que ya tenías guardado; se cruza por documento.'
+            }
+        ]);
+    });
 })();
 </script>
 {% endblock %}

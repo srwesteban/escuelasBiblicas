@@ -115,6 +115,61 @@
             margin: 0;
             padding: 0;
         }
+        .doc-field-wrap {
+            position: relative;
+        }
+        .doc-input-icon {
+            position: absolute;
+            left: 0.9rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: hsl(var(--muted-foreground));
+            pointer-events: none;
+            font-size: 0.85rem;
+        }
+        .matricula-input.has-icon {
+            padding-left: 2.4rem;
+        }
+        .selected-student-card {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(5, 150, 105, 0.3);
+            background: rgba(5, 150, 105, 0.08);
+            padding: 0.75rem 1rem;
+        }
+        .selected-student-avatar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 9999px;
+            background: rgb(5, 150, 105);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: calc(var(--radius) - 2px);
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.2rem 0.6rem;
+            background: hsl(var(--accent));
+            color: hsl(var(--accent-foreground));
+        }
+        .badge-success {
+            background-color: hsl(142.1 76.2% 36.3%);
+            color: hsl(355.7 100% 97.3%);
+        }
+        .badge-warning {
+            background-color: hsl(38 92% 50%);
+            color: hsl(48 96% 89%);
+        }
     </style>
 </head>
 <body class="min-h-full antialiased bg-stone-50/90 text-stone-900 p-4 sm:p-5">
@@ -132,7 +187,16 @@
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
                 <h1 class="text-xl sm:text-2xl font-bold text-stone-900">Matricular estudiante</h1>
-                <p class="text-stone-600 text-sm mt-0.5">{{ escuela_matricular.nombre }}</p>
+                <p class="text-stone-600 text-sm mt-0.5 flex items-center gap-2 flex-wrap">
+                    {{ escuela_matricular.nombre }}
+                    <span class="badge {% if escuela_matricular.tiene_cupo_definido %}{% if escuela_matricular.cupos_disponibles <= 3 %}badge-warning{% else %}badge-success{% endif %}{% else %}badge-success{% endif %}">
+                        {% if escuela_matricular.tiene_cupo_definido %}
+                            {{ escuela_matricular.cupos_disponibles }} cupo{{ escuela_matricular.cupos_disponibles|pluralize }}
+                        {% else %}
+                            Cupos indefinidos
+                        {% endif %}
+                    </span>
+                </p>
             </div>
             <a href="{{ matricular_cancel_url }}" target="_top"
                class="btn-outline px-4 py-2.5 text-sm font-medium shrink-0 inline-flex items-center justify-center rounded-lg">

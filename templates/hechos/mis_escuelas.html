@@ -3,71 +3,161 @@
 {% block title %}Mis escuelas - Hechos Hub{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-8">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Mis escuelas</h1>
-        <p class="text-gray-600 mt-1">Consulta el estado de tus solicitudes de matrícula.</p>
+        <p class="text-gray-600 mt-1">Escuelas en las que estás inscrito y que aún no han vencido.</p>
     </div>
 
-    <div class="space-y-4">
-        {% for solicitud in solicitudes %}
-            <div class="card p-6">
-                <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h2 class="text-xl font-semibold text-gray-900">
+    {% if not tiene_registros %}
+    <div class="card p-12 text-center">
+        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-list-check text-gray-400 text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No tienes escuelas activas</h3>
+        <p class="text-gray-600">Cuando te matriculen en una escuela vigente, aparecerá aquí.</p>
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <a href="{% url 'hechos:escuelas_disponibles' %}" class="btn-primary inline-flex items-center px-4 py-2 text-sm font-medium">
+                Ver escuelas disponibles
+            </a>
+            <a href="{% url 'hechos:historial_escuelas' %}" class="btn-outline inline-flex items-center px-4 py-2 text-sm font-medium">
+                Ver historial
+            </a>
+        </div>
+    </div>
+    {% else %}
+
+    {% if solicitudes_pendientes %}
+    <section class="space-y-4" aria-labelledby="mis-escuelas-pendientes">
+        <div>
+            <h2 id="mis-escuelas-pendientes" class="text-sm font-semibold uppercase tracking-wide text-stone-500">Solicitudes pendientes</h2>
+            <p class="text-sm text-stone-600 mt-1">Esperando respuesta del profesor.</p>
+        </div>
+        <div class="space-y-3">
+            {% for solicitud in solicitudes_pendientes %}
+            <div class="card p-5 border border-amber-100 bg-amber-50/40">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0 flex-1">
+                        <h3 class="text-lg sm:text-xl font-semibold text-stone-900 leading-snug break-words">
                             {{ solicitud.escuela.nombre }}
-                        </h2>
-                        <p class="text-sm text-gray-600 mt-1">
-                            {% if solicitud.nivel_programa_catalogo %}
-                                {{ solicitud.nivel_programa_catalogo }} ·
+                            {% if solicitud.escuela.maestro %}
+                            <span class="font-semibold text-stone-700"> ({{ solicitud.escuela.maestro.user.get_full_name }})</span>
+                            {% else %}
+                            <span class="font-medium text-stone-500"> (Por asignar)</span>
                             {% endif %}
-                            {{ solicitud.sede.nombre|default:"Sin sede" }}
-                        </p>
-                        <p class="text-sm text-gray-500 mt-2">
-                            Solicitada el {{ solicitud.fecha_solicitud|date:"d/m/Y H:i" }}
-                        </p>
+                        </h3>
+                        <dl class="mt-4 space-y-2.5">
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Horario</dt>
+                                <dd class="mt-0.5 text-sm font-medium text-stone-900">{{ solicitud.escuela.horario|default:"Por definir" }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Ciclo</dt>
+                                <dd class="mt-0.5 text-sm text-stone-800">{{ solicitud.escuela.anio }} · {{ solicitud.escuela.get_ciclo_display }}</dd>
+                            </div>
+                            {% if solicitud.escuela.fecha_inicio or solicitud.escuela.fecha_fin %}
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Fecha inicio – fin</dt>
+                                <dd class="mt-0.5 text-sm text-stone-800">
+                                    {% if solicitud.escuela.fecha_inicio and solicitud.escuela.fecha_fin %}
+                                        {{ solicitud.escuela.fecha_inicio|date:"d/m/Y" }} – {{ solicitud.escuela.fecha_fin|date:"d/m/Y" }}
+                                    {% elif solicitud.escuela.fecha_inicio %}
+                                        Desde {{ solicitud.escuela.fecha_inicio|date:"d/m/Y" }}
+                                    {% else %}
+                                        Hasta {{ solicitud.escuela.fecha_fin|date:"d/m/Y" }}
+                                    {% endif %}
+                                </dd>
+                            </div>
+                            {% endif %}
+                            {% if solicitud.nivel_programa_catalogo %}
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Nivel</dt>
+                                <dd class="mt-0.5 text-sm text-stone-800">{{ solicitud.nivel_programa_catalogo }}</dd>
+                            </div>
+                            {% endif %}
+                        </dl>
                     </div>
-
-                    <div class="text-left md:text-right">
-                        {% if solicitud.estado == 'pendiente' %}
-                            <span class="badge badge-warning">Pendiente</span>
-                        {% elif solicitud.estado == 'aprobada' %}
-                            <span class="badge badge-success">Aprobada</span>
-                        {% else %}
-                            <span class="badge badge-danger">Rechazada</span>
-                        {% endif %}
-
-                        {% if solicitud.revisado_por %}
-                            <p class="text-sm text-gray-500 mt-2">
-                                Revisado por {{ solicitud.revisado_por.get_full_name|default:solicitud.revisado_por.email }}
-                            </p>
-                        {% endif %}
+                    <div class="flex flex-col items-end gap-2 shrink-0">
+                        <span class="badge badge-warning">Pendiente</span>
+                        <div class="w-10 h-10 rounded-xl bg-stone-100 text-stone-500 flex items-center justify-center" aria-hidden="true">
+                            <i class="fas fa-school"></i>
+                        </div>
                     </div>
                 </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
 
-                {% if solicitud.observaciones %}
-                    <div class="mt-4 rounded-xl bg-stone-50 border border-stone-200 px-4 py-3 text-sm text-stone-700">
-                        {{ solicitud.observaciones }}
+    {% if matriculas_en_curso %}
+    <section class="space-y-4" aria-labelledby="mis-escuelas-curso">
+        <div>
+            <h2 id="mis-escuelas-curso" class="text-sm font-semibold uppercase tracking-wide text-stone-500">En curso</h2>
+            <p class="text-sm text-stone-600 mt-1">Puedes entrar y seguir tus clases.</p>
+        </div>
+        <div class="space-y-3">
+            {% for mat in matriculas_en_curso %}
+            <div class="card p-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0 flex-1">
+                        <h3 class="text-lg sm:text-xl font-semibold text-stone-900 leading-snug break-words">
+                            {{ mat.escuela.nombre }}
+                            {% if mat.escuela.maestro %}
+                            <span class="font-semibold text-stone-700"> ({{ mat.escuela.maestro.user.get_full_name }})</span>
+                            {% else %}
+                            <span class="font-medium text-stone-500"> (Por asignar)</span>
+                            {% endif %}
+                        </h3>
+                        <dl class="mt-4 space-y-2.5">
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Horario</dt>
+                                <dd class="mt-0.5 text-base font-medium text-stone-900">{{ mat.escuela.horario|default:"Por definir" }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Ciclo</dt>
+                                <dd class="mt-0.5 text-sm text-stone-800">{{ mat.escuela.anio }} · {{ mat.escuela.get_ciclo_display }}</dd>
+                            </div>
+                            {% if mat.escuela.fecha_inicio or mat.escuela.fecha_fin %}
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Fecha inicio – fin</dt>
+                                <dd class="mt-0.5 text-sm text-stone-800">
+                                    {% if mat.escuela.fecha_inicio and mat.escuela.fecha_fin %}
+                                        {{ mat.escuela.fecha_inicio|date:"d/m/Y" }} – {{ mat.escuela.fecha_fin|date:"d/m/Y" }}
+                                    {% elif mat.escuela.fecha_inicio %}
+                                        Desde {{ mat.escuela.fecha_inicio|date:"d/m/Y" }}
+                                    {% else %}
+                                        Hasta {{ mat.escuela.fecha_fin|date:"d/m/Y" }}
+                                    {% endif %}
+                                </dd>
+                            </div>
+                            {% endif %}
+                            {% if mat.nivel_programa_catalogo %}
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Nivel</dt>
+                                <dd class="mt-0.5 text-sm text-stone-800">{{ mat.nivel_programa_catalogo }}</dd>
+                            </div>
+                            {% endif %}
+                        </dl>
                     </div>
-                {% endif %}
-
-                {% if solicitud.estado == 'aprobada' and solicitud.curso_portal_id %}
-                    <div class="mt-4">
-                        <a href="{% url 'hechos:detalle_mis_escuela' solicitud.curso_portal_id %}" class="btn-primary inline-flex items-center px-4 py-2 text-sm font-medium">
-                            <i class="fas fa-arrow-right mr-2"></i>Entrar a la escuela
+                    <div class="flex flex-col items-end gap-3 shrink-0">
+                        <span class="badge badge-success">{{ mat.historial_etiqueta }}</span>
+                        <div class="w-10 h-10 rounded-xl bg-stone-100 text-stone-500 flex items-center justify-center" aria-hidden="true">
+                            <i class="fas fa-school"></i>
+                        </div>
+                        {% if mat.puede_entrar %}
+                        <a href="{% url 'hechos:detalle_mis_escuela' mat.curso_portal_id %}" class="btn-primary inline-flex items-center px-4 py-2 text-sm font-medium">
+                            <i class="fas fa-arrow-right mr-2"></i>Entrar
                         </a>
+                        {% endif %}
                     </div>
-                {% endif %}
-            </div>
-        {% empty %}
-            <div class="card p-12 text-center">
-                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-list-check text-gray-400 text-2xl"></i>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Aún no tienes solicitudes</h3>
-                <p class="text-gray-600">Cuando solicites matrícula a una escuela, el estado aparecerá aquí.</p>
             </div>
-        {% endfor %}
-    </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% endif %}
 </div>
 {% endblock %}

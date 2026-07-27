@@ -102,90 +102,62 @@
 
     <div class="card border border-stone-200/80 overflow-hidden">
         <div class="px-4 py-3 border-b border-stone-100 bg-stone-50/80 flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-sm font-semibold text-stone-800">Estudiantes matriculados en esta escuela</h2>
-            <span class="text-xs text-stone-500">{{ filas|length }} estudiante{{ filas|length|pluralize }}</span>
+            <h2 class="text-sm font-semibold text-stone-800">Estudiantes matriculados</h2>
+            <span class="text-xs text-stone-500">{{ estudiantes|length }} estudiante{{ estudiantes|length|pluralize }}</span>
         </div>
-        {% if filas %}
-        <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead>
-                    <tr class="text-left text-xs font-semibold uppercase tracking-wide text-stone-500 border-b border-stone-100 bg-white">
-                        <th class="px-4 py-3">Estudiante</th>
-                        <th class="px-4 py-3 w-36 text-right">Promedio</th>
-                        <th class="px-4 py-3 w-48 text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-stone-100">
-                    {% for row in filas %}
-                    {% with e=row.estudiante %}
-                    <tr class="hover:bg-stone-50/60">
-                        <td class="px-4 py-3">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="h-10 w-10 shrink-0 rounded-full overflow-hidden bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                                    {% if e.user.avatar %}
-                                    <button
-                                        type="button"
-                                        class="student-photo-trigger h-full w-full"
-                                        data-photo-trigger
-                                        data-photo-src="{{ e.user.avatar.url }}"
-                                        data-photo-alt="{{ e.user.get_full_name|default:e.user.email }}">
-                                        <img src="{{ e.user.avatar.url }}" alt="{{ e.user.get_full_name|default:e.user.email }}" class="h-full w-full object-cover">
-                                    </button>
-                                    {% else %}
-                                    <span class="text-sm font-semibold">
-                                        {{ e.user.get_full_name|default:e.user.email|slice:":1"|upper }}
-                                    </span>
-                                    {% endif %}
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="font-medium text-stone-900 truncate">{{ e.user.get_full_name|default:e.user.email }}</p>
-                                    {% if e.user.email %}
-                                    <p class="text-xs text-stone-500 truncate">{{ e.user.email }}</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3 text-right align-middle">
-                            {% if row.promedio_pct is not None %}
-                            <span class="inline-flex items-center justify-end gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-900 font-semibold tabular-nums">
-                                {{ row.promedio_pct|floatformat:1 }}%
-                            </span>
-                            <span class="block text-[11px] text-stone-400 mt-0.5">{% if row.n_calificaciones == 1 %}1 calificación{% else %}{{ row.n_calificaciones }} calificaciones{% endif %}</span>
-                            {% else %}
-                            <span class="text-stone-400">—</span>
-                            <span class="block text-[11px] text-stone-400 mt-0.5">Sin calificaciones con escala</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-3 text-right align-middle">
-                            <div class="flex flex-col items-end gap-2">
-                                <a href="{% url 'hechos:profesor_escuela_estudiante_notas' escuela.id e.id %}" class="btn-outline inline-flex items-center px-3 py-2 text-xs font-medium border-emerald-200 text-emerald-900 hover:bg-emerald-50">
-                                    <i class="fas fa-clipboard-list mr-2"></i>Ver notas del estudiante
-                                </a>
-                                <form id="form-quitar-matricula-est-{{ e.id }}" method="post"
-                                      action="{% url 'hechos:profesor_escuela_estudiante_quitar_matricula' escuela.id e.id %}"
-                                      class="inline">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="redirect_to" value="estudiantes"/>
-                                    <button type="button"
-                                            class="js-confirmar-post-form inline-flex items-center px-3 py-2 text-xs font-medium rounded-lg border border-red-200 text-red-800 bg-red-50 hover:bg-red-100"
-                                            data-confirm-title="Quitar de la escuela"
-                                            data-confirm-message="¿Anular la matrícula de «{{ e.user.get_full_name|default:e.user.email }}» en esta escuela?&#10;&#10;La persona no se elimina del sistema; puede volver a matricular al estudiante con el documento y el nombre correctos."
-                                            data-confirm-form="form-quitar-matricula-est-{{ e.id }}">
-                                        <i class="fas fa-user-minus mr-2" aria-hidden="true"></i>Quitar de la escuela
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endwith %}
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        {% if estudiantes %}
+        <ul class="divide-y divide-stone-100">
+            {% for e in estudiantes %}
+            <li class="px-4 py-3 flex items-center gap-3 min-w-0">
+                <div class="h-10 w-10 shrink-0 rounded-full overflow-hidden bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    {% if e.user.avatar %}
+                    <button
+                        type="button"
+                        class="student-photo-trigger h-full w-full"
+                        data-photo-trigger
+                        data-photo-src="{{ e.user.avatar.url }}"
+                        data-photo-alt="{{ e.user.get_full_name|default:e.user.email }}">
+                        <img src="{{ e.user.avatar.url }}" alt="{{ e.user.get_full_name|default:e.user.email }}" class="h-full w-full object-cover">
+                    </button>
+                    {% else %}
+                    <span class="text-sm font-semibold">
+                        {{ e.user.get_full_name|default:e.user.email|slice:":1"|upper }}
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="font-medium text-stone-900 truncate">{{ e.user.get_full_name|default:e.user.email }}</p>
+                    {% if e.numero_documento %}
+                    <p class="text-xs text-stone-500 truncate">Doc. {{ e.numero_documento }}</p>
+                    {% elif e.user.email %}
+                    <p class="text-xs text-stone-500 truncate">{{ e.user.email }}</p>
+                    {% endif %}
+                </div>
+                <div class="shrink-0 flex flex-wrap items-center justify-end gap-2">
+                    <a href="{% url 'hechos:profesor_escuela_estudiante_editar' escuela.id e.id %}"
+                       class="inline-flex items-center px-3 py-2 text-xs font-medium rounded-lg border border-emerald-200 text-emerald-900 bg-emerald-50 hover:bg-emerald-100">
+                        <i class="fas fa-pen mr-2" aria-hidden="true"></i>Editar
+                    </a>
+                    <form id="form-quitar-matricula-est-{{ e.id }}" method="post"
+                          action="{% url 'hechos:profesor_escuela_estudiante_quitar_matricula' escuela.id e.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="redirect_to" value="estudiantes"/>
+                        <button type="button"
+                                class="js-confirmar-post-form inline-flex items-center px-3 py-2 text-xs font-medium rounded-lg border border-red-200 text-red-800 bg-red-50 hover:bg-red-100"
+                                data-confirm-title="Quitar de la escuela"
+                                data-confirm-message="¿Anular la matrícula de «{{ e.user.get_full_name|default:e.user.email }}» en esta escuela?&#10;&#10;La persona no se elimina del sistema; puede volver a matricular al estudiante con el documento y el nombre correctos."
+                                data-confirm-form="form-quitar-matricula-est-{{ e.id }}">
+                            <i class="fas fa-user-minus mr-2" aria-hidden="true"></i>Quitar
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
         {% else %}
         <div class="px-4 py-12 text-center text-stone-500 text-sm">
             <i class="fas fa-user-slash text-2xl text-stone-300 mb-2 block"></i>
-            No hay estudiantes matriculados en cursos de esta escuela todavía.
+            No hay estudiantes matriculados en esta escuela todavía.
         </div>
         {% endif %}
     </div>

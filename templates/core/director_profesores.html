@@ -5,8 +5,10 @@
 {% block content %}
 <div class="max-w-5xl mx-auto space-y-6">
     <nav class="text-sm text-stone-600" aria-label="Migas de pan">
-        <a href="{% url 'core:director_dashboard' %}" class="font-medium text-amber-800 hover:underline">Director</a>
+        {% if user.is_super_admin %}
+        <a href="{% url 'core:director_dashboard' %}" class="font-medium text-amber-800 hover:underline">Gestión de sedes</a>
         <span class="mx-1.5 text-stone-400">/</span>
+        {% endif %}
         <span class="text-stone-800">Profesores</span>
     </nav>
 
@@ -14,7 +16,7 @@
         <div>
             <h1 class="text-2xl font-bold text-stone-900">Directorio de profesores</h1>
             <p class="mt-1 text-sm text-stone-600 max-w-xl">
-                Lista de todos los perfiles de profesor. Usa la búsqueda o el filtro por sede; en teléfono desplázate por la lista y pulsa <strong class="font-medium text-stone-800">Editar</strong>.
+                Consultá profesores de todas las sedes. Buscá o filtrá por sede y abrí <strong class="font-medium text-stone-800">Ver ficha</strong> para ver su información personal (solo lectura).
             </p>
         </div>
     </div>
@@ -82,10 +84,12 @@
                             </div>
                         </div>
                         <div class="shrink-0">
-                            <a href="{% url 'core:director_profesor_edit' p.id %}"
-                               class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center justify-center w-full sm:w-auto">
-                                Editar
-                            </a>
+                            <button type="button"
+                                    class="js-ver-ficha-profesor btn-outline px-4 py-2 text-sm font-medium inline-flex items-center justify-center w-full sm:w-auto"
+                                    data-ficha-url="{% url 'core:director_profesor_ficha_fragment' p.id %}"
+                                    data-nombre="{{ p.user.get_full_name|default:p.user.username }}">
+                                Ver ficha
+                            </button>
                         </div>
                     </div>
                 </li>
@@ -111,4 +115,69 @@
         {% endif %}
     {% endif %}
 </div>
+
+<div id="modal-ficha-profesor" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true" aria-labelledby="modal-ficha-profesor-titulo">
+    <button type="button" id="modal-ficha-profesor-backdrop" class="absolute inset-0 bg-stone-900/50 w-full h-full border-0 cursor-default" aria-label="Cerrar ventana"></button>
+    <div class="relative z-10 mx-auto mt-8 sm:mt-12 w-[calc(100%-1.5rem)] max-w-2xl max-h-[min(85vh,40rem)] flex flex-col rounded-2xl border border-stone-200 bg-stone-50 shadow-xl overflow-hidden">
+        <div class="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-stone-200 bg-white shrink-0">
+            <h2 id="modal-ficha-profesor-titulo" class="text-base font-semibold text-stone-900 truncate">Ficha del profesor</h2>
+            <button type="button" id="modal-ficha-profesor-cerrar" class="rounded-lg p-2 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Cerrar">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div id="modal-ficha-profesor-body" class="overflow-y-auto p-4 sm:p-5 text-sm text-stone-800 min-h-0 flex-1">
+            <p class="text-stone-500">Cargando…</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var modal = document.getElementById('modal-ficha-profesor');
+    var modalBody = document.getElementById('modal-ficha-profesor-body');
+    var modalTitulo = document.getElementById('modal-ficha-profesor-titulo');
+    var btnCerrar = document.getElementById('modal-ficha-profesor-cerrar');
+    var backdrop = document.getElementById('modal-ficha-profesor-backdrop');
+    if (!modal || !modalBody) return;
+
+    function openModal() {
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+    function closeModal() {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        modalBody.innerHTML = '<p class="text-stone-500">Cargando…</p>';
+    }
+    if (btnCerrar) btnCerrar.addEventListener('click', closeModal);
+    if (backdrop) backdrop.addEventListener('click', closeModal);
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
+
+    document.querySelectorAll('.js-ver-ficha-profesor').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var url = btn.getAttribute('data-ficha-url');
+            var nombre = btn.getAttribute('data-nombre') || 'Ficha del profesor';
+            if (!url) return;
+            if (modalTitulo) modalTitulo.textContent = nombre;
+            modalBody.innerHTML = '<p class="text-stone-500">Cargando…</p>';
+            openModal();
+            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.text();
+                })
+                .then(function (html) {
+                    modalBody.innerHTML = html;
+                })
+                .catch(function () {
+                    modalBody.innerHTML = '<p class="text-red-700">No se pudo cargar la ficha. Probá de nuevo.</p>';
+                });
+        });
+    });
+})();
+</script>
 {% endblock %}

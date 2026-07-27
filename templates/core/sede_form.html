@@ -76,55 +76,43 @@
         display: none !important;
     }
 
-    .pastor-preview {
-        min-height: 16rem;
-        max-height: 20rem;
-    }
-
-    .pastor-preview img {
+    .coord-result {
         display: block;
-        width: auto;
-        height: auto;
-        max-width: 100%;
-        max-height: 20rem;
-    }
-
-    .pastor-preview img[hidden] {
-        display: none !important;
-    }
-
-    .pastor-extra-preview {
-        min-height: 12rem;
-        max-height: 16rem;
-    }
-
-    .pastor-extra-preview img {
-        display: block;
-        width: auto;
-        height: auto;
-        max-width: 100%;
-        max-height: 16rem;
-    }
-
-    .pastor-extra-preview img[hidden] {
-        display: none !important;
-    }
-
-    .pastor-extra-card {
+        width: 100%;
+        text-align: left;
         border: 1px solid #e7e5e4;
-        border-radius: 1rem;
+        border-radius: 0.75rem;
+        padding: 0.65rem 0.85rem;
+        background: #fff;
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .coord-result:hover {
+        border-color: #d6d3d1;
         background: #fafaf9;
-        padding: 1rem;
     }
 
-    .pastor-extra-card.is-deleting {
-        opacity: 0.55;
-        border-color: #fca5a5;
-        background: #fef2f2;
+    .coord-selected-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 9999px;
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        color: #047857;
+        padding: 0.4rem 0.6rem 0.4rem 0.9rem;
+        font-size: 0.875rem;
+        font-weight: 500;
     }
 
-    .pastor-delete-checkbox {
-        display: none;
+    .coord-selected-chip button {
+        color: #047857;
+        opacity: 0.7;
+    }
+
+    .coord-selected-chip button:hover {
+        opacity: 1;
     }
 </style>
 {% endblock %}
@@ -166,12 +154,6 @@
                     {{ form.non_field_errors }}
                 </div>
             {% endif %}
-            {% if pastores_formset.non_form_errors %}
-                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {{ pastores_formset.non_form_errors }}
-                </div>
-            {% endif %}
-
             <div class="sede-section">
                 <h2 class="sede-section-title">Información principal</h2>
                 <div class="space-y-5 max-w-3xl">
@@ -248,108 +230,84 @@
                 </div>
             </div>
 
+            {% if not sede %}
             <div class="sede-section">
-                <h2 class="sede-section-title">Pastor responsable</h2>
-                <p class="sede-hint mb-4">Opcional.</p>
-                <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_18rem] gap-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div>
-                            <label for="{{ form.pastor_responsable.id_for_label }}" class="sede-label">Pastor responsable</label>
-                            {{ form.pastor_responsable }}
-                            {% if form.pastor_responsable.errors %}
-                                <p class="sede-error">{{ form.pastor_responsable.errors|join:", " }}</p>
-                            {% endif %}
-                        </div>
+                <h2 class="sede-section-title">Coordinador de sede</h2>
+                <p class="sede-hint mb-4">Opcional. Buscá si la persona ya está registrada (coordinador o profesor); si no aparece, agregala con sus datos. Podés hacerlo después desde la ficha de la sede si prefieres.</p>
 
-                        <div>
-                            <label for="{{ form.foto_pastor.id_for_label }}" class="sede-label">Foto pastor</label>
-                            {{ form.foto_pastor }}
-                            <p class="sede-hint">Opcional. Ayuda a identificar al responsable de la sede.</p>
-                            {% if form.foto_pastor.errors %}
-                                <p class="sede-error">{{ form.foto_pastor.errors|join:", " }}</p>
-                            {% endif %}
-                        </div>
-                    </div>
+                <input type="hidden" name="coordinador_modo" id="coordinador_modo" value="">
+                <input type="hidden" name="coordinador_user_id" id="coordinador_user_id" value="">
 
-                    <div class="w-full">
-                        <div class="text-sm font-medium text-gray-900 mb-3">Vista previa</div>
-                        <div class="sede-preview pastor-preview" id="pastor-preview-frame">
-                            {% if sede and sede.foto_pastor %}
-                                <img src="{{ sede.foto_pastor.url }}" alt="{{ sede.pastor_responsable }}" id="pastor-preview-image">
-                            {% else %}
-                                <div class="text-center text-stone-500 px-4 py-10" id="pastor-preview-placeholder">
-                                    <i class="fas fa-user text-3xl mb-3"></i>
-                                    <div class="text-sm">El pastor responsable aún no tiene foto.</div>
-                                </div>
-                                <img src="" alt="Vista previa pastor" id="pastor-preview-image" hidden>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="sede-section">
-                <h2 class="sede-section-title">Pastores adicionales</h2>
-                <p class="sede-hint mb-4">Opcional. Puedes registrar uno o varios pastores extra para esta sede.</p>
-                {{ pastores_formset.management_form }}
-                <div id="pastores-formset" class="space-y-4">
-                    {% for pastor_form in pastores_formset %}
-                        <div class="pastor-extra-card" data-pastor-form>
-                            {% for hidden in pastor_form.hidden_fields %}
-                                {{ hidden }}
-                            {% endfor %}
-                            <div class="flex items-center justify-between gap-4 mb-4">
-                                <div class="text-sm font-medium text-gray-900">Pastor adicional</div>
-                                <button type="button" class="btn-outline px-3 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50" data-remove-pastor>
-                                    Eliminar
-                                </button>
-                            </div>
-                            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_16rem] gap-4">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label for="{{ pastor_form.nombre.id_for_label }}" class="sede-label">Nombre</label>
-                                        {{ pastor_form.nombre }}
-                                        {% if pastor_form.nombre.errors %}
-                                            <p class="sede-error">{{ pastor_form.nombre.errors|join:", " }}</p>
-                                        {% endif %}
-                                    </div>
-                                    <div>
-                                        <label for="{{ pastor_form.foto.id_for_label }}" class="sede-label">Foto</label>
-                                        {{ pastor_form.foto }}
-                                        {% if pastor_form.foto.errors %}
-                                            <p class="sede-error">{{ pastor_form.foto.errors|join:", " }}</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="w-full">
-                                    <div class="text-sm font-medium text-gray-900 mb-3">Vista previa</div>
-                                    <div class="sede-preview pastor-extra-preview" data-extra-pastor-preview-frame>
-                                        {% if pastor_form.instance and pastor_form.instance.foto %}
-                                            <img src="{{ pastor_form.instance.foto.url }}" alt="{{ pastor_form.instance.nombre|default:'Pastor adicional' }}" data-extra-pastor-preview-image>
-                                        {% else %}
-                                            <div class="text-center text-stone-500 px-4 py-8" data-extra-pastor-preview-placeholder>
-                                                <i class="fas fa-user text-3xl mb-3"></i>
-                                                <div class="text-sm">Este pastor adicional aún no tiene foto.</div>
-                                            </div>
-                                            <img src="" alt="Vista previa pastor adicional" data-extra-pastor-preview-image hidden>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            {% if pastor_form.DELETE %}
-                                <div class="pastor-delete-checkbox">
-                                    {{ pastor_form.DELETE }}
-                                </div>
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-                </div>
-                <div class="mt-4">
-                    <button type="button" id="add-pastor-button" class="btn-outline px-4 py-2 text-sm font-medium">
-                        <i class="fas fa-plus mr-2"></i>Agregar pastor
+                <div id="coord-buscar-bloque">
+                    <label for="coord-buscar-input" class="sede-label">Buscar persona registrada</label>
+                    <input type="text" id="coord-buscar-input" autocomplete="off" placeholder="Nombre, apellido o cédula…"
+                           class="w-full rounded-xl border-2 border-stone-300 bg-stone-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-stone-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200">
+                    <div id="coord-resultados" class="mt-2 space-y-2"></div>
+                    <div id="coord-seleccionado" class="mt-3 hidden"></div>
+                    <button type="button" id="coord-agregar-nuevo-btn" class="mt-3 text-sm font-medium text-amber-700 hover:text-amber-800">
+                        ¿No está en la lista? Agregar una persona nueva
                     </button>
                 </div>
+
+                <div id="coord-nuevo-bloque" class="hidden mt-2 space-y-5">
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm font-medium text-gray-900">Datos de la persona nueva</p>
+                        <button type="button" id="coord-cancelar-nuevo-btn" class="text-sm font-medium text-stone-500 hover:text-stone-700">
+                            Cancelar y volver a buscar
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label for="{{ coordinador_form.nombres.id_for_label }}" class="sede-label">Nombre(s)</label>
+                            {{ coordinador_form.nombres }}
+                            {% if coordinador_form.nombres.errors %}<p class="sede-error">{{ coordinador_form.nombres.errors|join:", " }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ coordinador_form.apellidos.id_for_label }}" class="sede-label">Apellido(s)</label>
+                            {{ coordinador_form.apellidos }}
+                            {% if coordinador_form.apellidos.errors %}<p class="sede-error">{{ coordinador_form.apellidos.errors|join:", " }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ coordinador_form.tipo_documento.id_for_label }}" class="sede-label">Tipo de documento</label>
+                            {{ coordinador_form.tipo_documento }}
+                            {% if coordinador_form.tipo_documento.errors %}<p class="sede-error">{{ coordinador_form.tipo_documento.errors|join:", " }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ coordinador_form.documento_identidad.id_for_label }}" class="sede-label">Número de identificación</label>
+                            {{ coordinador_form.documento_identidad }}
+                            {% if coordinador_form.documento_identidad.errors %}<p class="sede-error">{{ coordinador_form.documento_identidad.errors|join:", " }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ coordinador_form.celular.id_for_label }}" class="sede-label">Celular</label>
+                            {{ coordinador_form.celular }}
+                            {% if coordinador_form.celular.errors %}<p class="sede-error">{{ coordinador_form.celular.errors|join:", " }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ coordinador_form.email.id_for_label }}" class="sede-label">Correo electrónico</label>
+                            {{ coordinador_form.email }}
+                            <p class="sede-hint">Con este correo va a iniciar sesión.</p>
+                            {% if coordinador_form.email.errors %}<p class="sede-error">{{ coordinador_form.email.errors|join:", " }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ coordinador_form.password1.id_for_label }}" class="sede-label">Contraseña</label>
+                            {{ coordinador_form.password1 }}
+                            {% if coordinador_form.password1.errors %}<p class="sede-error">{{ coordinador_form.password1.errors|join:", " }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ coordinador_form.password2.id_for_label }}" class="sede-label">Confirmar contraseña</label>
+                            {{ coordinador_form.password2 }}
+                            {% if coordinador_form.password2.errors %}<p class="sede-error">{{ coordinador_form.password2.errors|join:", " }}</p>{% endif %}
+                        </div>
+                    </div>
+                    {{ coordinador_form.tipo_coordinador }}
+                    {% if coordinador_form.non_field_errors %}
+                        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {{ coordinador_form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                </div>
             </div>
+            {% endif %}
 
             <div class="flex items-center justify-end gap-3 pt-4">
                 <a href="{% url 'core:director_dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">Cancelar</a>
@@ -358,47 +316,6 @@
         </form>
     </div>
 </div>
-
-<template id="pastor-empty-form-template">
-    <div class="pastor-extra-card" data-pastor-form>
-        <div class="flex items-center justify-between gap-4 mb-4">
-            <div class="text-sm font-medium text-gray-900">Pastor adicional</div>
-            <button type="button" class="btn-outline px-3 py-2 text-sm font-medium text-red-700 border-red-200 hover:bg-red-50" data-remove-pastor>
-                Eliminar
-            </button>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_16rem] gap-4">
-            {% for hidden in pastores_formset.empty_form.hidden_fields %}
-                {{ hidden }}
-            {% endfor %}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label for="{{ pastores_formset.empty_form.nombre.id_for_label }}" class="sede-label">Nombre</label>
-                    {{ pastores_formset.empty_form.nombre }}
-                </div>
-                <div>
-                    <label for="{{ pastores_formset.empty_form.foto.id_for_label }}" class="sede-label">Foto</label>
-                    {{ pastores_formset.empty_form.foto }}
-                </div>
-            </div>
-            <div class="w-full">
-                <div class="text-sm font-medium text-gray-900 mb-3">Vista previa</div>
-                <div class="sede-preview pastor-extra-preview" data-extra-pastor-preview-frame>
-                    <div class="text-center text-stone-500 px-4 py-8" data-extra-pastor-preview-placeholder>
-                        <i class="fas fa-user text-3xl mb-3"></i>
-                        <div class="text-sm">Este pastor adicional aún no tiene foto.</div>
-                    </div>
-                    <img src="" alt="Vista previa pastor adicional" data-extra-pastor-preview-image hidden>
-                </div>
-            </div>
-        </div>
-        {% if pastores_formset.empty_form.DELETE %}
-            <div class="pastor-delete-checkbox">
-                {{ pastores_formset.empty_form.DELETE }}
-            </div>
-        {% endif %}
-    </div>
-</template>
 
 <script>
 (function () {
@@ -445,109 +362,102 @@
 </script>
 
 <script>
-    (function () {
-        const formsetContainer = document.getElementById('pastores-formset');
-        const addButton = document.getElementById('add-pastor-button');
-        const totalFormsInput = document.getElementById('id_pastores-TOTAL_FORMS');
-        const template = document.getElementById('pastor-empty-form-template');
-        const pastorPhotoInput = document.getElementById('id_foto_pastor');
-        const pastorPreviewImage = document.getElementById('pastor-preview-image');
-        const pastorPreviewPlaceholder = document.getElementById('pastor-preview-placeholder');
+(function () {
+    var buscarInput = document.getElementById('coord-buscar-input');
+    var resultadosEl = document.getElementById('coord-resultados');
+    var seleccionadoEl = document.getElementById('coord-seleccionado');
+    var buscarBloque = document.getElementById('coord-buscar-bloque');
+    var nuevoBloque = document.getElementById('coord-nuevo-bloque');
+    var agregarNuevoBtn = document.getElementById('coord-agregar-nuevo-btn');
+    var cancelarNuevoBtn = document.getElementById('coord-cancelar-nuevo-btn');
+    var modoInput = document.getElementById('coordinador_modo');
+    var userIdInput = document.getElementById('coordinador_user_id');
+    if (!buscarInput || !modoInput) return;
 
-        function wireExtraPastorPreview(scope) {
-            const cards = scope.matches && scope.matches('[data-pastor-form]') ? [scope] : scope.querySelectorAll('[data-pastor-form]');
+    var searchUrl = "{% url 'core:buscar_persona_coordinador' %}";
+    var debounceTimer = null;
 
-            cards.forEach(function (card) {
-                const input = card.querySelector('input[type="file"][name$="-foto"]');
-                const image = card.querySelector('[data-extra-pastor-preview-image]');
-                const placeholder = card.querySelector('[data-extra-pastor-preview-placeholder]');
+    function limpiarSeleccion() {
+        modoInput.value = '';
+        userIdInput.value = '';
+        seleccionadoEl.classList.add('hidden');
+        seleccionadoEl.innerHTML = '';
+        buscarInput.disabled = false;
+    }
 
-                if (!input || !image || input.dataset.previewBound === 'true') {
-                    return;
-                }
+    function seleccionarPersona(persona) {
+        modoInput.value = 'existente';
+        userIdInput.value = String(persona.user_id);
+        resultadosEl.innerHTML = '';
+        buscarInput.value = '';
+        buscarInput.disabled = true;
+        seleccionadoEl.classList.remove('hidden');
+        seleccionadoEl.innerHTML = '';
+        var chip = document.createElement('span');
+        chip.className = 'coord-selected-chip';
+        chip.innerHTML = '<i class="fas fa-user-check"></i> <span></span>';
+        chip.querySelector('span').textContent = persona.nombre + ' — ' + persona.rol + ' (' + persona.sede + ')';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.innerHTML = '<i class="fas fa-times"></i>';
+        btn.addEventListener('click', limpiarSeleccion);
+        chip.appendChild(btn);
+        seleccionadoEl.appendChild(chip);
+    }
 
-                input.dataset.previewBound = 'true';
-                input.addEventListener('change', function (event) {
-                    const [file] = event.target.files || [];
-                    if (!file) {
-                        if (!image.getAttribute('src')) {
-                            image.hidden = true;
-                            if (placeholder) {
-                                placeholder.hidden = false;
-                            }
-                        }
-                        return;
-                    }
-
-                    const objectUrl = URL.createObjectURL(file);
-                    image.src = objectUrl;
-                    image.hidden = false;
-                    if (placeholder) {
-                        placeholder.hidden = true;
-                    }
-                });
-            });
+    function renderResultados(personas) {
+        resultadosEl.innerHTML = '';
+        if (!personas.length) {
+            var vacio = document.createElement('p');
+            vacio.className = 'text-sm text-stone-500';
+            vacio.textContent = 'Sin resultados.';
+            resultadosEl.appendChild(vacio);
+            return;
         }
+        personas.forEach(function (persona) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'coord-result';
+            btn.innerHTML = '<span class="font-medium text-gray-900"></span><br>' +
+                '<span class="text-xs text-stone-500"></span>';
+            var spans = btn.querySelectorAll('span');
+            spans[0].textContent = persona.nombre;
+            spans[1].textContent = persona.rol + ' · ' + persona.sede + (persona.documento ? ' · ' + persona.documento : '');
+            btn.addEventListener('click', function () { seleccionarPersona(persona); });
+            resultadosEl.appendChild(btn);
+        });
+    }
 
-        function wireRemoveButtons(scope) {
-            scope.querySelectorAll('[data-remove-pastor]').forEach(function (button) {
-                if (button.dataset.bound === 'true') {
-                    return;
-                }
-                button.dataset.bound = 'true';
-                button.addEventListener('click', function () {
-                    const card = button.closest('[data-pastor-form]');
-                    const deleteInput = card.querySelector('input[type="checkbox"][name$="-DELETE"]');
-                    const idInput = card.querySelector('input[type="hidden"][name$="-id"]');
-
-                    if (deleteInput && idInput && idInput.value) {
-                        deleteInput.checked = true;
-                        card.classList.add('is-deleting');
-                        card.style.display = 'none';
-                    } else {
-                        card.remove();
-                    }
-                });
-            });
+    buscarInput.addEventListener('input', function () {
+        var q = buscarInput.value.trim();
+        clearTimeout(debounceTimer);
+        if (q.length < 2) {
+            resultadosEl.innerHTML = '';
+            return;
         }
+        debounceTimer = setTimeout(function () {
+            fetch(searchUrl + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) { renderResultados(data.results || []); })
+                .catch(function () { resultadosEl.innerHTML = ''; });
+        }, 300);
+    });
 
-        if (addButton && formsetContainer && totalFormsInput && template) {
-            addButton.addEventListener('click', function () {
-                const formIndex = Number(totalFormsInput.value);
-                const html = template.innerHTML.replaceAll('__prefix__', String(formIndex));
-                const wrapper = document.createElement('div');
-                wrapper.innerHTML = html.trim();
-                const newForm = wrapper.firstElementChild;
-                formsetContainer.appendChild(newForm);
-                totalFormsInput.value = String(formIndex + 1);
-                wireRemoveButtons(newForm);
-                wireExtraPastorPreview(newForm);
-            });
-            wireRemoveButtons(formsetContainer);
-            wireExtraPastorPreview(formsetContainer);
-        }
-
-        if (pastorPhotoInput && pastorPreviewImage) {
-            pastorPhotoInput.addEventListener('change', function (event) {
-                const [file] = event.target.files || [];
-                if (!file) {
-                    if (!pastorPreviewImage.getAttribute('src')) {
-                            pastorPreviewImage.hidden = true;
-                    }
-                    if (pastorPreviewPlaceholder && !pastorPreviewImage.getAttribute('src')) {
-                            pastorPreviewPlaceholder.hidden = false;
-                    }
-                    return;
-                }
-
-                const objectUrl = URL.createObjectURL(file);
-                pastorPreviewImage.src = objectUrl;
-                    pastorPreviewImage.hidden = false;
-                if (pastorPreviewPlaceholder) {
-                        pastorPreviewPlaceholder.hidden = true;
-                }
-            });
-        }
-    })();
+    if (agregarNuevoBtn) {
+        agregarNuevoBtn.addEventListener('click', function () {
+            limpiarSeleccion();
+            buscarBloque.classList.add('hidden');
+            nuevoBloque.classList.remove('hidden');
+            modoInput.value = 'nuevo';
+        });
+    }
+    if (cancelarNuevoBtn) {
+        cancelarNuevoBtn.addEventListener('click', function () {
+            nuevoBloque.classList.add('hidden');
+            buscarBloque.classList.remove('hidden');
+            modoInput.value = '';
+        });
+    }
+})();
 </script>
 {% endblock %}

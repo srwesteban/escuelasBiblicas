@@ -25,16 +25,16 @@ class EscuelaAdmin(admin.ModelAdmin):
 
 @admin.register(Estudiante)
 class EstudianteAdmin(admin.ModelAdmin):
-    list_display = ('user', 'sede', 'codigo_estudiante', 'iglesia', 'is_active', 'created_at')
+    list_display = ('user', 'sede', 'is_active', 'created_at')
     list_filter = ('sede', 'is_active', 'created_at')
-    search_fields = ('user__first_name', 'user__last_name', 'user__email', 'codigo_estudiante', 'iglesia', 'sede__nombre')
-    readonly_fields = ('codigo_estudiante', 'created_at', 'updated_at')
+    search_fields = ('user__first_name', 'user__last_name', 'user__email', 'sede__nombre')
+    readonly_fields = ('created_at', 'updated_at')
     ordering = ('user__first_name', 'user__last_name')
-    
+
     fieldsets = (
-        ('Información Personal', {'fields': ('user', 'sede', 'codigo_estudiante', 'fecha_nacimiento')}),
-        ('Contacto', {'fields': ('direccion', 'telefono_emergencia', 'contacto_emergencia')}),
-        ('Información Adicional', {'fields': ('iglesia', 'notas_medicas')}),
+        ('Información Personal', {'fields': ('user', 'sede', 'fecha_nacimiento')}),
+        ('Contacto', {'fields': ('direccion', 'telefono_emergencia')}),
+        ('Información Adicional', {'fields': ('notas_medicas',)}),
         ('Estado', {'fields': ('is_active', 'created_at', 'updated_at')}),
     )
 

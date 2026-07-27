@@ -10,10 +10,14 @@
         <div class="min-w-0">
             {% if docente_mis_escuelas_modo == 'clases_por_escuela' and escuela_filtro %}
             <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 break-words">{{ escuela_filtro.nombre }}</h1>
+            {% if escuela_solo_lectura %}
+            <p class="text-gray-600 mt-1 text-sm sm:text-base break-words max-w-3xl">{{ escuela_filtro.titulo_tarjeta }} · Resumen de solo lectura (sin modificar).</p>
+            {% else %}
             <p class="text-gray-600 mt-1 text-sm sm:text-base break-words max-w-3xl">{{ escuela_filtro.titulo_tarjeta }} · Usa las acciones de abajo para gestionar la escuela.</p>
+            {% endif %}
             {% elif docente_mis_escuelas_modo == 'escuelas' %}
             <h1 class="text-3xl font-bold text-gray-900">Mis escuelas</h1>
-            <p class="text-gray-600 mt-1 break-words max-w-3xl">Escuelas donde figuras como maestro. En cada tarjeta ves año, ciclo, horario y estudiantes.</p>
+            <p class="text-gray-600 mt-1 break-words max-w-3xl">Elige una escuela activa para gestionarla. Las vencidas están en Inactivas.</p>
             {% elif user.profesor_profile %}
             <h1 class="text-3xl font-bold text-gray-900">Mis escuelas</h1>
             <p class="text-gray-600 mt-1 break-words max-w-3xl">Escuelas donde impartes.</p>
@@ -24,10 +28,18 @@
         </div>
         <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:items-center w-full">
             {% if docente_mis_escuelas_modo == 'clases_por_escuela' %}
-            <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex">
-                <i class="fas fa-arrow-left mr-2"></i>Todas mis escuelas
+            <button type="button" id="open-tour" title="Ver tutorial" class="inline-flex items-center justify-center h-10 w-10 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-100 shrink-0 order-first sm:order-none">
+                <i class="fas fa-question"></i>
+            </button>
+            <a href="{% if volver_listado_escuelas %}{{ volver_listado_escuelas }}{% else %}{% url 'hechos:mis_escuelas_profesor' %}{% endif %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex">
+                <i class="fas fa-arrow-left mr-2"></i>{% if escuela_solo_lectura %}Volver a inactivas{% else %}Todas mis escuelas{% endif %}
             </a>
             {% else %}
+            {% if docente_mis_escuelas_modo == 'escuelas' %}
+            <button type="button" id="open-tour" title="Ver tutorial" class="inline-flex items-center justify-center h-10 w-10 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-100 shrink-0 order-first sm:order-none">
+                <i class="fas fa-question"></i>
+            </button>
+            {% endif %}
             <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex">
                 <i class="fas fa-arrow-left mr-2"></i>Volver
             </a>
@@ -40,24 +52,117 @@
         <a href="{% url 'core:dashboard' %}" class="hover:text-stone-900">Inicio</a>
         <span class="mx-2 text-stone-400">/</span>
         <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="hover:text-stone-900">Mis escuelas</a>
+        {% if escuela_solo_lectura %}
+        <span class="mx-2 text-stone-400">/</span>
+        <a href="{{ volver_listado_escuelas }}" class="hover:text-stone-900">Inactivas</a>
+        {% endif %}
         <span class="mx-2 text-stone-400">/</span>
         <span class="text-stone-900 font-medium">{{ escuela_filtro.nombre }}</span>
     </nav>
 
-    {% if escuelas_asignadas|length > 1 %}
-    <div class="card p-4 sm:p-5 border-stone-200">
-        <label for="cambiar-escuela-docente" class="block text-sm font-semibold text-stone-800">Cambiar de escuela</label>
-        <p class="text-xs text-stone-500 mt-0.5 mb-2">Elige otra escuela donde eres maestro.</p>
-        <select id="cambiar-escuela-docente" name="cambiar-escuela" class="input max-w-lg"
-                onchange="window.location.href='{% url 'hechos:mis_escuelas_profesor' %}?escuela='+this.value">
-            {% for e in escuelas_asignadas %}
-            <option value="{{ e.id }}" {% if e.id == escuela_filtro.id %}selected{% endif %}>{{ e.titulo_tarjeta }}</option>
-            {% endfor %}
-        </select>
+    {% if escuela_solo_lectura %}
+    <div class="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700 flex flex-wrap items-center gap-2">
+        <span class="badge">{{ escuela_estado_etiqueta|default:"Inactiva" }}</span>
+        <span>Solo puedes consultar lo que ocurrió en esta escuela. No se puede modificar ni agregar.</span>
     </div>
     {% endif %}
 
-    <div class="card p-4 sm:p-5 border-stone-200 bg-stone-50/50">
+    <div id="tour-info-escuela" class="card p-4 sm:p-5 border-stone-200">
+        <h2 class="text-sm font-semibold text-stone-900 uppercase tracking-wide">{% if escuela_solo_lectura %}Resumen de la escuela{% else %}Información de la escuela{% endif %}</h2>
+        <dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Año y ciclo</dt>
+                <dd class="mt-0.5 text-stone-900">{{ escuela_filtro.anio }} · {{ escuela_filtro.get_ciclo_display }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Modalidad</dt>
+                <dd class="mt-0.5 text-stone-900">{{ escuela_filtro.get_modalidad_display }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Período de clases</dt>
+                <dd class="mt-0.5 text-stone-900">
+                    {% if escuela_filtro.fecha_inicio and escuela_filtro.fecha_fin %}
+                        Del {{ escuela_filtro.fecha_inicio|date:"d/m/Y" }} al {{ escuela_filtro.fecha_fin|date:"d/m/Y" }}
+                    {% elif escuela_filtro.fecha_inicio %}
+                        Desde el {{ escuela_filtro.fecha_inicio|date:"d/m/Y" }}
+                    {% elif escuela_filtro.fecha_fin %}
+                        Hasta el {{ escuela_filtro.fecha_fin|date:"d/m/Y" }}
+                    {% else %}
+                        <span class="text-amber-700">Por definir</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Horario</dt>
+                <dd class="mt-0.5 text-stone-900">{% if escuela_horario_ui %}{{ escuela_horario_ui }}{% else %}<span class="text-amber-700">Por definir</span>{% endif %}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Salón</dt>
+                <dd class="mt-0.5 text-stone-900">{% if escuela_aula_ui %}{{ escuela_aula_ui }}{% else %}<span class="text-amber-700">Por definir</span>{% endif %}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Estudiantes</dt>
+                <dd class="mt-0.5 text-stone-900">
+                    {% if escuela_solo_lectura %}
+                        {{ num_estudiantes_historico|default:"0" }}
+                    {% else %}
+                        {{ num_estudiantes_escuela|default:"0" }} inscrito{{ num_estudiantes_escuela|pluralize:"s" }}
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Cupos</dt>
+                <dd class="mt-0.5 text-stone-900">
+                    {% if escuela_filtro.tiene_cupo_definido %}
+                        {{ escuela_filtro.cupo_maximo }}
+                        {% if not escuela_solo_lectura %}
+                        <span class="text-stone-500 font-normal">
+                            ({{ escuela_filtro.cupos_disponibles }} disponible{{ escuela_filtro.cupos_disponibles|pluralize:"s" }})
+                        </span>
+                        {% endif %}
+                    {% else %}
+                        <span class="text-amber-800">Indefinidos</span>
+                    {% endif %}
+                </dd>
+            </div>
+            {% if escuela_solo_lectura %}
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Clases registradas</dt>
+                <dd class="mt-0.5 text-stone-900">{{ num_clases_escuela|default:"0" }}</dd>
+            </div>
+            {% endif %}
+            {% if escuela_filtro.descripcion %}
+            <div class="sm:col-span-2 xl:col-span-3">
+                <dt class="text-xs font-medium text-stone-500">Descripción</dt>
+                <dd class="mt-0.5 text-stone-900 whitespace-pre-line">{{ escuela_filtro.descripcion }}</dd>
+            </div>
+            {% endif %}
+        </dl>
+    </div>
+
+    {% if escuela_solo_lectura %}
+    <div id="tour-estudiantes-historico" class="card p-4 sm:p-5 border-stone-200">
+        <h2 class="text-sm font-semibold text-stone-900 uppercase tracking-wide">Estudiantes</h2>
+        <p class="text-xs text-stone-500 mt-1 mb-4">Quiénes estuvieron inscritos en esta escuela.</p>
+        {% if escuela_estudiantes %}
+        <ul class="divide-y divide-stone-200 rounded-xl border border-stone-200 overflow-hidden" role="list">
+            {% for mat in escuela_estudiantes %}
+            <li class="px-4 py-3 bg-white flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span class="font-medium text-stone-900">{{ mat.estudiante.user.get_full_name|default:mat.estudiante.user.username }}</span>
+                <span class="text-xs text-stone-500">
+                    Inscrito el {{ mat.fecha_matricula|date:"d/m/Y" }}
+                    {% if mat.estado %} · {{ mat.get_estado_display }}{% endif %}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-stone-600">No hubo estudiantes inscritos en esta escuela.</p>
+        {% endif %}
+    </div>
+    {% else %}
+
+    <div id="tour-acciones-escuela" class="card p-4 sm:p-5 border-stone-200 bg-stone-50/50">
         <h2 class="text-sm font-semibold text-stone-900 uppercase tracking-wide">Acciones de esta escuela</h2>
         <p class="text-xs text-stone-500 mt-1 mb-4">Lo que uses con más frecuencia, a un clic.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -88,7 +193,7 @@
         </div>
     </div>
 
-    <details class="card p-4 sm:p-5 border border-red-200 bg-red-50/40 open:shadow-sm group">
+    <details id="tour-zona-delicada" class="card p-4 sm:p-5 border border-red-200 bg-red-50/40 open:shadow-sm group">
         <summary class="cursor-pointer list-none flex flex-wrap items-center gap-2 text-sm font-semibold text-red-950 marker:content-none">
             <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-800" aria-hidden="true">
                 <i class="fas fa-exclamation-triangle text-sm"></i>
@@ -127,39 +232,121 @@
 
     {% include 'hechos/_modal_confirmar_post.html' %}
 
+    {% endif %}{# escuela_solo_lectura else (acciones) #}
+
     {% endif %}
 
     {% if docente_mis_escuelas_modo == 'escuelas' %}
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <form method="get" action="{% url 'hechos:mis_escuelas_profesor' %}" class="card p-4 sm:p-5 border-stone-200" id="tour-filtro-estado">
+        <div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+            <div>
+                <p class="text-sm font-semibold text-stone-800">Estado</p>
+                <div class="mt-2 inline-flex rounded-xl border border-stone-200 bg-stone-50 p-1" role="group" aria-label="Activas o inactivas">
+                    <a href="?estado=activas{% if filtro_anio %}&anio={{ filtro_anio }}{% endif %}"
+                       class="px-4 py-2 text-sm font-medium rounded-lg {% if filtro_estado != 'inactivas' %}bg-white text-stone-900 shadow-sm{% else %}text-stone-600 hover:text-stone-900{% endif %}">
+                        Activas
+                    </a>
+                    <a href="?estado=inactivas{% if filtro_anio %}&anio={{ filtro_anio }}{% endif %}"
+                       class="px-4 py-2 text-sm font-medium rounded-lg {% if filtro_estado == 'inactivas' %}bg-white text-stone-900 shadow-sm{% else %}text-stone-600 hover:text-stone-900{% endif %}">
+                        Inactivas
+                    </a>
+                </div>
+                <p class="mt-1.5 text-xs text-stone-500">
+                    {% if filtro_estado == 'inactivas' %}
+                        Escuelas vencidas o dadas de baja. Puedes abrir el resumen (solo lectura).
+                    {% else %}
+                        Escuelas vigentes que puedes gestionar.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="min-w-[10rem]">
+                <label for="filtro-anio-escuelas" class="block text-sm font-semibold text-stone-800 mb-1.5">Año</label>
+                <select id="filtro-anio-escuelas" name="anio" class="input w-full sm:w-40"
+                        onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for y in anios_disponibles %}
+                    <option value="{{ y }}" {% if filtro_anio == y %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="estado" value="{{ filtro_estado|default:'activas' }}">
+            </div>
+        </div>
+    </form>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="tour-grid-escuelas">
         {% for item in escuelas_feed %}
-        <div class="card p-6 flex flex-col h-full">
+        <div class="card p-6 flex flex-col h-full {% if item.es_inactiva %}bg-stone-50/70{% endif %}">
             <div class="min-w-0 flex-1">
-                <h2 class="text-lg font-semibold text-slate-900">{{ item.escuela.nombre }}</h2>
-                <p class="text-sm text-slate-500 mt-1 leading-snug">{{ item.escuela.titulo_tarjeta }}</p>
-                <div class="mt-3 space-y-1 text-xs text-slate-600">
-                    <p>
-                        <span class="font-semibold text-slate-700">Horario:</span>
-                        {% if item.horario_ui %}{{ item.horario_ui }}{% else %}Por definir{% endif %}
-                    </p>
-                    <p>
-                        <span class="font-semibold text-slate-700">Salón:</span>
-                        {% if item.aula_ui %}{{ item.aula_ui }}{% else %}Por definir{% endif %}
-                    </p>
-                    <p>
-                        <span class="font-semibold text-slate-700">Estudiantes:</span>
-                        {{ item.num_estudiantes }}
-                    </p>
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h2 class="text-lg sm:text-xl font-semibold text-slate-900 leading-snug break-words">
+                            {{ item.escuela.nombre }}
+                            {% if item.escuela.maestro %}
+                            <span class="font-semibold text-stone-700"> ({{ item.escuela.maestro.user.get_full_name }})</span>
+                            {% endif %}
+                        </h2>
+                        {% if item.es_inactiva %}
+                        <span class="badge mt-2 inline-flex">{{ item.estado_etiqueta }}</span>
+                        {% else %}
+                        <span class="badge badge-success mt-2 inline-flex">{{ item.estado_etiqueta }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="w-10 h-10 shrink-0 rounded-xl bg-stone-100 text-stone-500 flex items-center justify-center" aria-hidden="true">
+                        <i class="fas fa-school"></i>
+                    </div>
                 </div>
-                <div class="mt-4 flex flex-wrap gap-2">
-                    <span class="badge bg-amber-50 text-amber-900 border border-amber-200">
-                        {{ item.num_estudiantes }} {% if item.num_estudiantes == 1 %}inscrito{% else %}inscritos{% endif %}
-                    </span>
-                </div>
+                <dl class="mt-4 space-y-2.5 text-sm">
+                    <div>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Horario</dt>
+                        <dd class="mt-0.5 font-medium text-slate-900">{% if item.horario_ui %}{{ item.horario_ui }}{% else %}Por definir{% endif %}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Ciclo</dt>
+                        <dd class="mt-0.5 text-slate-800">{{ item.escuela.anio }} · {{ item.escuela.get_ciclo_display }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Fecha inicio – fin</dt>
+                        <dd class="mt-0.5 text-slate-800">
+                            {% if item.escuela.fecha_inicio and item.escuela.fecha_fin %}
+                                {{ item.escuela.fecha_inicio|date:"d/m/Y" }} – {{ item.escuela.fecha_fin|date:"d/m/Y" }}
+                            {% elif item.escuela.fecha_inicio %}
+                                Desde {{ item.escuela.fecha_inicio|date:"d/m/Y" }}
+                            {% elif item.escuela.fecha_fin %}
+                                Hasta {{ item.escuela.fecha_fin|date:"d/m/Y" }}
+                            {% else %}
+                                Por definir
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Estudiantes</dt>
+                        <dd class="mt-0.5 text-slate-800">{{ item.num_estudiantes }} inscrito{{ item.num_estudiantes|pluralize:"s" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Cupos</dt>
+                        <dd class="mt-0.5 text-slate-800">
+                            {% if item.escuela.tiene_cupo_definido %}
+                                {{ item.escuela.cupo_maximo }}
+                                <span class="text-stone-500 font-normal">
+                                    ({{ item.escuela.cupos_disponibles }} disponible{{ item.escuela.cupos_disponibles|pluralize:"s" }})
+                                </span>
+                            {% else %}
+                                <span class="text-amber-800">Indefinidos</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                </dl>
             </div>
             <div class="mt-6">
+                {% if item.es_inactiva %}
+                <a href="{% url 'hechos:mis_escuelas_profesor' %}?escuela={{ item.escuela.id }}" class="btn-outline w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                    <i class="fas fa-eye mr-2"></i>Ver resumen
+                </a>
+                {% else %}
                 <a href="{% url 'hechos:mis_escuelas_profesor' %}?escuela={{ item.escuela.id }}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
                     <i class="fas fa-school mr-2"></i>Gestionar escuela
                 </a>
+                {% endif %}
             </div>
         </div>
         {% empty %}
@@ -167,16 +354,23 @@
             <div class="w-14 h-14 rounded-full bg-stone-100 text-stone-600 flex items-center justify-center mx-auto">
                 <i class="fas fa-school text-xl"></i>
             </div>
-            <h3 class="mt-4 text-lg font-semibold text-slate-900">No tienes escuelas asignadas</h3>
+            {% if filtro_estado == 'inactivas' %}
+            <h3 class="mt-4 text-lg font-semibold text-slate-900">No hay escuelas inactivas</h3>
             <p class="text-slate-600 mt-1 max-w-md mx-auto">
-                Cuando el coordinador te designe como maestro al crear una escuela, aparecerá aquí.
+                Cuando una escuela venza o se dé de baja, aparecerá en este listado.
             </p>
+            {% else %}
+            <h3 class="mt-4 text-lg font-semibold text-slate-900">No tienes escuelas activas</h3>
+            <p class="text-slate-600 mt-1 max-w-md mx-auto">
+                Cuando el coordinador te designe como maestro al crear una escuela vigente, aparecerá aquí.
+            </p>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
 
     {% else %}
-    {% if docente_mis_escuelas_modo == 'clases_por_escuela' and escuela_filtro %}
+    {% if docente_mis_escuelas_modo == 'clases_por_escuela' and escuela_filtro and not escuela_solo_lectura %}
     <div class="max-w-md">
         <div class="card p-5 flex items-center gap-4">
             <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
@@ -384,4 +578,62 @@
     chk.addEventListener('change', sync);
 })();
 </script>
+
+<script src="{% static 'js/site-tour.js' %}"></script>
+{% if docente_mis_escuelas_modo == 'escuelas' %}
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                selector: '#tour-filtro-estado',
+                title: 'Activas e inactivas',
+                text: 'Por defecto ves las escuelas vigentes. Cambia a «Inactivas» para ver las vencidas o dadas de baja (quedan en solo lectura), y filtra por año si necesitas.'
+            },
+            {
+                selector: '#tour-grid-escuelas',
+                title: 'Tus escuelas',
+                text: 'Cada tarjeta es una edición: horario, ciclo, fechas y cupos. Toca «Gestionar escuela» para entrar y usar asistencia, notas, matrículas y más.'
+            }
+        ]);
+    });
+})();
+</script>
+{% elif docente_mis_escuelas_modo == 'clases_por_escuela' %}
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                selector: '#tour-info-escuela',
+                title: '{% if escuela_solo_lectura %}Resumen de la escuela{% else %}Información de la escuela{% endif %}',
+                text: '{% if escuela_solo_lectura %}Datos de esta edición ya finalizada o dada de baja: año, ciclo, horario, cupos y cuántos estudiantes hubo.{% else %}Año, ciclo, modalidad, período, horario, salón, estudiantes y cupos de esta edición, de un vistazo.{% endif %}'
+            },
+            {% if escuela_solo_lectura %}
+            {
+                selector: '#tour-estudiantes-historico',
+                title: 'Estudiantes que hubo',
+                text: 'Quiénes estuvieron matriculados en esta escuela mientras estuvo activa, con su fecha de inscripción.'
+            }
+            {% else %}
+            {
+                selector: '#tour-acciones-escuela',
+                title: 'Acciones rápidas',
+                text: 'Estudiantes, Agregar estudiantes, Asistencia, Notas, Actividad y Archivos: lo que más usás para esta escuela, a un clic.'
+            },
+            {
+                selector: '#tour-zona-delicada',
+                title: 'Dar de baja la escuela',
+                text: 'Solo para cuando creaste la escuela por error o hay que cerrarla del todo: cancela las matrículas activas, la oculta de «Mis escuelas» y no tiene «deshacer». Las personas no se borran del sistema.'
+            }
+            {% endif %}
+        ]);
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

@@ -1,0 +1,62 @@
+{# Ficha personal de profesor (solo lectura) para modal del Director #}
+<div class="space-y-6 text-left">
+    <section class="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+        <h3 class="text-base font-semibold text-stone-900 mb-4 pb-2 border-b border-stone-200">Información personal</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div>
+                <p class="text-xs font-medium text-stone-600">Nombre completo</p>
+                <p class="mt-1 text-sm text-stone-900">{{ profesor.user.get_full_name|default:profesor.user.username }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Correo</p>
+                <p class="mt-1 text-sm text-stone-900 break-all">{% if profesor.user.email %}{{ profesor.user.email }}{% else %}No especificado{% endif %}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Celular (WhatsApp)</p>
+                <p class="mt-1 text-sm text-stone-900">
+                    {% if profesor.user.phone %}
+                        <a href="tel:{{ profesor.user.phone }}" class="underline decoration-stone-300 underline-offset-2 hover:decoration-stone-600">{{ profesor.user.phone }}</a>
+                    {% else %}
+                        No registrado
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Documento</p>
+                <p class="mt-1 text-sm font-mono text-stone-900">
+                    {% if profesor.user.tipo_documento or profesor.user.documento_identidad %}
+                        {{ profesor.user.get_tipo_documento_display|default:profesor.user.tipo_documento }} {{ profesor.user.documento_identidad|default:"—" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Código de profesor</p>
+                <p class="mt-1 text-sm font-mono text-stone-900">{{ profesor.codigo_profesor|default:"—" }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Estado</p>
+                <p class="mt-1 text-sm text-stone-900">{% if profesor.is_active %}Activo{% else %}Inactivo{% endif %}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Sede</p>
+                <p class="mt-1 text-sm text-stone-900">{% if profesor.sede %}{{ profesor.sede.nombre }}{% else %}Sin sede{% endif %}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Especialidad</p>
+                <p class="mt-1 text-sm text-stone-900">{% if profesor.especialidad %}{{ profesor.especialidad }}{% else %}No especificada{% endif %}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Años de experiencia</p>
+                <p class="mt-1 text-sm text-stone-900">{{ profesor.experiencia_anos }}</p>
+            </div>
+            {% if profesor.biografia %}
+            <div class="sm:col-span-2">
+                <p class="text-xs font-medium text-stone-600">Biografía</p>
+                <p class="mt-1 text-sm text-stone-900 whitespace-pre-wrap">{{ profesor.biografia }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+</div>

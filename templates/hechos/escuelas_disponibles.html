@@ -37,90 +37,104 @@
 
     <div class="space-y-6" id="escuelas-disponibles-grid">
         {% for item in escuelas %}
+            {% with o=item.oferta e=item.escuela %}
             <div class="card p-6 js-escuela-disponible" data-search="{{ item.search_text|escape }}">
-                <div class="flex items-start mb-4">
-                    <div class="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center">
-                        <i class="fas fa-school text-stone-700 text-xl"></i>
-                    </div>
-                </div>
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0 flex-1">
+                        {# 1. Título + profesor (máxima jerarquía) #}
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-900 leading-snug break-words">
+                            {{ e.nombre }}
+                            {% if item.profesor_nombre %}
+                            <span class="font-semibold text-stone-700"> ({{ item.profesor_nombre }})</span>
+                            {% else %}
+                            <span class="font-medium text-stone-500"> (Por asignar)</span>
+                            {% endif %}
+                        </h2>
 
-                <h2 class="text-xl font-semibold text-gray-900">{{ item.escuela.nombre }}</h2>
-                <p class="text-sm text-gray-600 mt-1">{{ item.sede.nombre|default:"Sin sede" }}</p>
-
-                <div class="mt-4 space-y-2 text-sm text-gray-600">
-                    <p>{{ item.escuela.descripcion|default:"Escuela disponible para matrícula." }}</p>
-                </div>
-
-                {% with o=item.oferta %}
-                {% if o %}
-                <div class="mt-6 max-w-xl">
-                    <div class="rounded-xl border border-stone-200 p-4">
-                        <div class="flex items-start justify-between gap-3">
+                        {# 2–6. Datos en orden de importancia #}
+                        <dl class="mt-5 space-y-3">
                             <div>
-                                {% if o.nivel_programa_linea %}
-                                <h3 class="text-base font-semibold text-gray-900">{{ o.nivel_programa_linea }}</h3>
-                                {% endif %}
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Horario</dt>
+                                <dd class="mt-0.5 text-base font-medium text-gray-900">
+                                    {% if item.horario_ui %}{{ item.horario_ui }}{% else %}Por definir{% endif %}
+                                </dd>
                             </div>
-                            {% if o.ya_matriculado %}
-                                <span class="badge badge-success">Matriculado</span>
-                            {% elif o.solicitud %}
-                                {% if o.solicitud.estado == 'pendiente' %}
-                                    <span class="badge badge-warning">Pendiente</span>
-                                {% elif o.solicitud.estado == 'aprobada' %}
-                                    <span class="badge badge-success">Aprobada</span>
-                                {% else %}
-                                    <span class="badge badge-danger">Rechazada</span>
-                                {% endif %}
-                            {% else %}
-                                <span class="badge">{{ o.cupos_disponibles }} cupos</span>
-                            {% endif %}
-                        </div>
-
-                        <div class="mt-4 space-y-2 text-sm text-gray-600">
-                            <div class="flex items-center justify-between">
-                                <span>Horario</span>
-                                <span class="font-medium text-gray-900">{{ o.edicion.horario|default:"Por definir" }}</span>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Ciclo</dt>
+                                <dd class="mt-0.5 text-sm text-gray-900">
+                                    {{ e.anio }} · {{ e.get_ciclo_display }}
+                                </dd>
                             </div>
-                            <div class="flex items-center justify-between">
-                                <span>Profesor</span>
-                                <span class="font-medium text-gray-900">
-                                    {% if o.edicion.profesor %}
-                                        {{ o.edicion.profesor.user.get_full_name }}
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Fecha inicio – fin</dt>
+                                <dd class="mt-0.5 text-sm text-gray-900">
+                                    {% if e.fecha_inicio and e.fecha_fin %}
+                                        {{ e.fecha_inicio|date:"d/m/Y" }} – {{ e.fecha_fin|date:"d/m/Y" }}
+                                    {% elif e.fecha_inicio %}
+                                        Desde {{ e.fecha_inicio|date:"d/m/Y" }}
+                                    {% elif e.fecha_fin %}
+                                        Hasta {{ e.fecha_fin|date:"d/m/Y" }}
                                     {% else %}
-                                        Por asignar
+                                        Por definir
                                     {% endif %}
-                                </span>
+                                </dd>
                             </div>
-                        </div>
-
-                        <div class="mt-4">
-                            {% if o.ya_matriculado %}
-                                <a href="{% url 'hechos:detalle_mis_escuela' o.curso.id %}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
-                                    <i class="fas fa-arrow-right mr-2"></i>Entrar al curso
-                                </a>
-                            {% elif o.puede_solicitar %}
-                                <form method="post" action="{% url 'hechos:solicitar_matricula_escuela' item.escuela.id %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
-                                        <i class="fas fa-user-plus mr-2"></i>Solicitar matrícula
-                                    </button>
-                                </form>
-                            {% else %}
-                                <div class="btn-secondary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
-                                    <i class="fas fa-clock mr-2"></i>
-                                    {% if o.solicitud %}
-                                        {{ o.solicitud.get_estado_display }}
-                                    {% else %}
-                                        No disponible
-                                    {% endif %}
-                                </div>
+                            {% if o and o.nivel_programa_linea %}
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Nivel</dt>
+                                <dd class="mt-0.5 text-sm text-gray-900">{{ o.nivel_programa_linea }}</dd>
+                            </div>
                             {% endif %}
-                        </div>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Cupos</dt>
+                                <dd class="mt-0.5 text-sm text-gray-900">
+                                    {% if item.escuela.tiene_cupo_definido %}
+                                        {% if o %}{{ o.cupos_disponibles }}{% else %}{{ item.escuela.cupos_disponibles }}{% endif %} disponibles
+                                    {% else %}
+                                        Indefinidos
+                                    {% endif %}
+                                </dd>
+                            </div>
+                        </dl>
                     </div>
+
+                    {# 7. Logo (menor jerarquía visual) #}
+                    <div class="shrink-0 w-11 h-11 rounded-xl bg-stone-100 text-stone-500 flex items-center justify-center" aria-hidden="true">
+                        {% if item.sede and item.sede.imagen_referencia %}
+                        <img src="{{ item.sede.imagen_referencia.url }}" alt="" class="w-11 h-11 rounded-xl object-cover">
+                        {% else %}
+                        <i class="fas fa-school text-lg"></i>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if o %}
+                <div class="mt-6">
+                    {% if o.ya_matriculado and o.curso %}
+                        <a href="{% url 'hechos:detalle_mis_escuela' o.curso.id %}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                            <i class="fas fa-arrow-right mr-2"></i>Entrar al curso
+                        </a>
+                    {% elif o.puede_solicitar %}
+                        <form method="post" action="{% url 'hechos:solicitar_matricula_escuela' e.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                                <i class="fas fa-user-plus mr-2"></i>Solicitar matrícula
+                            </button>
+                        </form>
+                    {% else %}
+                        <div class="btn-secondary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                            <i class="fas fa-clock mr-2"></i>
+                            {% if o.solicitud %}
+                                {{ o.solicitud.get_estado_display }}
+                            {% else %}
+                                No disponible
+                            {% endif %}
+                        </div>
+                    {% endif %}
                 </div>
                 {% endif %}
-                {% endwith %}
             </div>
+            {% endwith %}
         {% empty %}
             <div class="col-span-full">
                 <div class="card p-12 text-center">

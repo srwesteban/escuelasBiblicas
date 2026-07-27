@@ -1,20 +1,20 @@
 {% extends 'base_modern.html' %}
 
-{% block title %}Quejas, reclamos y solicitudes - Hechos Hub{% endblock %}
+{% block title %}Quejas, reclamos, felicitaciones y solicitudes - Hechos Hub{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-slate-900">Quejas, reclamos y solicitudes</h1>
+            <h1 class="text-2xl font-bold text-slate-900">Quejas, reclamos, felicitaciones y solicitudes</h1>
             {% if user_sede %}
             <p class="text-sm text-slate-600 mt-1">
                 Sede: <span class="font-medium text-slate-900">{{ user_sede.nombre }}</span>
             </p>
             {% endif %}
             <p class="text-sm text-slate-600 mt-2 max-w-xl">
-                Elige el <strong>asunto</strong> en el menú (queja, reclamo, sugerencia o solicitud) y describe tu caso en el <strong>mensaje</strong>.
-                Si el asunto es <strong>Solicitud</strong>, quedará en la bandeja del coordinador académico; en los demás casos se envía por correo como queja, reclamo o sugerencia.
+                Elige el <strong>asunto</strong> en el menú (queja, reclamo, sugerencia, felicitación o solicitud) y describe tu caso en el <strong>mensaje</strong>.
+                Si el asunto es <strong>Solicitud</strong>, quedará en la bandeja del coordinador académico; en los demás casos, incluida <strong>Felicitación</strong>, se envía por correo al coordinador académico.
             </p>
         </div>
         <a href="{% url 'hechos:escuelas_disponibles' %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
@@ -30,7 +30,7 @@
         </p>
         {% else %}
         <p class="text-sm text-amber-700">
-            No hay coordinador académico configurado para tu sede. Las quejas, reclamos y sugerencias no podrán enviarse por correo;
+            No hay coordinador académico configurado para tu sede. Las quejas, reclamos, sugerencias y felicitaciones no podrán enviarse por correo;
             las solicitudes sí quedan registradas en el sistema.
         </p>
         {% endif %}

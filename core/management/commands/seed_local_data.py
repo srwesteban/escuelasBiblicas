@@ -48,14 +48,6 @@ class Command(BaseCommand):
                 "icon": "fas fa-graduation-cap",
                 "order": 1,
             },
-            {
-                "name": "guias",
-                "display_name": "Guias",
-                "description": "Seguimiento de personas nuevas",
-                "url_name": "guias:dashboard",
-                "icon": "fas fa-user-plus",
-                "order": 2,
-            },
         ]
 
         for module_data in modules_data:
@@ -75,7 +67,6 @@ class Command(BaseCommand):
                 "direccion": "Av. Desarrollo 123",
                 "telefono": "+52 555 000 0000",
                 "email": "local@hechoshub.test",
-                "pastor_responsable": "Pastor Local",
                 "descripcion": "Sede local para desarrollo y pruebas",
                 "is_active": True,
             },
@@ -219,9 +210,7 @@ class Command(BaseCommand):
                 "profile": "estudiante",
                 "profile_defaults": {
                     "sede": sede,
-                    "iglesia": "Sede Local",
                     "telefono_emergencia": "555-1001",
-                    "contacto_emergencia": "Contacto Uno",
                 },
             },
             {
@@ -234,42 +223,8 @@ class Command(BaseCommand):
                 "profile": "estudiante",
                 "profile_defaults": {
                     "sede": sede,
-                    "iglesia": "Sede Local",
                     "telefono_emergencia": "555-1002",
-                    "contacto_emergencia": "Contacto Dos",
                 },
-            },
-            {
-                "email": "guias.admin1@local.test",
-                "username": "guias_admin1",
-                "first_name": "Admin",
-                "last_name": "Guias Uno",
-                "role": "app_admin",
-                "module": "guias",
-            },
-            {
-                "email": "guias.admin2@local.test",
-                "username": "guias_admin2",
-                "first_name": "Admin",
-                "last_name": "Guias Dos",
-                "role": "app_admin",
-                "module": "guias",
-            },
-            {
-                "email": "guias.user1@local.test",
-                "username": "guias_user1",
-                "first_name": "Usuario",
-                "last_name": "Guias Uno",
-                "role": "user",
-                "module": "guias",
-            },
-            {
-                "email": "guias.user2@local.test",
-                "username": "guias_user2",
-                "first_name": "Usuario",
-                "last_name": "Guias Dos",
-                "role": "user",
-                "module": "guias",
             },
         ]
 

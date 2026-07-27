@@ -1,0 +1,80 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Historial de escuelas - Hechos Hub{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Historial</h1>
+        <p class="text-gray-600 mt-1">Escuelas en las que ya estuviste inscrito y que ya vencieron o se cerraron.</p>
+    </div>
+
+    {% if matriculas_historial %}
+    <div class="space-y-3">
+        {% for mat in matriculas_historial %}
+        <div class="card p-5 bg-stone-50/60">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0 flex-1">
+                    <h3 class="text-base sm:text-lg font-semibold text-stone-800 leading-snug break-words">
+                        {{ mat.escuela.nombre }}
+                        {% if mat.escuela.maestro %}
+                        <span class="font-semibold text-stone-600"> ({{ mat.escuela.maestro.user.get_full_name }})</span>
+                        {% else %}
+                        <span class="font-medium text-stone-500"> (Por asignar)</span>
+                        {% endif %}
+                    </h3>
+                    <dl class="mt-4 space-y-2.5">
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Horario</dt>
+                            <dd class="mt-0.5 text-sm font-medium text-stone-800">{{ mat.escuela.horario|default:"Por definir" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Ciclo</dt>
+                            <dd class="mt-0.5 text-sm text-stone-800">{{ mat.escuela.anio }} · {{ mat.escuela.get_ciclo_display }}</dd>
+                        </div>
+                        {% if mat.escuela.fecha_inicio or mat.escuela.fecha_fin %}
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Fecha inicio – fin</dt>
+                            <dd class="mt-0.5 text-sm text-stone-800">
+                                {% if mat.escuela.fecha_inicio and mat.escuela.fecha_fin %}
+                                    {{ mat.escuela.fecha_inicio|date:"d/m/Y" }} – {{ mat.escuela.fecha_fin|date:"d/m/Y" }}
+                                {% elif mat.escuela.fecha_inicio %}
+                                    Desde {{ mat.escuela.fecha_inicio|date:"d/m/Y" }}
+                                {% else %}
+                                    Hasta {{ mat.escuela.fecha_fin|date:"d/m/Y" }}
+                                {% endif %}
+                            </dd>
+                        </div>
+                        {% endif %}
+                        {% if mat.nivel_programa_catalogo %}
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Nivel</dt>
+                            <dd class="mt-0.5 text-sm text-stone-800">{{ mat.nivel_programa_catalogo }}</dd>
+                        </div>
+                        {% endif %}
+                    </dl>
+                </div>
+                <div class="flex flex-col items-end gap-2 shrink-0">
+                    <span class="badge{% if mat.historial_badge %} badge-{{ mat.historial_badge }}{% endif %}">{{ mat.historial_etiqueta }}</span>
+                    <div class="w-10 h-10 rounded-xl bg-stone-100 text-stone-500 flex items-center justify-center" aria-hidden="true">
+                        <i class="fas fa-school"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card p-12 text-center">
+        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-clock-rotate-left text-gray-400 text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Sin historial todavía</h3>
+        <p class="text-gray-600">Cuando finalicen escuelas en las que estuviste inscrito, aparecerán aquí.</p>
+        <a href="{% url 'hechos:mis_escuelas' %}" class="btn-outline inline-flex items-center mt-6 px-4 py-2 text-sm font-medium">
+            Ir a mis escuelas
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

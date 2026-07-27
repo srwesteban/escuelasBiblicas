@@ -1,4 +1,10 @@
 <div class="card p-8 text-center border-amber-200 bg-amber-50/50 text-stone-700 text-sm">
     <p class="font-medium text-stone-900">No se puede matricular desde aquí</p>
+    {% if escuela_matricular.ha_finalizado %}
+    <p class="mt-2">«{{ escuela_matricular.nombre }}» ya finalizó su período de clases. No se pueden hacer nuevas matrículas en esta instancia.</p>
+    {% elif escuela_matricular.tiene_cupo_definido and escuela_matricular.cupos_disponibles <= 0 %}
+    <p class="mt-2">«{{ escuela_matricular.nombre }}» no tiene cupos disponibles por ahora.</p>
+    {% else %}
     <p class="mt-2">Comprueba que seas el docente titular de la escuela y que aún haya cupos disponibles.</p>
+    {% endif %}
 </div>

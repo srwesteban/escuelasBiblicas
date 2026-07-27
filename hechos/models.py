@@ -33,11 +33,6 @@ def _texto_redundante_con_ciclo_escuela(texto: str, escuela: "Escuela") -> bool:
     return False
 
 
-def _texto_redundante_con_grupo_escuela(texto: str, escuela: "Escuela") -> bool:
-    """Compat: antes se comparaba con escuela.grupo; el campo grupo fue retirado del modelo."""
-    return False
-
-
 def _dedupe_partes_visuales(partes: list[str]) -> list[str]:
     """Evita repetir el mismo fragmento (p. ej. 'Grupo 1' dos veces por datos sucios)."""
     seen: set[str] = set()
@@ -53,8 +48,8 @@ def _dedupe_partes_visuales(partes: list[str]) -> list[str]:
 
 def _filtrar_texto_sin_redundancia_escuela(texto: str, escuela: "Escuela") -> str:
     """
-    Quita fragmentos separados por «·» que solo repiten ciclo o grupo de la escuela.
-    Así corrige datos legados tipo «Curso B · Grupo 1» en Curso.nombre.
+    Quita fragmentos separados por «·» que solo repiten el ciclo de la escuela.
+    Así corrige datos legados tipo «Curso B · Ciclo A» en Curso.nombre.
     """
     if not texto or not escuela:
         return (texto or "").strip()
@@ -63,9 +58,7 @@ def _filtrar_texto_sin_redundancia_escuela(texto: str, escuela: "Escuela") -> st
         return ""
     kept: list[str] = []
     for ch in chunks:
-        if _texto_redundante_con_ciclo_escuela(ch, escuela) or _texto_redundante_con_grupo_escuela(
-            ch, escuela
-        ):
+        if _texto_redundante_con_ciclo_escuela(ch, escuela):
             continue
         kept.append(ch)
     return " · ".join(kept)
@@ -92,9 +85,9 @@ class Estudiante(models.Model):
         OTRO = "otro", _("Otro")
 
     class TipoDocumento(models.TextChoices):
-        CC = "CC", _("Cedula de ciudadania")
+        CC = "CC", _("Cédula de ciudadanía")
         TI = "TI", _("Tarjeta de identidad")
-        CE = "CE", _("Cedula de extranjeria")
+        CE = "CE", _("Cédula de extranjería")
         PAS = "PAS", _("Pasaporte")
 
     class PeticionArea(models.TextChoices):
@@ -107,7 +100,6 @@ class Estudiante(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='estudiante_profile')
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='estudiantes', null=True, blank=True)
-    codigo_estudiante = models.CharField(max_length=20, blank=True, null=True)
     genero = models.CharField(
         max_length=20,
         choices=Genero.choices,
@@ -122,9 +114,7 @@ class Estudiante(models.Model):
     numero_documento = models.CharField(max_length=30, blank=True, default="")
     fecha_nacimiento = models.DateField(blank=True, null=True)
     direccion = models.TextField(blank=True)
-    iglesia = models.CharField(max_length=200, blank=True)
     telefono_emergencia = models.CharField(max_length=20, blank=True)
-    contacto_emergencia = models.CharField(max_length=100, blank=True)
     peticion_texto = models.TextField(blank=True, default="")
     peticion_area = models.CharField(
         max_length=20,
@@ -144,20 +134,6 @@ class Estudiante(models.Model):
     
     def __str__(self):
         return f"{self.user.get_full_name()} (Estudiante)"
-    
-    def save(self, *args, **kwargs):
-        if not self.codigo_estudiante:
-            # Generar código automático si no existe (único por sede)
-            last_estudiante = Estudiante.objects.filter(sede=self.sede).order_by('-id').first()
-            if last_estudiante and last_estudiante.codigo_estudiante:
-                try:
-                    last_num = int(last_estudiante.codigo_estudiante.split('-')[-1])
-                    self.codigo_estudiante = f"EST-{last_num + 1:04d}"
-                except:
-                    self.codigo_estudiante = "EST-0001"
-            else:
-                self.codigo_estudiante = "EST-0001"
-        super().save(*args, **kwargs)
 
 
 class Profesor(models.Model):
@@ -303,13 +279,46 @@ class AdminEscuela(models.Model):
         self.capacidades_explicitas = True
         self.save(update_fields=['capacidades_explicitas'])
 
+    def roles_codigos(self) -> list[str]:
+        """Códigos de capacidad en orden; respaldo por tipo si no hay filas."""
+        asigs = list(self.capacidad_asignaciones.all())
+        if asigs:
+            asigs.sort(key=lambda a: (a.orden, a.id))
+            return [a.capacidad.codigo for a in asigs]
+        if getattr(self, 'capacidades_explicitas', False):
+            return []
+        return list(capacidades_default_por_tipo(self.tipo_coordinador))
+
+    def roles_display(self) -> str:
+        """
+        Etiquetas de rol legibles (p. ej. «Académico · Financiero»).
+        Evita el genérico «varias funciones» cuando hay capacidades concretas.
+        """
+        labels = {
+            'academico': 'Académico',
+            'pedagogico': 'Pedagógico',
+            'financiero': 'Financiero',
+            'logistico': 'Logístico',
+        }
+        codes = self.roles_codigos()
+        parts = [labels[c] for c in codes if c in labels]
+        if parts:
+            return ' · '.join(parts)
+        if self.tipo_coordinador == self.TipoCoordinador.SEDE:
+            return str(self.get_tipo_coordinador_display())
+        if self.tipo_coordinador == self.TipoCoordinador.COMBINADO:
+            # Sin capacidades cargadas: intenta sacar los roles del cargo guardado.
+            cargo = (self.cargo or '').split('—')[0].strip()
+            if cargo and 'varias funciones' not in cargo.casefold():
+                return cargo.replace('Coordinador ', '').strip() or cargo
+        return str(self.get_tipo_coordinador_display())
+
 
 class CapacidadCoordinador(models.Model):
     """
     Catálogo de tareas que puede tener un coordinador (módulo Hechos).
     El código se usa en código Python para comprobar acceso.
     """
-
     codigo = models.SlugField(max_length=64, unique=True)
     nombre = models.CharField(max_length=120)
     descripcion = models.TextField(blank=True)
@@ -363,6 +372,13 @@ def capacidades_default_por_tipo(tipo: str) -> list[str]:
         AdminEscuela.TipoCoordinador.COMBINADO: [],
     }
     return list(m.get(tipo, []))
+
+
+class EscuelaQuerySet(models.QuerySet):
+    def vigentes(self):
+        """Excluye escuelas cuya fecha de fin de clases ya pasó."""
+        hoy = timezone.localdate()
+        return self.filter(models.Q(fecha_fin__isnull=True) | models.Q(fecha_fin__gte=hoy))
 
 
 class Escuela(models.Model):
@@ -428,11 +444,13 @@ class Escuela(models.Model):
     aula = models.CharField(max_length=50, blank=True, default='')
     cupo_maximo = models.PositiveIntegerField(
         default=30,
-        help_text=_('Cupo máximo de estudiantes'),
+        help_text=_('Cupo máximo de estudiantes. 0 = indefinido (sin límite).'),
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = EscuelaQuerySet.as_manager()
 
     class Meta:
         verbose_name = 'Escuela'
@@ -441,6 +459,10 @@ class Escuela(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    @property
+    def ha_finalizado(self) -> bool:
+        return bool(self.fecha_fin and self.fecha_fin < timezone.localdate())
 
     def titulo_tarjeta(self) -> str:
         return f'{self.nombre} — {self.anio} · Ciclo {self.ciclo}'
@@ -451,18 +473,32 @@ class Escuela(models.Model):
         return ' · '.join(parts) if parts else '—'
 
     @property
+    def tiene_cupo_definido(self) -> bool:
+        """False cuando el cupo es 0 / vacío: se trata como indefinido (sin tope)."""
+        return bool(self.cupo_maximo and int(self.cupo_maximo) > 0)
+
+    @property
     def estudiantes_inscritos(self) -> int:
         return self.matriculas.filter(is_active=True).count()
 
     @property
     def cupos_disponibles(self) -> int:
-        return max(0, int(self.cupo_maximo or 0) - self.estudiantes_inscritos)
+        if not self.tiene_cupo_definido:
+            # Sin tope: siempre hay cupo para validaciones de matrícula.
+            return 10**9
+        return max(0, int(self.cupo_maximo) - self.estudiantes_inscritos)
 
     @property
     def porcentaje_ocupacion(self) -> float:
-        if not self.cupo_maximo:
+        if not self.tiene_cupo_definido:
             return 0.0
         return (self.estudiantes_inscritos / self.cupo_maximo) * 100.0
+
+    def esta_llena(self) -> bool:
+        """True solo si hay cupo definido y ya se alcanzó o superó."""
+        if not self.tiene_cupo_definido:
+            return False
+        return self.estudiantes_inscritos >= int(self.cupo_maximo)
 
     @property
     def profesor(self):
@@ -548,13 +584,14 @@ class NivelProgramaPlantilla(models.Model):
 
     def titulo_acordeon(self) -> str:
         j = self.jerarquia
+        n = j + 1
         base = (self.nombre or "").strip()
         if j == 0:
             label = base or "Fundamentos"
-            return f"Nivel {j}: {label}"
+            return f"Nivel {n}: {label}"
         if base:
-            return f"Nivel {j}: {base}"
-        return f"Nivel {j}"
+            return f"Nivel {n}: {base}"
+        return f"Nivel {n}"
 
 
 class EscuelaProgramaPlantilla(models.Model):
@@ -667,19 +704,20 @@ class NivelPrograma(models.Model):
 
     def titulo_acordeon(self) -> str:
         j = self.jerarquia
+        n = j + 1
         base = (self.nombre or "").strip()
         if j == 0:
             label = base or "Fundamentos"
-            return f"Nivel {j}: {label}"
+            return f"Nivel {n}: {label}"
         if base:
-            return f"Nivel {j}: {base}"
-        return f"Nivel {j}"
+            return f"Nivel {n}: {base}"
+        return f"Nivel {n}"
 
 
 class EscuelaPrograma(models.Model):
     """
     Definición de escuela en el programa de formación (nivel, nombre, descripción).
-    Distinto de Escuela: esa es la instancia por año, ciclo y grupo en la sede.
+    Distinto de Escuela: esa es la instancia operativa por año y ciclo en la sede.
     """
 
     sede = models.ForeignKey(
@@ -915,6 +953,7 @@ class NotificacionEstudiante(models.Model):
         APROBACION = 'aprobacion', _('Aprobación')
         RECHAZO = 'rechazo', _('Rechazo')
         INFO = 'info', _('Información')
+        CERTIFICADO = 'certificado', _('Certificado')
 
     estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE, related_name='notificaciones')
     tipo = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.INFO)
@@ -979,6 +1018,7 @@ class QuejaReclamo(models.Model):
         RECLAMO = "reclamo", _("Reclamo")
         SUGERENCIA = "sugerencia", _("Sugerencia")
         SOLICITUD = "solicitud", _("Solicitud")
+        FELICITACION = "felicitacion", _("Felicitación")
 
     class Estado(models.TextChoices):
         RECIBIDA = "recibida", _("Recibida")
@@ -1544,6 +1584,15 @@ class NotasGrillaEstadoFinal(models.Model):
         choices=Estado.choices,
         blank=True,
         default=Estado.VACIO,
+    )
+    certificado_activo = models.BooleanField(default=False)
+    certificado_emitido_en = models.DateTimeField(null=True, blank=True)
+    certificado_emitido_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
     )
     updated_at = models.DateTimeField(auto_now=True)
 

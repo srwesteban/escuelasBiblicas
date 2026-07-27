@@ -1,0 +1,78 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Restablecer contraseña{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-stone-900">Restablecer contraseña</h1>
+            <p class="text-stone-600 mt-1 text-sm sm:text-base">
+                Para cualquier estudiante del sistema que olvidó su contraseña.
+            </p>
+        </div>
+        <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="btn-outline px-4 py-2.5 text-sm font-medium shrink-0 inline-flex items-center justify-center">
+            <i class="fas fa-arrow-left mr-2"></i>Volver
+        </a>
+    </div>
+
+    <div class="card p-5 sm:p-6 border-stone-200">
+        <form method="get" class="space-y-4">
+            <div>
+                <label for="doc" class="block text-sm font-semibold text-stone-800">Número de documento</label>
+                <p class="text-xs text-stone-500 mt-0.5 mb-2">Escribe el documento del estudiante y toca «Buscar».</p>
+                <div class="flex flex-wrap gap-2">
+                    <input type="text" name="doc" id="doc" value="{{ doc_buscado }}"
+                           placeholder="Ej. 1085…" maxlength="15" autocomplete="off"
+                           class="input flex-1 min-w-[10rem] px-3 py-2.5 text-sm">
+                    <button type="submit" class="btn-primary px-5 py-2.5 text-sm font-medium inline-flex items-center">
+                        <i class="fas fa-magnifying-glass mr-2"></i>Buscar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {% if doc_buscado %}
+    {% if estudiante_encontrado %}
+    <div class="card p-5 sm:p-6 border-stone-200">
+        <div class="flex items-start gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
+                <i class="fas fa-user"></i>
+            </span>
+            <div class="min-w-0">
+                <p class="text-xs font-medium uppercase tracking-wide text-stone-500">¿Es esta persona?</p>
+                <h2 class="font-semibold text-stone-900 text-lg">{{ estudiante_encontrado.user.get_full_name }}</h2>
+                <p class="text-sm text-stone-600 mt-0.5">
+                    {{ estudiante_encontrado.get_tipo_documento_display }} {{ estudiante_encontrado.numero_documento|default:"—" }}
+                </p>
+                {% if estudiante_encontrado.sede %}
+                <p class="text-xs text-stone-500 mt-0.5">
+                    <i class="fas fa-location-dot mr-1"></i>{{ estudiante_encontrado.sede.nombre }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        <form method="post" class="mt-5 pt-4 border-t border-stone-100"
+              data-confirm-title="Restablecer contraseña"
+              data-confirm-label="Restablecer"
+              data-confirm-message="La contraseña de {{ estudiante_encontrado.user.get_full_name }} quedará igual a su número de documento ({{ estudiante_encontrado.numero_documento }}). Avísale para que la cambie luego.">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="restablecer">
+            <input type="hidden" name="estudiante_id" value="{{ estudiante_encontrado.id }}">
+            <button type="submit" class="btn-primary px-5 py-2.5 text-sm font-medium inline-flex items-center">
+                <i class="fas fa-key mr-2"></i>Restablecer contraseña
+            </button>
+        </form>
+    </div>
+    {% else %}
+    <div class="card p-6 border-amber-200 bg-amber-50/50 text-center text-sm text-stone-700">
+        No se encontró ningún estudiante con ese documento.
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
+<script src="{% static 'js/site-confirm.js' %}"></script>
+{% endblock %}

@@ -42,7 +42,6 @@ Construir una plataforma que funcione como portal academico de iglesia, con role
 - pagos en linea
 - integracion con pasarelas
 - automatizacion contable
-- modulo Guias
 - reporteria avanzada
 
 ## Roles

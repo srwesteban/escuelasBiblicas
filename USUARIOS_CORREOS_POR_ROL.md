@@ -30,8 +30,6 @@ python manage.py export_usuarios_roles
 | zabi@local.test | True | True | False | AdminEscuela (Coordinador pedagógico) | hechos |
 | carolviteri@local.test | True | True | False | AdminEscuela (Coordinador académico) | hechos |
 | coordinadorsede@local.test | True | True | False | AdminEscuela (Coordinador de sede) | hechos |
-| guias.admin2@local.test | True | True | False | — | guias |
-| guias.admin1@local.test | True | True | False | — | guias |
 | hechos.admin2@local.test | False | True | False | AdminEscuela (Coordinador académico) | hechos |
 | hechos.admin1@local.test | False | True | False | AdminEscuela (Coordinador académico) | hechos |
 
@@ -46,8 +44,6 @@ python manage.py export_usuarios_roles
 | estudiantetres@local.test | True | False | False | Estudiante | hechos |
 | nuevo@local.test | True | False | False | Estudiante | hechos |
 | william@local.test | True | False | False | Profesor | — |
-| guias.user2@local.test | True | False | False | — | guias |
-| guias.user1@local.test | True | False | False | — | guias |
 | estudiante2@local.test | True | False | False | Estudiante | hechos |
 | estudiante1@local.test | True | False | False | Estudiante | hechos |
 | profesor2@local.test | True | False | False | Profesor | hechos |

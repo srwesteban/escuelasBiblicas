@@ -1,0 +1,215 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Información de la sede — {{ sede.nombre }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-kpi {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border: 1px solid rgba(120, 113, 108, 0.18);
+        border-radius: 0.85rem;
+        background: #fff;
+        padding: 0.9rem 1rem;
+    }
+    .info-kpi-icon {
+        display: flex;
+        width: 2.5rem;
+        height: 2.5rem;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.7rem;
+    }
+    .estado-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 9999px;
+        padding: 0.15rem 0.6rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .estado-pill.ok { background: rgba(16, 185, 129, 0.12); color: #047857; }
+    .estado-pill.falta { background: rgba(217, 119, 6, 0.14); color: #92400e; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-stone-500">Sede</p>
+        <h1 class="text-2xl font-bold text-stone-900">{{ sede.nombre }}</h1>
+        <p class="text-sm text-stone-600 mt-1">
+            {% if sede.ubicacion_completa %}{{ sede.ubicacion_completa }}{% else %}Ubicación sin definir{% endif %}
+            <span class="text-stone-400">·</span>
+            {% if sede.is_active %}Activa{% else %}Inactiva{% endif %}
+        </p>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="info-kpi">
+            <span class="info-kpi-icon bg-amber-50 text-amber-700"><i class="fas fa-school"></i></span>
+            <div class="min-w-0">
+                <p class="text-xl font-bold text-stone-900 leading-tight">{{ total_escuelas }}</p>
+                <p class="text-xs text-stone-500">Escuela{{ total_escuelas|pluralize }} activa{{ total_escuelas|pluralize }}</p>
+            </div>
+        </div>
+        <div class="info-kpi">
+            <span class="info-kpi-icon bg-sky-50 text-sky-700"><i class="fas fa-chalkboard-teacher"></i></span>
+            <div class="min-w-0">
+                <p class="text-xl font-bold text-stone-900 leading-tight">{{ total_profesores }}</p>
+                <p class="text-xs text-stone-500">Profesor{{ total_profesores|pluralize:"es" }}</p>
+            </div>
+        </div>
+        <div class="info-kpi">
+            <span class="info-kpi-icon bg-emerald-50 text-emerald-700"><i class="fas fa-users"></i></span>
+            <div class="min-w-0">
+                <p class="text-xl font-bold text-stone-900 leading-tight">{{ total_estudiantes }}</p>
+                <p class="text-xs text-stone-500">Estudiante{{ total_estudiantes|pluralize }}</p>
+            </div>
+        </div>
+        <div class="info-kpi">
+            <span class="info-kpi-icon bg-stone-100 text-stone-700"><i class="fas fa-door-open"></i></span>
+            <div class="min-w-0">
+                <p class="text-xl font-bold text-stone-900 leading-tight">{{ total_salones }}</p>
+                <p class="text-xs text-stone-500">Salon{{ total_salones|pluralize:"es" }}</p>
+            </div>
+        </div>
+    </div>
+
+    {% if pendientes %}
+    <section class="card p-5 border border-amber-200 bg-amber-50/50">
+        <h2 class="text-lg font-semibold text-stone-900">Qué falta por completar</h2>
+        <p class="text-sm text-stone-600 mt-1">{{ pendientes|length }} punto{{ pendientes|length|pluralize }} pendiente{{ pendientes|length|pluralize }}.</p>
+        <ul class="mt-4 space-y-2" role="list">
+            {% for item in pendientes %}
+            <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-white/80 border border-amber-100 px-3 py-2">
+                <span class="text-sm text-stone-800 flex items-start gap-2 min-w-0">
+                    <i class="fas fa-circle-exclamation text-amber-600 mt-0.5" aria-hidden="true"></i>
+                    <span class="min-w-0">{{ item.texto }}</span>
+                </span>
+                {% if item.accion %}
+                <a href="{{ item.accion }}" class="btn-outline px-3 py-1.5 text-xs font-medium shrink-0">{{ item.accion_texto|default:"Resolver" }}</a>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% else %}
+    <section class="card p-5 border border-emerald-200 bg-emerald-50/50">
+        <h2 class="text-lg font-semibold text-stone-900 flex items-center gap-2">
+            <i class="fas fa-circle-check text-emerald-600" aria-hidden="true"></i>
+            Todo al día
+        </h2>
+        <p class="text-sm text-stone-700 mt-1">No hay datos pendientes en esta sede.</p>
+    </section>
+    {% endif %}
+
+    <section class="card p-5">
+        <h2 class="text-lg font-semibold text-stone-900">Datos de la sede</h2>
+        <dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Dirección</dt>
+                <dd class="mt-1 text-stone-900">{% if sede.direccion %}{{ sede.direccion }}{% else %}<span class="text-amber-700">Falta registrar</span>{% endif %}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Ciudad y departamento</dt>
+                <dd class="mt-1 text-stone-900">{% if sede.ubicacion_completa %}{{ sede.ubicacion_completa }}{% else %}<span class="text-amber-700">Falta registrar</span>{% endif %}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Teléfono</dt>
+                <dd class="mt-1 text-stone-900">{% if sede.telefono %}{{ sede.telefono }}{% else %}<span class="text-amber-700">Falta registrar</span>{% endif %}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-medium text-stone-500">Correo</dt>
+                <dd class="mt-1 text-stone-900 break-all">{% if sede.email %}{{ sede.email }}{% else %}<span class="text-amber-700">Falta registrar</span>{% endif %}</dd>
+            </div>
+            {% if sede.descripcion %}
+            <div class="sm:col-span-2">
+                <dt class="text-xs font-medium text-stone-500">Descripción</dt>
+                <dd class="mt-1 text-stone-900 whitespace-pre-line">{{ sede.descripcion }}</dd>
+            </div>
+            {% endif %}
+        </dl>
+    </section>
+
+    <section class="card p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-lg font-semibold text-stone-900">Equipo de coordinación</h2>
+                <p class="text-sm text-stone-600 mt-1">Áreas cubiertas y quién responde por cada una.</p>
+            </div>
+            <a href="{% url 'core:coordinador_sede_equipo' sede.id %}" class="btn-outline px-4 py-2 text-sm font-medium">Gestionar equipo</a>
+        </div>
+
+        <div class="mt-4 rounded-lg border border-stone-200 bg-stone-50/70 px-3 py-2 text-sm">
+            <span class="text-xs font-medium text-stone-500">Coordinador de sede:</span>
+            {% if coordinador_sede %}
+                <span class="font-medium text-stone-900">{{ coordinador_sede.user.get_full_name|default:coordinador_sede.user.email }}</span>
+            {% else %}
+                <span class="text-amber-700 font-medium">Sin asignar</span>
+            {% endif %}
+        </div>
+
+        <ul class="mt-4 space-y-2" role="list">
+            {% for area in areas_estado %}
+            <li class="rounded-lg border border-stone-200 px-3 py-2.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <p class="text-sm font-medium text-stone-900">{{ area.nombre }}</p>
+                        <p class="text-xs text-stone-500">{{ area.detalle }}</p>
+                    </div>
+                    <span class="estado-pill {% if area.cubierta %}ok{% else %}falta{% endif %}">
+                        {% if area.cubierta %}Cubierta{% else %}Sin responsable{% endif %}
+                    </span>
+                </div>
+                {% if area.responsables %}
+                <p class="mt-2 text-xs text-stone-600">
+                    {% for r in area.responsables %}{{ r.user.get_full_name|default:r.user.email }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                </p>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="card p-5">
+        <h2 class="text-lg font-semibold text-stone-900">Escuelas de la sede</h2>
+        {% if escuelas %}
+        <ul class="mt-4 divide-y divide-stone-200 rounded-lg border border-stone-200 overflow-hidden" role="list">
+            {% for e in escuelas %}
+            <li class="px-3 py-3 bg-white">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-sm font-medium text-stone-900">{{ e.nombre }}</p>
+                        <p class="text-xs text-stone-500 mt-0.5">{{ e.anio }} · Ciclo {{ e.ciclo }} · {{ e.get_modalidad_display }}</p>
+                        <p class="text-xs text-stone-600 mt-1">
+                            Maestro:
+                            {% if e.maestro %}{{ e.maestro.user.get_full_name|default:e.maestro.user.email }}{% else %}<span class="text-amber-700">sin asignar</span>{% endif %}
+                        </p>
+                    </div>
+                    <div class="text-xs text-stone-600 text-right shrink-0 space-y-0.5">
+                        <p>
+                            {% if e.fecha_inicio and e.fecha_fin %}
+                                {{ e.fecha_inicio|date:"d/m/Y" }} – {{ e.fecha_fin|date:"d/m/Y" }}
+                            {% else %}
+                                <span class="text-amber-700">Fechas sin definir</span>
+                            {% endif %}
+                        </p>
+                        <p>
+                            {% if e.horario %}{{ e.horario }}{% else %}<span class="text-amber-700">Horario sin definir</span>{% endif %}
+                        </p>
+                        <p>{% if e.tiene_cupo_definido %}Cupo {{ e.cupo_maximo }}{% else %}Cupos indefinidos{% endif %}</p>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="mt-4 text-sm text-stone-600">Todavía no hay escuelas activas en esta sede.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

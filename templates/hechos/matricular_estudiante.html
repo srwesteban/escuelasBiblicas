@@ -64,6 +64,43 @@
     @keyframes doc-spin-matricula {
         to { transform: rotate(360deg); }
     }
+    .doc-field-wrap {
+        position: relative;
+    }
+    .doc-input-icon {
+        position: absolute;
+        left: 0.9rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: hsl(var(--muted-foreground));
+        pointer-events: none;
+        font-size: 0.85rem;
+    }
+    .matricula-input.has-icon {
+        padding-left: 2.4rem;
+    }
+    .selected-student-card {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border-radius: 0.75rem;
+        border: 1px solid hsl(142.1 76.2% 36.3% / 0.3);
+        background: hsl(142.1 76.2% 36.3% / 0.08);
+        padding: 0.75rem 1rem;
+    }
+    .selected-student-avatar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 9999px;
+        background: hsl(142.1 76.2% 36.3%);
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
 </style>
 {% endblock %}
 
@@ -82,16 +119,71 @@
             <p class="text-stone-600 mt-1 text-sm sm:text-base">Inscribir en un curso de la sede.</p>
             {% endif %}
         </div>
-        <a href="{{ volver_url }}" class="btn-outline px-4 py-2.5 text-sm font-medium shrink-0 inline-flex items-center justify-center">
-            <i class="fas fa-arrow-left mr-2"></i>Volver
-        </a>
+        <div class="flex items-center gap-2 shrink-0">
+            {% if matricula_escuela_simple %}
+            <button type="button" id="open-tour" title="Ver tutorial" class="inline-flex items-center justify-center h-10 w-10 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-100">
+                <i class="fas fa-question"></i>
+            </button>
+            {% endif %}
+            <a href="{{ volver_url }}" class="btn-outline px-4 py-2.5 text-sm font-medium inline-flex items-center justify-center">
+                <i class="fas fa-arrow-left mr-2"></i>Volver
+            </a>
+        </div>
     </div>
+
+    {% if escuela_matricular %}
+    <div id="tour-resumen-escuela" class="card p-4 sm:p-5 border-stone-200 bg-stone-50/50">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-stone-900">{{ escuela_matricular.titulo_tarjeta }}</p>
+                <p class="text-xs text-stone-500 mt-0.5">
+                    {{ escuela_matricular.estudiantes_inscritos }} estudiante{{ escuela_matricular.estudiantes_inscritos|pluralize:"s" }}
+                    {% if escuela_matricular.tiene_cupo_definido %}
+                        · cupo {{ escuela_matricular.cupo_maximo }}
+                    {% else %}
+                        · cupos indefinidos
+                    {% endif %}
+                    {% if escuela_matricular.aula %}<span class="text-stone-300 mx-1">·</span>{{ escuela_matricular.aula }}{% endif %}
+                </p>
+            </div>
+            {% if escuela_matricular.tiene_cupo_definido %}
+            <span class="badge {% if escuela_matricular.cupos_disponibles <= 3 %}badge-warning{% else %}badge-success{% endif %}">
+                {{ escuela_matricular.cupos_disponibles }} cupo{{ escuela_matricular.cupos_disponibles|pluralize }} disponible{{ escuela_matricular.cupos_disponibles|pluralize }}
+            </span>
+            {% else %}
+            <span class="badge badge-success">Cupos indefinidos</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
     {% if matricula_escuela_simple %}
     {% if not puede_matricula_escuela_simple %}
     {% include 'hechos/_matricular_estudiante_simple_empty_ediciones.html' %}
     {% else %}
     {% include 'hechos/_matricular_estudiante_simple_form_inner.html' %}
+    {% endif %}
+
+    {% if recientes_matriculados %}
+    <div id="tour-recientes-matriculados" class="card p-4 sm:p-5 border-stone-200">
+        <h2 class="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-3">Matriculados recientemente</h2>
+        <ul class="space-y-2">
+            {% for mat in recientes_matriculados %}
+            <li class="flex items-center gap-2 text-sm">
+                <i class="fas fa-circle-check text-emerald-600 text-xs" aria-hidden="true"></i>
+                <span class="min-w-0 text-stone-800">
+                    {{ mat.estudiante.user.get_full_name }}
+                    {% if mat.estudiante.numero_documento %}
+                    <span class="text-stone-500">· Doc. {{ mat.estudiante.numero_documento }}</span>
+                    {% elif mat.estudiante.user.documento_identidad %}
+                    <span class="text-stone-500">· Doc. {{ mat.estudiante.user.documento_identidad }}</span>
+                    {% endif %}
+                </span>
+                <span class="text-stone-400 text-xs ml-auto shrink-0">{{ mat.fecha_matricula|date:"d/m H:i" }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
     {% endif %}
 
     {% else %}
@@ -110,7 +202,7 @@
                         <select name="estudiante" id="estudiante" required class="input matricula-input w-full mt-1.5">
                             <option value="">Elegir…</option>
                             {% for estudiante in estudiantes %}
-                            <option value="{{ estudiante.id }}">{{ estudiante.user.get_full_name }} ({{ estudiante.codigo_estudiante }})</option>
+                            <option value="{{ estudiante.id }}">{{ estudiante.user.get_full_name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -148,5 +240,42 @@ if (fechaMat) fechaMat.value = new Date().toISOString().split('T')[0];
 </script>
 {% else %}
 {% include 'hechos/_matricular_estudiante_simple_scripts.html' %}
+
+<script src="{% static 'js/site-tour.js' %}"></script>
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                selector: '#tour-resumen-escuela',
+                title: 'Resumen de la escuela',
+                text: 'Cuántos estudiantes ya están inscritos, el cupo (o «indefinidos» si no se fijó un límite) y el salón asignado, si hay uno. La insignia de la derecha te avisa cuando quedan pocos cupos.'
+            },
+            {
+                selector: '#tour-doc-campo',
+                title: 'Busca por documento',
+                text: 'Escribe entre 3 y 15 caracteres del documento (cédula, tarjeta de identidad, extranjería, pasaporte…): la búsqueda es en todo el sistema, no solo tu sede, y va filtrando mientras escribes. Si aparece la persona en la lista, tócala y se completa su nombre automáticamente, mostrando una tarjeta verde de confirmación con un enlace «Cambiar» por si te equivocaste. Si no hay coincidencias, aparece un aviso ámbar de «Matrícula manual»: significa que es un documento nuevo y debés escribir el nombre completo abajo.'
+            },
+            {
+                selector: '#tour-nombre-completo',
+                title: 'Nombre completo',
+                text: 'Se completa solo cuando eliges a alguien de la lista de sugerencias. Solo tenés que escribirlo a mano cuando el documento es nuevo (matrícula manual) o cuando decidís no elegir ninguna de las coincidencias sugeridas. En matrícula manual también aparece un celular opcional.'
+            },
+            {
+                selector: '#tour-confirmar-matricula',
+                title: 'Confirmar la matrícula',
+                text: 'Si el documento es nuevo, el sistema crea la cuenta del estudiante automáticamente y su contraseña inicial queda igual a su número de documento (avísale para que la cambie luego). Al tocar «Matricular» quedará inscrito en esta escuela de inmediato.'
+            },
+            {
+                selector: '#tour-recientes-matriculados',
+                title: 'Matriculados recientemente',
+                text: 'Después de matricular a alguien, la página vuelve aquí mismo (no te saca a otra pantalla) con el campo de documento listo para el siguiente. Esta lista va sumando, con hora, a quiénes matriculaste en esta sesión, para que puedas confirmar de un vistazo sin perder el hilo.'
+            }
+        ]);
+    });
+})();
+</script>
 {% endif %}
 {% endblock %}

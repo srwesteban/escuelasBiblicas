@@ -15,8 +15,8 @@
             </p>
         </div>
         <div class="flex items-center space-x-3">
-            <a href="{% url 'hechos:detalle_curso' curso.id %}" class="btn-outline px-4 py-2 text-sm font-medium">
-                <i class="fas fa-arrow-left mr-2"></i>Volver al Curso
+            <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                <i class="fas fa-arrow-left mr-2"></i>Volver a mis escuelas
             </a>
         </div>
     </div>
@@ -114,7 +114,7 @@
             </div>
             
             <div class="flex items-center space-x-3">
-                <a href="{% url 'hechos:detalle_curso' curso.id %}" class="btn-outline px-4 py-2 text-sm font-medium">
+                <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="btn-outline px-4 py-2 text-sm font-medium">
                     <i class="fas fa-times mr-2"></i>Cancelar
                 </a>
                 <button type="submit" class="btn-primary px-6 py-2 text-sm font-medium">

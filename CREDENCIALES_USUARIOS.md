@@ -14,8 +14,6 @@ Ejecuta `python manage.py seed_local_data` para crear una base local de pruebas 
 - **Admin Hechos**: `hechos.admin1@local.test`, `hechos.admin2@local.test`
 - **Profesores**: `profesor1@local.test`, `profesor2@local.test`
 - **Estudiantes**: `estudiante1@local.test`, `estudiante2@local.test`
-- **Admin Guias**: `guias.admin1@local.test`, `guias.admin2@local.test`
-- **Usuarios Guias**: `guias.user1@local.test`, `guias.user2@local.test`
 
 ---
 
@@ -42,49 +40,6 @@ Ejecuta `python manage.py seed_local_data` para crear una base local de pruebas 
 - **Rol**: Estudiante
 - **Sede**: Sede Central
 - **Acceso**: Cursos matriculados, notas, asistencia
-
----
-
-## 👥 **APP GUIAS - PERSONAS NUEVAS**
-
-### 🔐 **Administradores de Guias**
-- **Email**: `admin@guias.com`
-- **Contraseña**: `password123`
-- **Rol**: Admin de Aplicación
-- **Acceso**: Gestión completa de personas nuevas, eventos y ministerios
-
-- **Email**: `coordinador@guias.com`
-- **Contraseña**: `password123`
-- **Rol**: Admin de Aplicación
-- **Acceso**: Gestión completa de personas nuevas, eventos y ministerios
-
-### 👤 **Usuario de Guias**
-- **Email**: `voluntario@guias.com`
-- **Contraseña**: `password123`
-- **Rol**: Usuario
-- **Acceso**: Ver y editar personas, agregar seguimientos
-
-### 📊 **Datos de Prueba Guias**
-- **10 personas nuevas** registradas
-- **1 sede** (Sede Central)
-- **Permisos asignados** correctamente
-- **Dashboard dinámico** según permisos del usuario
-
-### 🎯 **Funcionalidades Guias**
-- ✅ **Dashboard** con estadísticas en tiempo real
-- ✅ **Registro de personas nuevas** con formulario completo
-- ✅ **Lista de personas** con filtros y búsqueda
-- ✅ **Sistema de seguimiento** para cada persona
-- ✅ **Gestión de eventos especiales** (bautismos, clases, etc.)
-- ✅ **Gestión de ministerios** disponibles
-- ✅ **Datos reutilizables** para otras aplicaciones
-
-### 🔗 **URLs de Guias**
-- **Dashboard**: `http://localhost:8000/guias/`
-- **Lista de Personas**: `http://localhost:8000/guias/personas/`
-- **Nueva Persona**: `http://localhost:8000/guias/personas/crear/`
-- **Eventos**: `http://localhost:8000/guias/eventos/`
-- **Ministerios**: `http://localhost:8000/guias/ministerios/`
 
 ---
 
@@ -223,17 +178,5 @@ Para gestión global del sistema:
 2. **Explorar** el dashboard central
 3. **Acceder** al panel de administración Django
 4. **Gestionar** sedes y usuarios globalmente
-
-### **App Guias (Personas Nuevas)**
-Para probar el sistema de Guias:
-
-1. **Iniciar** con **Admin de Guias** (`admin@guias.com`)
-2. **Explorar** el dashboard de Guias con estadísticas
-3. **Revisar** la lista de personas de prueba
-4. **Crear** una nueva persona con el formulario completo
-5. **Probar** el sistema de seguimiento
-6. **Cambiar** a **Usuario de Guias** (`voluntario@guias.com`)
-7. **Verificar** permisos limitados según el rol
-8. **Explorar** gestión de eventos y ministerios
 
 **¡Disfruta explorando HechosHub!** 🎉

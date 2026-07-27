@@ -32,7 +32,7 @@ class Command(BaseCommand):
             estudiantes_sede = Estudiante.objects.filter(sede=sede, is_active=True)
             self.stdout.write(f"\n📚 Estudiantes en {sede.nombre}: {estudiantes_sede.count()}")
             for estudiante in estudiantes_sede:
-                self.stdout.write(f"  - {estudiante.user.get_full_name()} ({estudiante.codigo_estudiante})")
+                self.stdout.write(f"  - {estudiante.user.get_full_name()} ({estudiante.user.email})")
         
         # Verificar usuarios sin sede
         usuarios_sin_sede = User.objects.filter(sede__isnull=True)

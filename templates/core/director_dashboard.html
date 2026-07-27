@@ -1,4 +1,5 @@
 {% extends 'base_modern.html' %}
+{% load static %}
 
 {% block title %}Director - Hechos Hub{% endblock %}
 
@@ -50,41 +51,90 @@
         font-size: 1.15rem;
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.07), 0 0 0 1px rgba(120, 113, 108, 0.14);
     }
+    .sede-card.is-inactive .sede-thumb { filter: grayscale(60%); opacity: 0.75; }
+    .sede-card.is-inactive { background: rgba(250, 250, 249, 0.6); }
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 9999px;
+        padding: 0.1rem 0.6rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        line-height: 1.4rem;
+    }
+    .status-pill.activa { background: rgba(16, 185, 129, 0.12); color: #047857; }
+    .status-pill.inactiva { background: rgba(120, 113, 108, 0.14); color: #57534e; }
+    .status-pill .dot { width: 0.4rem; height: 0.4rem; border-radius: 9999px; background: currentColor; }
+    .seg-toggle {
+        display: inline-flex;
+        border-radius: 9999px;
+        background: #f5f5f4;
+        border: 1px solid #e7e5e4;
+        padding: 0.2rem;
+        gap: 0.15rem;
+    }
+    .seg-toggle a {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.4rem 0.9rem;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #57534e;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+    .seg-toggle a:hover { color: #292524; }
+    .seg-toggle a.is-active { background: #1c1917; color: #fff; }
+    .seg-toggle a .count { opacity: 0.7; font-weight: 500; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between gap-2">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Sedes de Hechos</h1>
             <p class="text-gray-600 mt-1">Crea sedes y entra a cada una para administrar sus coordinadores.</p>
         </div>
-        <a href="{% url 'core:sede_create' %}" class="btn-primary px-4 py-2 text-sm font-medium">
-            <i class="fas fa-plus mr-2"></i>Nueva sede
-        </a>
-    </div>
-
-    <div class="rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="min-w-0">
-            <p class="text-sm font-semibold text-stone-900">Directorio de profesores</p>
-            <p class="text-xs text-stone-600 mt-0.5">Busca y edita datos de cualquier sede desde un solo lugar.</p>
+        <div class="flex items-center gap-2 shrink-0">
+            <button type="button" id="open-tour" title="Ver tutorial" class="inline-flex items-center justify-center h-10 w-10 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-100">
+                <i class="fas fa-question"></i>
+            </button>
+            <a href="{% url 'core:sede_create' %}" class="btn-primary px-4 py-2 text-sm font-medium">
+                <i class="fas fa-plus mr-2"></i>Nueva sede
+            </a>
         </div>
-        <a href="{% url 'core:director_profesores' %}" class="btn-primary px-4 py-2 text-sm font-medium shrink-0 text-center">
-            Abrir directorio
-        </a>
     </div>
 
-    <div class="card p-5 space-y-4">
-        <div>
-            <p class="text-sm font-semibold text-stone-900">Buscar sede</p>
-            <p class="text-xs text-stone-600 mt-0.5">Elegí una ciudad con sedes o buscá por nombre. Solo se muestran las ciudades donde ya hay sedes.</p>
+    <div class="card p-5 space-y-4" id="tour-buscador">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <p class="text-sm font-semibold text-stone-900">Buscar sede</p>
+                <p class="text-xs text-stone-600 mt-0.5">Las eliminadas quedan en «Inactivas», no desaparecen.</p>
+            </div>
+            <div class="seg-toggle shrink-0">
+                <a href="{% url 'core:director_dashboard' %}" class="{% if not ver_inactivas %}is-active{% endif %}">
+                    Activas <span class="count">{{ total_activas }}</span>
+                </a>
+                <a href="?estado=inactivas" class="{% if ver_inactivas %}is-active{% endif %}">
+                    Inactivas <span class="count">{{ total_inactivas }}</span>
+                </a>
+            </div>
         </div>
 
         {% if ciudades_disponibles %}
         <div class="flex flex-wrap gap-2">
+            <a href="{% if ver_inactivas %}?estado=inactivas{% else %}{% url 'core:director_dashboard' %}{% endif %}"
+               class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition
+                      {% if not hay_filtro %}border-amber-500 bg-amber-50 text-amber-800{% else %}border-stone-300 bg-white text-stone-700 hover:border-amber-400 hover:bg-amber-50/50{% endif %}">
+                <i class="fas fa-list text-xs opacity-70"></i>
+                <span>Todas</span>
+                <span class="rounded-full bg-stone-100 px-1.5 text-xs text-stone-600">{{ total_sedes }}</span>
+            </a>
             {% for chip in ciudades_disponibles %}
-            <a href="?dep={{ chip.dep|urlencode }}&ciudad={{ chip.ciudad|urlencode }}"
+            <a href="?{% if ver_inactivas %}estado=inactivas&amp;{% endif %}dep={{ chip.dep|urlencode }}&amp;ciudad={{ chip.ciudad|urlencode }}"
                class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition
                       {% if chip.activo %}border-amber-500 bg-amber-50 text-amber-800{% else %}border-stone-300 bg-white text-stone-700 hover:border-amber-400 hover:bg-amber-50/50{% endif %}">
                 <i class="fas fa-map-marker-alt text-xs opacity-70"></i>
@@ -93,33 +143,37 @@
             </a>
             {% endfor %}
         </div>
-        {% else %}
-        <p class="text-sm text-stone-500">Todavía no hay sedes con ciudad definida.</p>
+        {% elif total_sedes %}
+        <p class="text-sm text-stone-500">Todavía no hay sedes con ciudad definida en este listado.</p>
         {% endif %}
 
         <form method="get" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {% if ver_inactivas %}<input type="hidden" name="estado" value="inactivas">{% endif %}
             <input type="search" name="q" value="{{ q }}" placeholder="Buscar sede por nombre o dirección"
                    class="w-full sm:max-w-xs rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 shadow-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500">
             <div class="flex items-center gap-2">
                 <button type="submit" class="btn-primary px-4 py-2 text-sm font-medium">Buscar</button>
                 {% if hay_filtro %}
-                <a href="{% url 'core:director_dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium">Quitar filtro</a>
+                <a href="{% if ver_inactivas %}?estado=inactivas{% else %}{% url 'core:director_dashboard' %}{% endif %}" class="btn-outline px-4 py-2 text-sm font-medium">Quitar filtro</a>
                 {% endif %}
             </div>
         </form>
     </div>
 
-    {% if not hay_filtro %}
-    <div class="card p-12 text-center">
-        <div class="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-map-location-dot text-amber-500 text-2xl"></i>
-        </div>
-        <h3 class="text-lg font-medium text-gray-900 mb-2">Elegí una ciudad para ver sus sedes</h3>
-        <p class="text-gray-600">Tocá uno de los botones de ciudad de arriba o usá el buscador. Hay {{ total_sedes }} sede{{ total_sedes|pluralize }} en total.</p>
-    </div>
-    {% else %}
-    <div class="space-y-10">
-        <p class="text-sm text-stone-600">{{ total_resultados }} sede{{ total_resultados|pluralize }} encontrada{{ total_resultados|pluralize }}.</p>
+    <div class="space-y-10" id="tour-lista-sedes">
+        <p class="text-sm text-stone-600">
+            {% if hay_filtro %}
+                {{ total_resultados }} sede{{ total_resultados|pluralize }} encontrada{{ total_resultados|pluralize }}
+            {% elif ver_inactivas %}
+                {{ total_inactivas }} sede{{ total_inactivas|pluralize }} inactiva{{ total_inactivas|pluralize }}
+            {% else %}
+                {{ total_activas }} sede{{ total_activas|pluralize }} activa{{ total_activas|pluralize }}
+            {% endif %}
+            {% if page_obj.paginator.count %}
+            <span class="text-stone-400">·</span>
+            mostrando {{ page_obj.start_index }}–{{ page_obj.end_index }}
+            {% endif %}
+        </p>
         {% for grupo in sedes_por_ubicacion %}
         <section class="space-y-4">
             <h2 class="text-lg font-semibold text-stone-800 border-b border-stone-200 pb-2">
@@ -127,7 +181,7 @@
             </h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {% for item in grupo.items %}
-            <div class="card p-6">
+            <div class="card sede-card p-6 {% if not item.sede.is_active %}is-inactive{% endif %}">
                 <div class="flex items-start justify-between gap-4">
                     <div class="flex items-start gap-4">
                         <div class="sede-thumb">
@@ -147,8 +201,9 @@
                             <h3 class="text-xl font-semibold text-gray-900">{{ item.sede.titulo_con_ciudad }}</h3>
                             <p class="text-sm text-gray-600 mt-1">{{ item.sede.direccion|truncatechars:90 }}</p>
                             <div class="mt-3 flex items-center gap-3 text-sm text-gray-500">
-                                <span>{{ item.coordinadores_count }} coordinador{{ item.coordinadores_count|pluralize:"es" }}</span>
-                                <span>{% if item.sede.is_active %}Activa{% else %}Inactiva{% endif %}</span>
+                                <span class="status-pill {% if item.sede.is_active %}activa{% else %}inactiva{% endif %}">
+                                    <span class="dot"></span>{% if item.sede.is_active %}Activa{% else %}Inactiva{% endif %}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -158,23 +213,6 @@
                         </a>
                     </div>
                 </div>
-
-                {% if item.coordinadores %}
-                    <div class="mt-5 border-t border-stone-200 pt-4">
-                        <p class="text-sm font-medium text-gray-900 mb-3">Coordinadores</p>
-                        <div class="space-y-2">
-                            {% for coordinador in item.coordinadores %}
-                                <div class="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2">
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-900">{{ coordinador.user.get_full_name }}</div>
-                                        <div class="text-xs text-gray-500">{{ coordinador.user.get_full_name|default:coordinador.user.email }} · {{ coordinador.cargo }}</div>
-                                    </div>
-                                    <span class="text-xs text-gray-500">{{ coordinador.user.email }}</span>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endif %}
             </div>
                 {% endfor %}
             </div>
@@ -191,7 +229,44 @@
                 </a>
             </div>
         {% endfor %}
+
+        {% if page_obj.has_other_pages %}
+        <nav class="flex flex-wrap items-center justify-between gap-3 text-sm pt-2" aria-label="Paginación">
+            <div class="text-stone-500">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</div>
+            <div class="flex flex-wrap gap-2">
+                {% if page_obj.has_previous %}
+                <a class="btn-outline px-3 py-1.5 text-sm font-medium"
+                   href="?page={{ page_obj.previous_page_number }}{{ filters_query }}">Anterior</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a class="btn-outline px-3 py-1.5 text-sm font-medium"
+                   href="?page={{ page_obj.next_page_number }}{{ filters_query }}">Siguiente</a>
+                {% endif %}
+            </div>
+        </nav>
+        {% endif %}
     </div>
-    {% endif %}
 </div>
+
+<script src="{% static 'js/site-tour.js' %}"></script>
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                selector: '#tour-buscador',
+                title: 'Buscar una sede',
+                text: 'Por defecto ves solo las activas. Tocá «Inactivas» para las eliminadas, o filtrá por ciudad / nombre.'
+            },
+            {
+                selector: '#tour-lista-sedes',
+                title: 'Las sedes',
+                text: 'Cada tarjeta muestra la sede. Tocá «Ingresar» para administrarla. Al desactivar una sede, pasa a Inactivas.'
+            }
+        ]);
+    });
+})();
+</script>
 {% endblock %}

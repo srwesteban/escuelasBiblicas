@@ -8,9 +8,50 @@
     const feedback = document.getElementById('doc-feedback' + suf);
     const nombreEl = document.getElementById('nombre_completo' + suf);
     const manualBlock = document.getElementById('manual-matricula-block' + suf);
+    const celularWrap = document.getElementById('manual-celular-wrap' + suf);
+    const celularEl = document.getElementById('celular' + suf);
     const buscandoEl = document.getElementById('doc-buscando' + suf);
     const docFieldWrap = input ? input.parentElement : null;
+    const selectedCard = document.getElementById('selected-student-card' + suf);
+    const selectedAvatar = document.getElementById('selected-student-avatar' + suf);
+    const selectedNombre = document.getElementById('selected-student-nombre' + suf);
+    const selectedDetalle = document.getElementById('selected-student-detalle' + suf);
+    const selectedClearBtn = document.getElementById('selected-student-clear' + suf);
     if (!input || !listEl || !feedback || !nombreEl || !docFieldWrap) return;
+
+    input.focus();
+
+    function hideSelectedCard() {
+        if (selectedCard) selectedCard.classList.add('hidden');
+    }
+
+    function setManualCelularVisible(on) {
+        if (celularWrap) celularWrap.classList.toggle('hidden', !on);
+        if (!on && celularEl) celularEl.value = '';
+    }
+
+    function showSelectedCard(r) {
+        if (!selectedCard || !selectedAvatar || !selectedNombre || !selectedDetalle) return;
+        var inicial = (r.nombre || '?').trim().charAt(0).toUpperCase() || '?';
+        selectedAvatar.textContent = inicial;
+        selectedNombre.textContent = r.nombre;
+        selectedDetalle.textContent = r.documento + (r.sede_registro ? ' · ' + r.sede_registro : '');
+        selectedCard.classList.remove('hidden');
+        setManualCelularVisible(false);
+    }
+
+    if (selectedClearBtn) {
+        selectedClearBtn.addEventListener('click', function () {
+            hideSelectedCard();
+            input.value = '';
+            nombreEl.value = '';
+            delete nombreEl.dataset.autofilled;
+            hideFb();
+            manualBlock.classList.add('hidden');
+            setManualCelularVisible(false);
+            input.focus();
+        });
+    }
 
     function setBuscando(on) {
         if (!buscandoEl) return;
@@ -82,9 +123,9 @@
         nombreEl.dataset.autofilled = '1';
         hideList();
         manualBlock.classList.add('hidden');
-        var t = 'Seleccionado: ' + r.nombre;
-        if (r.sede_registro) t += ' · ' + r.sede_registro;
-        show(t, 'bg-emerald-50 text-emerald-900');
+        setManualCelularVisible(false);
+        hideFb();
+        showSelectedCard(r);
     }
 
     function renderList(data) {
@@ -94,6 +135,7 @@
         if (data.invalid_q) {
             hideList();
             manualBlock.classList.add('hidden');
+            setManualCelularVisible(false);
             if (normalizeDocMatricula(input.value).length > 0 && normalizeDocMatricula(input.value).length < MIN_PREFIX) {
                 hideFb();
             } else if (normalizeDocMatricula(input.value).length >= MIN_PREFIX) {
@@ -106,9 +148,11 @@
             listEl.classList.add('hidden');
             setListOpen(false);
             manualBlock.classList.remove('hidden');
+            setManualCelularVisible(true);
             return;
         }
         manualBlock.classList.add('hidden');
+        setManualCelularVisible(false);
         results.forEach(function (r, idx) {
             var li = document.createElement('li');
             var btn = document.createElement('button');
@@ -156,6 +200,7 @@
             setBuscando(false);
             hideList();
             manualBlock.classList.add('hidden');
+            setManualCelularVisible(false);
             hideFb();
             return;
         }
@@ -168,6 +213,7 @@
             if (!data.ok) {
                 hideList();
                 manualBlock.classList.add('hidden');
+                setManualCelularVisible(false);
                 show(data.error || 'No se pudo cargar la lista.', 'bg-red-50 text-red-800');
                 return;
             }
@@ -176,6 +222,7 @@
             if (seq !== fetchSeq) return;
             hideList();
             manualBlock.classList.add('hidden');
+            setManualCelularVisible(false);
             show('Error de red.', 'bg-red-50 text-red-800');
         } finally {
             if (seq === fetchSeq) {
@@ -196,6 +243,7 @@
 
     input.addEventListener('input', function () {
         clampDocInput();
+        hideSelectedCard();
         const q = normalizeDocMatricula(input.value);
         if (q.length < MIN_PREFIX) {
             clearTimeout(debounceTimer);
@@ -203,6 +251,7 @@
             setBuscando(false);
             hideList();
             manualBlock.classList.add('hidden');
+            setManualCelularVisible(false);
             hideFb();
             return;
         }

@@ -1,6 +1,6 @@
 {% extends 'base_modern.html' %}
 
-{% block title %}{{ curso.nombre }} — {{ curso.escuela.nombre|default:"Mi curso" }}{% endblock %}
+{% block title %}{{ escuela.nombre|default:curso.escuela.nombre|default:curso.nombre }} — Mi escuela{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -60,28 +60,51 @@
     <nav class="text-sm text-stone-600" aria-label="Miga de pan">
         <a href="{% url 'hechos:mis_escuelas' %}" class="hover:text-stone-900">Mis escuelas</a>
         <span class="mx-2 text-stone-400">/</span>
-        <span class="text-stone-900 font-medium">{{ curso.escuela.nombre|default:curso.nombre }}</span>
+        <span class="text-stone-900 font-medium">{{ escuela.nombre|default:curso.escuela.nombre|default:curso.nombre }}</span>
     </nav>
 
     <header class="aula-estudiante-hero">
         <div class="relative z-10">
-            <p class="text-xs font-semibold uppercase tracking-wider text-sky-200/90">Tu curso matriculado</p>
-            <h1 class="mt-1 text-2xl font-bold text-white">{{ curso.nombre }}</h1>
-            {% if curso.escuela %}
+            <p class="text-xs font-semibold uppercase tracking-wider text-sky-200/90">Tu escuela matriculada</p>
+            <h1 class="mt-1 text-2xl font-bold text-white">
+                {{ escuela.nombre|default:curso.escuela.nombre|default:curso.nombre }}
+                {% if profesor_contacto %}
+                <span class="font-semibold text-white/90"> ({{ profesor_contacto.user.get_full_name }})</span>
+                {% endif %}
+            </h1>
+            {% if escuela %}
             <p class="mt-2 text-sm text-slate-200/95">
-                {{ curso.escuela.nombre }} · {{ curso.escuela.anio }} · {{ curso.escuela.get_ciclo_display }}
+                {{ escuela.anio }} · {{ escuela.get_ciclo_display }}
+                {% if nivel_programa_linea %} · {{ nivel_programa_linea }}{% endif %}
             </p>
             {% endif %}
             <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
                 <span class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 font-medium text-white/95">
                     <i class="fas fa-location-dot text-amber-200"></i>{{ user_sede.nombre }}
                 </span>
-                {% if matricula.escuela.maestro %}
+                {% if escuela_horario_ui %}
                 <span class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-white/90">
-                    <i class="fas fa-chalkboard-teacher text-sky-200"></i>{{ matricula.escuela.maestro.user.get_full_name }}
+                    <i class="fas fa-clock text-sky-200"></i>{{ escuela_horario_ui }}
+                </span>
+                {% endif %}
+                {% if estado_final == 'aprobado' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 font-medium text-emerald-100">
+                    <i class="fas fa-circle-check"></i>Aprobado
+                </span>
+                {% elif estado_final == 'no_aprobado' %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-3 py-1 font-medium text-red-100">
+                    <i class="fas fa-circle-xmark"></i>No aprobado
                 </span>
                 {% endif %}
             </div>
+            {% if certificado_activo %}
+            <div class="mt-4">
+                <a href="{% url 'hechos:ver_certificado_escuela' escuela.id %}"
+                   class="inline-flex items-center gap-2 rounded-lg bg-amber-400 hover:bg-amber-300 px-4 py-2 text-sm font-semibold text-stone-900 shadow-sm">
+                    <i class="fas fa-certificate"></i>Ver mi certificado
+                </a>
+            </div>
+            {% endif %}
         </div>
     </header>
 
@@ -104,8 +127,120 @@
         </div>
     </div>
 
+    {% if escuela %}
+    <section class="card p-5 sm:p-6 border border-stone-200/80" aria-labelledby="info-escuela-titulo">
+        <div class="flex items-start gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800" aria-hidden="true">
+                <i class="fas fa-school"></i>
+            </span>
+            <div class="min-w-0 flex-1">
+                <h2 id="info-escuela-titulo" class="text-base font-semibold text-slate-900">Información de la escuela</h2>
+                <p class="text-sm text-stone-600 mt-0.5">Datos de la instancia en la que estás matriculado.</p>
+            </div>
+        </div>
+        <dl class="mt-5 space-y-3 text-sm">
+            <div>
+                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Horario</dt>
+                <dd class="mt-0.5 text-base font-medium text-slate-900">{% if escuela_horario_ui %}{{ escuela_horario_ui }}{% else %}Por definir{% endif %}</dd>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Ciclo</dt>
+                    <dd class="mt-0.5 text-slate-800">{{ escuela.anio }} · {{ escuela.get_ciclo_display }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Modalidad</dt>
+                    <dd class="mt-0.5 text-slate-800">{{ escuela.get_modalidad_display }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Fecha inicio – fin</dt>
+                    <dd class="mt-0.5 text-slate-800">
+                        {% if escuela.fecha_inicio and escuela.fecha_fin %}
+                            {{ escuela.fecha_inicio|date:"d/m/Y" }} – {{ escuela.fecha_fin|date:"d/m/Y" }}
+                        {% elif escuela.fecha_inicio %}
+                            Desde {{ escuela.fecha_inicio|date:"d/m/Y" }}
+                        {% elif escuela.fecha_fin %}
+                            Hasta {{ escuela.fecha_fin|date:"d/m/Y" }}
+                        {% else %}
+                            Por definir
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Salón</dt>
+                    <dd class="mt-0.5 text-slate-800">{% if escuela_aula_ui %}{{ escuela_aula_ui }}{% else %}Por definir{% endif %}</dd>
+                </div>
+                {% if nivel_programa_linea %}
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Nivel</dt>
+                    <dd class="mt-0.5 text-slate-800">{{ nivel_programa_linea }}</dd>
+                </div>
+                {% endif %}
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Sede</dt>
+                    <dd class="mt-0.5 text-slate-800">{{ user_sede.nombre }}</dd>
+                </div>
+            </div>
+            {% if escuela.descripcion %}
+            <div>
+                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Descripción</dt>
+                <dd class="mt-0.5 text-slate-800 whitespace-pre-line">{{ escuela.descripcion }}</dd>
+            </div>
+            {% endif %}
+        </dl>
+    </section>
+    {% endif %}
+
+    <section class="card p-5 sm:p-6 border border-stone-200/80" aria-labelledby="contacto-profesor-titulo">
+        <div class="flex items-start gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-800" aria-hidden="true">
+                <i class="fas fa-chalkboard-teacher"></i>
+            </span>
+            <div class="min-w-0 flex-1">
+                <h2 id="contacto-profesor-titulo" class="text-base font-semibold text-slate-900">Contacto del profesor</h2>
+                <p class="text-sm text-stone-600 mt-0.5">Datos para comunicarte con el docente de esta escuela.</p>
+            </div>
+        </div>
+        {% if profesor_contacto %}
+        <dl class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div>
+                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Nombre</dt>
+                <dd class="mt-0.5 font-medium text-slate-900">{{ profesor_contacto.user.get_full_name|default:profesor_contacto.user.username }}</dd>
+            </div>
+            {% if profesor_contacto.especialidad %}
+            <div>
+                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Especialidad</dt>
+                <dd class="mt-0.5 text-slate-800">{{ profesor_contacto.especialidad }}</dd>
+            </div>
+            {% endif %}
+            <div>
+                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Correo</dt>
+                <dd class="mt-0.5 text-slate-900 break-all">
+                    {% if profesor_contacto.user.email %}
+                    <a href="mailto:{{ profesor_contacto.user.email }}" class="text-sky-800 hover:underline underline-offset-2">{{ profesor_contacto.user.email }}</a>
+                    {% else %}
+                    <span class="text-stone-500">No registrado</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Celular</dt>
+                <dd class="mt-0.5 text-slate-900">
+                    {% if profesor_contacto.user.phone %}
+                    <a href="tel:{{ profesor_contacto.user.phone }}" class="text-sky-800 hover:underline underline-offset-2">{{ profesor_contacto.user.phone }}</a>
+                    {% else %}
+                    <span class="text-stone-500">No registrado</span>
+                    {% endif %}
+                </dd>
+            </div>
+        </dl>
+        {% else %}
+        <p class="mt-4 text-sm text-stone-600">Esta escuela aún no tiene profesor asignado.</p>
+        {% endif %}
+    </section>
+
     <div class="card border border-stone-200/80 overflow-hidden rounded-xl">
-        <div class="flex border-b border-stone-200 bg-stone-100/80" role="tablist" aria-label="Contenido del curso">
+        <div class="flex border-b border-stone-200 bg-stone-100/80" role="tablist" aria-label="Contenido de la escuela">
             <button type="button" class="curso-tab" role="tab" id="tab-curso-notas" aria-selected="true" aria-controls="panel-curso-notas" data-curso-tab="notas">
                 <i class="fas fa-clipboard-list text-amber-700 shrink-0" aria-hidden="true"></i>
                 <span>Calificaciones</span>
@@ -123,7 +258,7 @@
         <div id="panel-curso-notas" class="curso-tab-panel" role="tabpanel" aria-labelledby="tab-curso-notas" data-curso-panel="notas">
         <div class="border-b border-stone-100 bg-stone-50/40 px-5 py-3">
             <h2 class="text-base font-semibold text-slate-900">Mis calificaciones</h2>
-            <p class="text-sm text-stone-600 mt-0.5">Evaluaciones de <strong class="text-stone-800">{{ curso.nombre }}</strong> en tu sede.</p>
+            <p class="text-sm text-stone-600 mt-0.5">Evaluaciones de <strong class="text-stone-800">{{ escuela.nombre|default:curso.nombre }}</strong> en tu sede.</p>
         </div>
         <div class="p-0">
             {% if notas_curso %}
@@ -155,14 +290,9 @@
                     <i class="fas fa-clipboard-list text-xl"></i>
                 </div>
                 <p class="font-medium text-slate-900">Aún no hay calificaciones</p>
-                <p class="mt-1 max-w-sm mx-auto">Cuando el docente registre notas de este curso, aparecerán aquí.</p>
+                <p class="mt-1 max-w-sm mx-auto">Cuando el docente registre notas de esta escuela, aparecerán aquí.</p>
             </div>
             {% endif %}
-        </div>
-        <div class="border-t border-stone-100 px-5 py-3 bg-stone-50/40">
-            <a href="{% url 'hechos:notas_estudiante' %}" class="text-sm font-medium text-amber-800 hover:text-amber-950 hover:underline">
-                Ver todas mis notas en otros cursos <i class="fas fa-arrow-right ml-1 text-xs"></i>
-            </a>
         </div>
         </div>
 

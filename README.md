@@ -107,8 +107,6 @@ Despues de ejecutar `python manage.py seed_local_data`, todos los usuarios cread
 - **Admin Hechos**: `hechos.admin1@local.test`, `hechos.admin2@local.test`
 - **Profesores**: `profesor1@local.test`, `profesor2@local.test`
 - **Estudiantes**: `estudiante1@local.test`, `estudiante2@local.test`
-- **Admin Guias**: `guias.admin1@local.test`, `guias.admin2@local.test`
-- **Usuarios Guias**: `guias.user1@local.test`, `guias.user2@local.test`
 
 ### Primer Acceso
 1. Ve a http://localhost:8000

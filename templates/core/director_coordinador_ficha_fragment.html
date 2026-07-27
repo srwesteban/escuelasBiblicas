@@ -1,0 +1,52 @@
+{# Ficha personal de coordinador de equipo (solo lectura) para modal del Director #}
+<div class="space-y-6 text-left">
+    <section class="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+        <h3 class="text-base font-semibold text-stone-900 mb-4 pb-2 border-b border-stone-200">Información personal</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div>
+                <p class="text-xs font-medium text-stone-600">Nombre completo</p>
+                <p class="mt-1 text-sm text-stone-900">{{ coordinador.user.get_full_name|default:coordinador.user.username }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Correo</p>
+                <p class="mt-1 text-sm text-stone-900 break-all">{% if coordinador.user.email %}{{ coordinador.user.email }}{% else %}No especificado{% endif %}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Celular (WhatsApp)</p>
+                <p class="mt-1 text-sm text-stone-900">
+                    {% if coordinador.user.phone %}
+                        <a href="tel:{{ coordinador.user.phone }}" class="underline decoration-stone-300 underline-offset-2 hover:decoration-stone-600">{{ coordinador.user.phone }}</a>
+                    {% else %}
+                        No registrado
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Documento</p>
+                <p class="mt-1 text-sm font-mono text-stone-900">
+                    {% if coordinador.user.documento_identidad %}
+                        {% if coordinador.user.tipo_documento %}{{ coordinador.user.get_tipo_documento_display }} {% endif %}{{ coordinador.user.documento_identidad }}
+                    {% else %}
+                        Sin número registrado
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Rol</p>
+                <p class="mt-1 text-sm text-stone-900">{{ coordinador.roles_display }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Cargo</p>
+                <p class="mt-1 text-sm text-stone-900">{{ coordinador.cargo|default:"—" }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Estado</p>
+                <p class="mt-1 text-sm text-stone-900">{% if coordinador.is_active %}Activo{% else %}Inactivo{% endif %}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-stone-600">Sede</p>
+                <p class="mt-1 text-sm text-stone-900">{% if coordinador.sede %}{{ coordinador.sede.nombre }}{% else %}Sin sede{% endif %}</p>
+            </div>
+        </div>
+    </section>
+</div>

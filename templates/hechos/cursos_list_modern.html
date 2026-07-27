@@ -140,10 +140,6 @@
                         {% endif %}
                     </div>
                     <div class="flex items-center space-x-2">
-                        <a href="{% url 'hechos:detalle_curso' curso.id %}" 
-                           class="text-blue-600 hover:text-blue-900 text-sm" title="Ver detalles">
-                            <i class="fas fa-eye mr-1"></i>Ver
-                        </a>
                         {% if user.is_super_admin or user.admin_escuela_profile %}
                             <a href="{% url 'hechos:editar_curso' curso.id %}" 
                                class="text-green-600 hover:text-green-900 text-sm" title="Editar">

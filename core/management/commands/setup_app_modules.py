@@ -16,14 +16,6 @@ class Command(BaseCommand):
                 'icon': 'fas fa-graduation-cap',
                 'order': 1,
             },
-            {
-                'name': 'guias',
-                'display_name': 'Guias - Personas Nuevas',
-                'description': 'Registro y seguimiento de personas nuevas en la iglesia',
-                'url_name': 'guias:dashboard',
-                'icon': 'fas fa-user-plus',
-                'order': 2,
-            },
         ]
         
         for module_data in modules_data:

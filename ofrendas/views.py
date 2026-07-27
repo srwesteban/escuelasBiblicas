@@ -71,12 +71,12 @@ def registrar(request):
         sede=user_sede,
         maestro=profesor,
         is_active=True,
-    ).order_by("-updated_at", "-id")
+    ).vigentes().order_by("-updated_at", "-id")
 
     if not escuelas_qs.exists():
         messages.warning(
             request,
-            "Aún no tienes escuelas asignadas como maestro, por eso no puedes registrar ofrendas.",
+            "No tienes escuelas vigentes como maestro, por eso no puedes registrar ofrendas nuevas.",
         )
         return redirect("ofrendas:list")
 

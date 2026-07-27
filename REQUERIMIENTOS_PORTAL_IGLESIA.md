@@ -92,7 +92,6 @@ El sistema debe comportarse como una "universidad de iglesia":
 - sedes
 - estudiantes, profesores y admin escuela
 - rutas, cursos, clases, matriculas, asistencia y notas
-- modulo guias para seguimiento de personas
 
 ## Pendientes por Confirmar
 1. ¿La prioridad principal es escuela biblica, instituto, discipulado o todo junto?

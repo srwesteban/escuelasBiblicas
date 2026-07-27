@@ -10,24 +10,25 @@ from django.core.paginator import Paginator
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.html import json_script as html_json_script
 
-from core.colombia_geo import nombre_departamento
+from core.colombia_geo import (
+    ciudad_choices_for_departamento,
+    departamento_choices,
+    nombre_departamento,
+)
 from core.forms import (
     CoordinadorForm,
-    DirectorProfesorEditForm,
     EscuelaProgramaForm,
     EscuelaProgramaPlantillaForm,
     EscuelaProgramaPlantillaEditForm,
-    EscuelaSedeBasicaForm,
     NivelProgramaEditForm,
     NivelProgramaForm,
     NivelProgramaPlantillaEditForm,
     NivelProgramaPlantillaForm,
-    PastorSedeFormSet,
     SedeForm,
 )
 from .models import AppModule, Sede, UserAppPermission
@@ -92,12 +93,6 @@ def _escuela_programa_form_edit(sede, *args, **kwargs):
     )
 
 
-def _sync_cupo_escuela_desde_salon(escuela, capacidad: int) -> None:
-    """Cupo de la escuela operativa alineado a la capacidad del salón."""
-    escuela.cupo_maximo = max(0, int(capacidad or 0))
-    escuela.save(update_fields=['cupo_maximo', 'updated_at'])
-
-
 def _coordinador_sede_may_manage(request, sede):
     if request.user.is_super_admin():
         return True
@@ -112,11 +107,8 @@ def _coordinador_sede_may_manage(request, sede):
 
 def _allowed_tipos_coordinador(request, sede, editing):
     if request.user.is_super_admin():
-        return [
-            t[0]
-            for t in AdminEscuela.TipoCoordinador.choices
-            if t[0] != AdminEscuela.TipoCoordinador.COMBINADO
-        ]
+        # El Director solo gestiona el coordinador de sede desde /director/sedes/.
+        return [AdminEscuela.TipoCoordinador.SEDE]
     if not _coordinador_sede_may_manage(request, sede):
         return []
     if editing:
@@ -130,6 +122,15 @@ def _allowed_tipos_coordinador(request, sede, editing):
         AdminEscuela.TipoCoordinador.FINANCIERO,
         AdminEscuela.TipoCoordinador.LOGISTICO,
     ]
+
+
+def _active_coordinadores_sede_qs(sede):
+    return AdminEscuela.objects.filter(
+        sede=sede,
+        is_active=True,
+        user__is_active=True,
+        tipo_coordinador=AdminEscuela.TipoCoordinador.SEDE,
+    )
 
 
 def _coordinador_cancel_url(request, sede_id):
@@ -169,6 +170,19 @@ def _director_required(request):
     return True
 
 
+def _coordinador_sede_profile(user):
+    """Perfil de coordinador de sede activo (con sede), o None."""
+    p = getattr(user, 'admin_escuela_profile', None)
+    if (
+        p
+        and p.is_active
+        and p.sede_id
+        and p.tipo_coordinador == AdminEscuela.TipoCoordinador.SEDE
+    ):
+        return p
+    return None
+
+
 def _sede_ubicacion_label(sede):
     ciu = (sede.ciudad or "").strip()
     dep = (sede.departamento or "").strip()
@@ -200,10 +214,19 @@ def director_dashboard(request):
     dep_filtro = (request.GET.get('dep') or "").strip()
     ciudad_filtro = (request.GET.get('ciudad') or "").strip()
     q = (request.GET.get('q') or "").strip()
+    estado = (request.GET.get('estado') or "activas").strip().casefold()
+    if estado not in ("activas", "inactivas"):
+        estado = "activas"
+    ver_inactivas = estado == "inactivas"
     hay_filtro = bool(ciudad_filtro or dep_filtro or q)
 
-    sedes = list(Sede.objects.all())
-    sedes.sort(key=_sede_ubicacion_sort_key)
+    todas = list(Sede.objects.all())
+    todas.sort(key=_sede_ubicacion_sort_key)
+    total_activas = sum(1 for s in todas if s.is_active)
+    total_inactivas = len(todas) - total_activas
+
+    # Por defecto solo activas; con ?estado=inactivas solo las desactivadas.
+    sedes = [s for s in todas if (not s.is_active) is ver_inactivas]
 
     ciudades = OrderedDict()
     for sede in sedes:
@@ -244,29 +267,32 @@ def director_dashboard(request):
             if objetivo in _normaliza_texto(s.nombre) or objetivo in _normaliza_texto(s.direccion)
         ]
 
+    paginator = Paginator(sedes_filtradas, 8)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
     grupos = OrderedDict()
-    if hay_filtro:
-        for sede in sedes_filtradas:
-            label = _sede_ubicacion_label(sede)
-            coordinadores = AdminEscuela.objects.filter(sede=sede, is_active=True).select_related('user')
-            item = {
-                'sede': sede,
-                'coordinadores_count': coordinadores.count(),
-                'coordinadores': coordinadores[:3],
-            }
-            grupos.setdefault(label, []).append(item)
+    for sede in page_obj.object_list:
+        label = _sede_ubicacion_label(sede)
+        item = {'sede': sede}
+        grupos.setdefault(label, []).append(item)
 
     sedes_por_ubicacion = [{'label': label, 'items': items} for label, items in grupos.items()]
 
     context = {
         'sedes_por_ubicacion': sedes_por_ubicacion,
+        'page_obj': page_obj,
+        'filters_query': _querystring_without_page(request),
         'ciudades_disponibles': ciudades_disponibles,
         'hay_filtro': hay_filtro,
         'ciudad_filtro': ciudad_filtro,
         'dep_filtro': dep_filtro,
         'q': q,
+        'estado': estado,
+        'ver_inactivas': ver_inactivas,
         'total_sedes': len(sedes),
-        'total_resultados': len(sedes_filtradas) if hay_filtro else 0,
+        'total_activas': total_activas,
+        'total_inactivas': total_inactivas,
+        'total_resultados': len(sedes_filtradas),
     }
     return render(request, 'core/director_dashboard.html', context)
 
@@ -280,7 +306,8 @@ def _querystring_without_page(request):
 
 @login_required
 def director_profesores(request):
-    if not _director_required(request):
+    if not (request.user.is_super_admin() or _coordinador_sede_profile(request.user)):
+        messages.error(request, 'No tienes permisos para ver esta página.')
         return redirect("core:dashboard")
 
     qs = Profesor.objects.select_related("user", "sede").order_by(
@@ -316,53 +343,43 @@ def director_profesores(request):
 
 
 @login_required
-def director_profesor_edit(request, profesor_id):
-    if not _director_required(request):
-        return redirect("core:dashboard")
+def director_profesor_ficha_fragment(request, profesor_id):
+    """HTML parcial: ficha personal de profesor (solo lectura) para el modal del Director."""
+    if not (request.user.is_super_admin() or _coordinador_sede_profile(request.user)):
+        return HttpResponse("No autorizado", status=403, content_type="text/plain; charset=utf-8")
 
     profesor = get_object_or_404(
-        Profesor.objects.select_related("user"),
+        Profesor.objects.select_related("user", "sede"),
         pk=profesor_id,
     )
-    u = profesor.user
+    return render(
+        request,
+        "core/director_profesor_ficha_fragment.html",
+        {"profesor": profesor},
+    )
 
-    if request.method == "POST":
-        form = DirectorProfesorEditForm(request.POST, user_instance=u)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    form.apply_to(profesor)
-                messages.success(
-                    request,
-                    f"Se actualizó el profesor «{profesor.user.get_full_name() or profesor.user.username}».",
-                )
-                return redirect("core:director_profesores")
-            except IntegrityError as exc:
-                messages.error(request, f"No se pudo guardar (dato duplicado): {exc}")
-    else:
-        td = (u.tipo_documento or "").strip()
-        form = DirectorProfesorEditForm(
-            user_instance=u,
-            initial={
-                "first_name": u.first_name,
-                "last_name": u.last_name,
-                "email": u.email or "",
-                "phone": u.phone or "",
-                "tipo_documento": td if any(td == c[0] for c in User.TipoDocumento.choices) else "",
-                "documento_identidad": u.documento_identidad or "",
-                "sede": profesor.sede_id,
-                "especialidad": profesor.especialidad,
-                "experiencia_anos": profesor.experiencia_anos,
-                "biografia": profesor.biografia,
-                "is_active": profesor.is_active,
-            },
-        )
 
-    context = {
-        "profesor": profesor,
-        "form": form,
-    }
-    return render(request, "core/director_profesor_edit.html", context)
+@login_required
+def director_coordinador_ficha_fragment(request, sede_id, coordinador_id):
+    """HTML parcial: ficha personal de coordinador de equipo (solo lectura)."""
+    if not _director_required(request):
+        return HttpResponse("No autorizado", status=403, content_type="text/plain; charset=utf-8")
+
+    coordinador = get_object_or_404(
+        AdminEscuela.objects.select_related("user", "sede"),
+        pk=coordinador_id,
+        sede_id=sede_id,
+        is_active=True,
+        user__is_active=True,
+    )
+    if coordinador.tipo_coordinador == AdminEscuela.TipoCoordinador.SEDE:
+        return HttpResponse("No autorizado", status=403, content_type="text/plain; charset=utf-8")
+
+    return render(
+        request,
+        "core/director_coordinador_ficha_fragment.html",
+        {"coordinador": coordinador},
+    )
 
 
 def _parse_pk(raw):
@@ -477,30 +494,115 @@ def director_import_seguimiento(request):
     return render(request, 'core/director_import_seguimiento.html', context)
 
 
+def _asignar_coordinador_existente(user_id: int, sede: Sede) -> None:
+    """Asigna (o mueve) a un usuario ya registrado como coordinador de sede."""
+    user = User.objects.filter(pk=user_id).first()
+    if not user:
+        return
+    cargo = AdminEscuela.cargo_para_tipo(AdminEscuela.TipoCoordinador.SEDE, sede.nombre)
+    admin_profile = getattr(user, 'admin_escuela_profile', None)
+    if admin_profile is None:
+        AdminEscuela.objects.create(
+            user=user,
+            sede=sede,
+            tipo_coordinador=AdminEscuela.TipoCoordinador.SEDE,
+            cargo=cargo,
+            is_active=True,
+        )
+    else:
+        admin_profile.sede = sede
+        admin_profile.tipo_coordinador = AdminEscuela.TipoCoordinador.SEDE
+        admin_profile.cargo = cargo
+        admin_profile.is_active = True
+        admin_profile.save()
+    user.role = 'app_admin'
+    user.is_staff = True
+    user.save(update_fields=['role', 'is_staff'])
+
+
+@login_required
+def buscar_persona_coordinador(request):
+    """Busca coordinadores y profesores ya registrados (para asignar como coordinador de una sede nueva)."""
+    if not _director_required(request):
+        return JsonResponse({'results': []}, status=403)
+
+    q = (request.GET.get('q') or '').strip()
+    if len(q) < 2:
+        return JsonResponse({'results': []})
+
+    filtro = (
+        Q(user__first_name__icontains=q)
+        | Q(user__last_name__icontains=q)
+        | Q(user__documento_identidad__icontains=q)
+    )
+    personas = {}
+    for p in Profesor.objects.filter(filtro).select_related('user', 'sede')[:10]:
+        personas[p.user_id] = {
+            'user_id': p.user_id,
+            'nombre': p.user.get_full_name() or p.user.email or p.user.username,
+            'documento': p.user.documento_identidad or '',
+            'rol': 'Profesor',
+            'sede': p.sede.nombre if p.sede else '—',
+        }
+    for c in AdminEscuela.objects.filter(filtro).select_related('user', 'sede')[:10]:
+        personas[c.user_id] = {
+            'user_id': c.user_id,
+            'nombre': c.user.get_full_name() or c.user.email or c.user.username,
+            'documento': c.user.documento_identidad or '',
+            'rol': c.get_tipo_coordinador_display(),
+            'sede': c.sede.nombre if c.sede else '—',
+        }
+    return JsonResponse({'results': list(personas.values())[:10]})
+
+
 @login_required
 def sede_create(request):
     if not _director_required(request):
         return redirect('core:dashboard')
 
+    hechos_module = AppModule.objects.filter(name='hechos').first()
+    coordinador_form = None
+
     if request.method == 'POST':
         form = SedeForm(request.POST, request.FILES)
-        pastores_formset = PastorSedeFormSet(request.POST, request.FILES, prefix='pastores')
-        if form.is_valid() and pastores_formset.is_valid():
-            sede = form.save()
-            pastores_formset.instance = sede
-            pastores_formset.save()
+        coordinador_modo = (request.POST.get('coordinador_modo') or '').strip()
+        coordinador_user_id = (request.POST.get('coordinador_user_id') or '').strip()
+
+        coordinador_valido = True
+        if coordinador_modo == 'nuevo':
+            coordinador_form = CoordinadorForm(
+                request.POST,
+                request.FILES,
+                allowed_tipos=[AdminEscuela.TipoCoordinador.SEDE],
+                prefix='coord',
+            )
+            coordinador_valido = coordinador_form.is_valid()
+        elif coordinador_modo == 'existente':
+            coordinador_valido = coordinador_user_id.isdigit()
+            if not coordinador_valido:
+                messages.error(request, 'Selecciona una persona de la lista o agrega una nueva.')
+
+        if form.is_valid() and coordinador_valido:
+            with transaction.atomic():
+                sede = form.save()
+                if coordinador_modo == 'nuevo' and coordinador_form:
+                    coordinador_form.save(User, sede, hechos_module)
+                elif coordinador_modo == 'existente' and coordinador_user_id:
+                    _asignar_coordinador_existente(int(coordinador_user_id), sede)
             messages.success(request, f'Sede {sede.nombre} creada correctamente.')
             return redirect('core:director_sede_detail', sede_id=sede.id)
     else:
         form = SedeForm()
-        pastores_formset = PastorSedeFormSet(prefix='pastores')
+
+    if coordinador_form is None:
+        coordinador_form = CoordinadorForm(allowed_tipos=[AdminEscuela.TipoCoordinador.SEDE], prefix='coord')
 
     return render(
         request,
         'core/sede_form.html',
         {
             'form': form,
-            'pastores_formset': pastores_formset,
+            'coordinador_form': coordinador_form,
             'page_title': 'Crear sede',
         },
     )
@@ -515,23 +617,18 @@ def sede_edit(request, sede_id):
 
     if request.method == 'POST':
         form = SedeForm(request.POST, request.FILES, instance=sede)
-        pastores_formset = PastorSedeFormSet(request.POST, request.FILES, instance=sede, prefix='pastores')
-        if form.is_valid() and pastores_formset.is_valid():
+        if form.is_valid():
             sede = form.save()
-            pastores_formset.instance = sede
-            pastores_formset.save()
             messages.success(request, f'Sede {sede.nombre} actualizada correctamente.')
             return redirect('core:director_sede_detail', sede_id=sede.id)
     else:
         form = SedeForm(instance=sede)
-        pastores_formset = PastorSedeFormSet(instance=sede, prefix='pastores')
 
     return render(
         request,
         'core/sede_form.html',
         {
             'form': form,
-            'pastores_formset': pastores_formset,
             'page_title': 'Editar sede',
             'sede': sede,
         },
@@ -547,13 +644,26 @@ def sede_delete(request, sede_id):
     if request.method == 'POST':
         password = (request.POST.get('confirm_password') or '').strip()
         if not request.user.check_password(password):
-            messages.error(request, 'Contraseña incorrecta. La sede no se eliminó.')
+            messages.error(request, 'Contraseña incorrecta. La sede no se desactivó.')
             return redirect('core:director_sede_detail', sede_id=sede.id)
         sede.is_active = False
         sede.save(update_fields=['is_active'])
-        messages.success(request, f'Sede {sede.nombre} eliminada correctamente.')
+        messages.success(request, f'Sede {sede.nombre} desactivada correctamente.')
         return redirect('core:director_dashboard')
     return redirect('core:director_dashboard')
+
+
+@login_required
+def sede_reactivate(request, sede_id):
+    if not _director_required(request):
+        return redirect('core:dashboard')
+
+    sede = get_object_or_404(Sede, id=sede_id)
+    if request.method == 'POST':
+        sede.is_active = True
+        sede.save(update_fields=['is_active'])
+        messages.success(request, f'Sede {sede.nombre} reactivada correctamente.')
+    return redirect('core:director_sede_detail', sede_id=sede.id)
 
 
 @login_required
@@ -562,20 +672,151 @@ def director_sede_detail(request, sede_id):
         return redirect('core:dashboard')
 
     sede = get_object_or_404(Sede, id=sede_id)
-    coordinadores = AdminEscuela.objects.filter(
-        sede=sede,
-        is_active=True,
-        user__is_active=True,
-    ).select_related('user').order_by(
-        'user__first_name', 'user__last_name'
+    coordinadores = list(
+        AdminEscuela.objects.filter(
+            sede=sede,
+            is_active=True,
+            user__is_active=True,
+        ).select_related('user')
+        .prefetch_related('capacidad_asignaciones__capacidad')
+        .order_by(
+            'user__first_name', 'user__last_name'
+        )
     )
+    coordinadores_sede = [
+        c for c in coordinadores
+        if c.tipo_coordinador == AdminEscuela.TipoCoordinador.SEDE
+    ]
+    coordinadores_otros = [
+        c for c in coordinadores
+        if c.tipo_coordinador != AdminEscuela.TipoCoordinador.SEDE
+    ]
 
     context = {
         'sede': sede,
-        'coordinadores': coordinadores,
-        'pastores_adicionales': sede.pastores_adicionales.all(),
+        'coordinadores_sede': coordinadores_sede,
+        'coordinadores_otros': coordinadores_otros,
     }
     return render(request, 'core/director_sede_detail.html', context)
+
+
+@login_required
+def coordinador_sede_info(request, sede_id):
+    """Panorama de la sede: datos, equipo, escuelas y qué falta por completar."""
+    sede = get_object_or_404(Sede, id=sede_id)
+    p = _coordinador_sede_profile(request.user)
+    if not request.user.is_super_admin() and (not p or p.sede_id != sede.id):
+        messages.error(request, 'Solo el coordinador de sede puede ver esta sección.')
+        return redirect('core:dashboard')
+
+    coordinadores = list(
+        AdminEscuela.objects.filter(sede=sede, is_active=True, user__is_active=True)
+        .select_related('user')
+        .prefetch_related('capacidad_asignaciones__capacidad')
+        .order_by('user__first_name', 'user__last_name')
+    )
+    coordinador_sede = next(
+        (c for c in coordinadores if c.tipo_coordinador == AdminEscuela.TipoCoordinador.SEDE),
+        None,
+    )
+    equipo = [
+        c for c in coordinadores
+        if c.tipo_coordinador != AdminEscuela.TipoCoordinador.SEDE
+    ]
+
+    capacidades_cubiertas = set()
+    for c in equipo:
+        capacidades_cubiertas.update(c.roles_codigos())
+
+    areas = [
+        ('academico', 'Académico', 'Estudiantes, matrículas y solicitudes'),
+        ('pedagogico', 'Pedagógico', 'Profesores y estructura de escuelas'),
+        ('financiero', 'Financiero', 'Recursos, ofrendas y presupuestos'),
+        ('logistico', 'Logístico', 'Salones y espacios'),
+    ]
+    areas_estado = [
+        {
+            'codigo': codigo,
+            'nombre': nombre,
+            'detalle': detalle,
+            'cubierta': codigo in capacidades_cubiertas,
+            'responsables': [
+                c for c in equipo if codigo in c.roles_codigos()
+            ],
+        }
+        for codigo, nombre, detalle in areas
+    ]
+
+    escuelas = list(
+        Escuela.objects.filter(sede=sede, is_active=True)
+        .select_related('maestro__user')
+        .order_by('-anio', 'ciclo', 'nombre')
+    )
+    escuelas_sin_maestro = [e for e in escuelas if e.maestro_id is None]
+    escuelas_sin_fechas = [e for e in escuelas if not e.fecha_inicio or not e.fecha_fin]
+    escuelas_sin_horario = [e for e in escuelas if not (e.horario or '').strip()]
+
+    total_profesores = Profesor.objects.filter(sede=sede, is_active=True).count()
+    total_estudiantes = Estudiante.objects.filter(sede=sede, is_active=True).count()
+    total_salones = Salon.objects.filter(sede=sede, is_active=True).count()
+
+    # Cada pendiente lleva su acción para que el coordinador sepa qué hacer.
+    pendientes = []
+    if not (sede.direccion or '').strip():
+        pendientes.append({'texto': 'La sede no tiene dirección registrada.', 'accion': None})
+    if not (sede.ciudad or '').strip():
+        pendientes.append({'texto': 'La sede no tiene ciudad registrada.', 'accion': None})
+    if not (sede.telefono or '').strip():
+        pendientes.append({'texto': 'Falta el teléfono de contacto.', 'accion': None})
+    if not (sede.email or '').strip():
+        pendientes.append({'texto': 'Falta el correo de contacto.', 'accion': None})
+    if coordinador_sede is None:
+        pendientes.append({'texto': 'La sede no tiene coordinador de sede asignado.', 'accion': None})
+    for area in areas_estado:
+        if not area['cubierta']:
+            pendientes.append({
+                'texto': f"Sin responsable {area['nombre'].lower()} en el equipo.",
+                'accion': reverse('core:coordinador_create', args=[sede.id]),
+                'accion_texto': 'Agregar coordinador',
+            })
+    if not escuelas:
+        pendientes.append({'texto': 'La sede todavía no tiene escuelas activas.', 'accion': None})
+    if escuelas_sin_maestro:
+        pendientes.append({
+            'texto': f'{len(escuelas_sin_maestro)} escuela(s) sin maestro asignado.',
+            'accion': None,
+        })
+    if escuelas_sin_fechas:
+        pendientes.append({
+            'texto': f'{len(escuelas_sin_fechas)} escuela(s) sin fechas de inicio o fin.',
+            'accion': None,
+        })
+    if escuelas_sin_horario:
+        pendientes.append({
+            'texto': f'{len(escuelas_sin_horario)} escuela(s) sin horario definido.',
+            'accion': None,
+        })
+    if total_salones == 0:
+        pendientes.append({'texto': 'No hay salones registrados en la sede.', 'accion': None})
+    if total_profesores == 0:
+        pendientes.append({'texto': 'La sede no tiene profesores activos.', 'accion': None})
+
+    return render(
+        request,
+        'core/coordinador_sede_info.html',
+        {
+            'sede': sede,
+            'coordinador_sede': coordinador_sede,
+            'equipo': equipo,
+            'areas_estado': areas_estado,
+            'escuelas': escuelas,
+            'total_escuelas': len(escuelas),
+            'total_profesores': total_profesores,
+            'total_estudiantes': total_estudiantes,
+            'total_salones': total_salones,
+            'pendientes': pendientes,
+        },
+    )
 
 
 @login_required
@@ -598,6 +839,7 @@ def coordinador_sede_equipo(request, sede_id):
         )
         .exclude(user=request.user)
         .select_related('user')
+        .prefetch_related('capacidad_asignaciones__capacidad')
         .order_by('user__first_name', 'user__last_name')
     )
 
@@ -697,15 +939,18 @@ def director_programa_escuelas(request):
                 np_obj = NivelProgramaPlantilla.objects.filter(id=int(nid)).first()
                 if np_obj is None:
                     messages.error(request, "Nivel no encontrado.")
-                elif np_obj.escuelas.exists():
-                    messages.error(
-                        request,
-                        "No puedes eliminar este nivel: tiene escuelas del programa asignadas. "
-                        "Elimínalas primero.",
-                    )
                 else:
+                    n_escuelas = np_obj.escuelas.count()
+                    titulo = np_obj.titulo_acordeon()
                     np_obj.delete()
-                    messages.success(request, "Nivel eliminado.")
+                    if n_escuelas:
+                        messages.success(
+                            request,
+                            f"Nivel «{titulo}» eliminado junto con {n_escuelas} "
+                            f"escuela{'s' if n_escuelas != 1 else ''} del catálogo global.",
+                        )
+                    else:
+                        messages.success(request, f"Nivel «{titulo}» eliminado.")
             return redirect("core:director_programa_escuelas")
         elif accion == "crear_programa":
             form_programa = EscuelaProgramaPlantillaForm(
@@ -859,147 +1104,6 @@ def director_programa_escuelas(request):
 
 
 @login_required
-def coordinador_sede_escuelas(request, sede_id):
-    sede = get_object_or_404(Sede, id=sede_id)
-    p = getattr(request.user, "admin_escuela_profile", None)
-    if (
-        not p
-        or p.sede_id != sede.id
-        or p.tipo_coordinador != AdminEscuela.TipoCoordinador.SEDE
-    ):
-        messages.error(request, "Solo el coordinador de sede puede ver esta sección.")
-        return redirect("core:dashboard")
-
-    niveles_plantilla = NivelProgramaPlantilla.objects.order_by("jerarquia", "nombre")
-    escuelas_plantilla = EscuelaProgramaPlantilla.objects.select_related(
-        "nivel_plantilla"
-    ).order_by("nivel_plantilla__jerarquia", "nombre")
-
-    return render(
-        request,
-        "core/coordinador_sede_escuelas.html",
-        {
-            "sede": sede,
-            "programa_por_nivel": _programa_agrupado_plantillas_global(
-                escuelas_plantilla,
-                niveles_plantilla,
-            ),
-        },
-    )
-
-
-def _require_coordinador_sede_for_sede(request, sede):
-    p = getattr(request.user, 'admin_escuela_profile', None)
-    if (
-        not p
-        or p.sede_id != sede.id
-        or p.tipo_coordinador != AdminEscuela.TipoCoordinador.SEDE
-    ):
-        messages.error(request, 'Solo el coordinador de sede puede gestionar las escuelas.')
-        return None
-    return p
-
-
-@login_required
-def coordinador_sede_escuela_edit(request, sede_id, escuela_id):
-    sede = get_object_or_404(Sede, id=sede_id)
-    if not _require_coordinador_sede_for_sede(request, sede):
-        return redirect('core:dashboard')
-
-    escuela = get_object_or_404(Escuela, id=escuela_id, sede=sede, is_active=True)
-
-    if request.method == 'POST':
-        form = EscuelaSedeBasicaForm(sede, request.POST, instance=escuela)
-        if form.is_valid():
-            escuela = form.save()
-
-            sal = Salon.objects.filter(sede=sede, escuela=escuela, is_active=True).first()
-            if sal:
-                _sync_cupo_escuela_desde_salon(escuela, sal.capacidad_plazas)
-
-            if not RutaEstudio.objects.filter(escuela=escuela, is_active=True).exists():
-                from datetime import date, timedelta
-                from django.utils import timezone
-
-                today = timezone.localdate()
-                anio = int(escuela.anio or today.year)
-                try:
-                    fecha_base = today.replace(year=anio)
-                except ValueError:
-                    fecha_base = date(anio, today.month, 28)
-
-                fecha_inicio = (
-                    fecha_base if escuela.ciclo == "A" else fecha_base + timedelta(weeks=12)
-                )
-                curso_duracion_semanas = 4
-                fecha_fin = fecha_inicio + timedelta(weeks=curso_duracion_semanas)
-
-                en = (escuela.nombre or '').strip() or 'Escuela'
-                ruta = RutaEstudio.objects.create(
-                    sede=sede,
-                    escuela=escuela,
-                    nombre=en,
-                    descripcion="",
-                    duracion_semanas=12,
-                    nivel="basico",
-                    is_active=True,
-                )
-                Curso.objects.create(
-                    sede=sede,
-                    ruta_estudio=ruta,
-                    nombre=en,
-                    descripcion="",
-                    orden=1,
-                    duracion_semanas=curso_duracion_semanas,
-                    is_active=True,
-                )
-                escuela.fecha_inicio = fecha_inicio
-                escuela.fecha_fin = fecha_fin
-                if not (escuela.horario or '').strip():
-                    escuela.horario = 'Horario por definir'
-                escuela.save(
-                    update_fields=['fecha_inicio', 'fecha_fin', 'horario', 'updated_at'],
-                )
-                if sal:
-                    _sync_cupo_escuela_desde_salon(escuela, sal.capacidad_plazas)
-
-            messages.success(request, 'Escuela actualizada correctamente.')
-            return redirect('core:coordinador_sede_escuelas', sede_id=sede.id)
-    else:
-        form = EscuelaSedeBasicaForm(sede, instance=escuela)
-
-    return render(
-        request,
-        'core/coordinador_sede_escuela_form.html',
-        {
-            'sede': sede,
-            'escuela': escuela,
-            'form': form,
-        },
-    )
-
-
-@login_required
-def coordinador_sede_escuela_delete(request, sede_id, escuela_id):
-    sede = get_object_or_404(Sede, id=sede_id)
-    if not _require_coordinador_sede_for_sede(request, sede):
-        return redirect('core:dashboard')
-
-    escuela = get_object_or_404(Escuela, id=escuela_id, sede=sede, is_active=True)
-    if request.method != 'POST':
-        return redirect('core:coordinador_sede_escuelas', sede_id=sede.id)
-
-    escuela.is_active = False
-    escuela.save(update_fields=['is_active'])
-
-    # Ocultar también la estructura académica asociada para que no aparezca en escuelas disponibles.
-    RutaEstudio.objects.filter(escuela=escuela, is_active=True).update(is_active=False)
-    Curso.objects.filter(ruta_estudio__escuela=escuela, is_active=True).update(is_active=False)
-    messages.success(request, 'Escuela eliminada correctamente.')
-    return redirect('core:coordinador_sede_escuelas', sede_id=sede.id)
-
-
-@login_required
 def coordinador_create(request, sede_id):
     sede = get_object_or_404(Sede, id=sede_id)
     if not _coordinador_sede_may_manage(request, sede):
@@ -1029,8 +1133,16 @@ def coordinador_create(request, sede_id):
     context = {
         'form': form,
         'sede': sede,
-        'page_title': 'Crear coordinador',
-        'submit_label': 'Crear coordinador',
+        'page_title': (
+            'Crear coordinador de sede'
+            if request.user.is_super_admin()
+            else 'Crear coordinador'
+        ),
+        'submit_label': (
+            'Crear coordinador de sede'
+            if request.user.is_super_admin()
+            else 'Crear coordinador'
+        ),
         'cancel_url': _coordinador_cancel_url(request, sede.id),
     }
     return render(request, 'core/coordinador_form.html', context)
@@ -1050,6 +1162,16 @@ def coordinador_edit(request, sede_id, coordinador_id):
     if not request.user.is_super_admin() and not _coordinador_sede_may_manage(request, sede):
         messages.error(request, 'No tienes permisos para editar coordinadores de esta sede.')
         return redirect('core:dashboard')
+
+    if (
+        request.user.is_super_admin()
+        and admin_profile.tipo_coordinador != AdminEscuela.TipoCoordinador.SEDE
+    ):
+        messages.error(
+            request,
+            'Desde Dirección solo se edita el coordinador de sede. El resto lo gestiona el equipo de la sede.',
+        )
+        return redirect('core:director_sede_detail', sede_id=sede.id)
 
     perfil_coordinador = getattr(request.user, 'admin_escuela_profile', None)
     if (
@@ -1112,7 +1234,11 @@ def coordinador_edit(request, sede_id, coordinador_id):
         'form': form,
         'sede': sede,
         'coordinador': admin_profile,
-        'page_title': 'Editar coordinador',
+        'page_title': (
+            'Editar coordinador de sede'
+            if request.user.is_super_admin()
+            else 'Editar coordinador'
+        ),
         'submit_label': 'Guardar cambios',
         'cancel_url': _coordinador_cancel_url(request, sede.id),
     }
@@ -1134,7 +1260,20 @@ def coordinador_delete(request, sede_id, coordinador_id):
         messages.error(request, 'No tienes permisos para eliminar coordinadores de esta sede.')
         return redirect('core:dashboard')
 
-    if not request.user.is_super_admin():
+    if request.user.is_super_admin():
+        if admin_profile.tipo_coordinador != AdminEscuela.TipoCoordinador.SEDE:
+            messages.error(
+                request,
+                'Desde Dirección no se eliminan coordinadores de equipo. Eso lo gestiona el coordinador de sede.',
+            )
+            return redirect('core:director_sede_detail', sede_id=sede.id)
+        if _active_coordinadores_sede_qs(sede).count() <= 1:
+            messages.error(
+                request,
+                'La sede no puede quedar sin un coordinador de sede.',
+            )
+            return redirect('core:director_sede_detail', sede_id=sede.id)
+    else:
         if admin_profile.tipo_coordinador == AdminEscuela.TipoCoordinador.SEDE:
             messages.error(request, 'No se puede eliminar al coordinador de sede desde el equipo.')
             return _coordinador_post_redirect(request, sede.id)
@@ -1157,7 +1296,7 @@ def _password_change_form_styled(user, data=None):
         form = PasswordChangeForm(user=user, data=data)
     else:
         form = PasswordChangeForm(user=user)
-    inp = "profile-field w-full"
+    inp = "profile-field w-full pr-10"
     for name, auto in (
         ("old_password", "current-password"),
         ("new_password1", "new-password"),
@@ -1165,6 +1304,7 @@ def _password_change_form_styled(user, data=None):
     ):
         if name in form.fields:
             form.fields[name].widget.attrs.update({"class": inp, "autocomplete": auto})
+            form.fields[name].widget.attrs.pop("autofocus", None)
             form.fields[name].help_text = ""
     return form
 
@@ -1193,12 +1333,6 @@ def profile(request):
     except Exception:
         pass
 
-    notificaciones_estudiante = []
-    if estudiante_profile:
-        notificaciones_estudiante = list(
-            NotificacionEstudiante.objects.filter(estudiante=estudiante_profile).order_by('-created_at')[:15]
-        )
-
     password_form = _password_change_form_styled(request.user)
 
     if request.method == 'POST':
@@ -1209,7 +1343,8 @@ def profile(request):
                 update_session_auth_hash(request, u)
                 messages.success(request, "Contraseña actualizada correctamente.")
                 return redirect("core:profile")
-        elif request.POST.get("profile_account"):
+        elif request.POST.get("profile_account") or request.POST.get("profile_contact"):
+            # Correo puede venir solo (legacy profile_account) o junto con contacto.
             email_raw = (request.POST.get("email") or "").strip().lower()
             if email_raw:
                 try:
@@ -1226,31 +1361,56 @@ def profile(request):
                         request,
                         "Ese correo ya está en uso en otra cuenta. Prueba con otro o inicia sesión con esa cuenta.",
                     )
-                else:
-                    request.user.email = email_raw
-                    try:
-                        request.user.save(update_fields=["email", "updated_at"])
-                    except IntegrityError:
-                        messages.error(
-                            request,
-                            "No se pudo guardar el correo (duplicado u otro error).",
-                        )
-                        return redirect("core:profile")
-                    messages.success(request, "Correo actualizado.")
+                    return redirect("core:profile")
+                request.user.email = email_raw
             else:
                 request.user.email = None
-                request.user.save(update_fields=["email", "updated_at"])
+
+            update_fields = ["email", "updated_at"]
+            if request.POST.get("profile_contact"):
+                phone_raw = (request.POST.get("phone") or "").strip()
+                phone_digits = "".join(c for c in phone_raw if c.isdigit())[:15] or None
+                direccion = (request.POST.get("direccion") or "").strip()
+                barrio = (request.POST.get("barrio") or "").strip()
+                departamento = (request.POST.get("departamento") or "").strip()
+                ciudad = (request.POST.get("ciudad") or "").strip()
+                if departamento and ciudad:
+                    permitidas = {
+                        c for c, _ in ciudad_choices_for_departamento(departamento)
+                    }
+                    if ciudad not in permitidas:
+                        messages.error(
+                            request,
+                            "Elige un municipio válido para el departamento seleccionado.",
+                        )
+                        return redirect("core:profile")
+                request.user.phone = phone_digits
+                request.user.direccion = direccion
+                request.user.barrio = barrio
+                request.user.departamento = departamento
+                request.user.ciudad = ciudad
+                update_fields.extend(
+                    ["phone", "direccion", "barrio", "departamento", "ciudad"]
+                )
+                if estudiante_profile:
+                    estudiante_profile.direccion = direccion
+                    estudiante_profile.save(update_fields=["direccion", "updated_at"])
+
+            try:
+                request.user.save(update_fields=update_fields)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo guardar el correo (duplicado u otro error).",
+                )
+                return redirect("core:profile")
+
+            if request.POST.get("profile_contact"):
+                messages.success(request, "Datos de contacto actualizados.")
+            elif email_raw:
+                messages.success(request, "Correo actualizado.")
+            else:
                 messages.success(request, "Correo quitado. Puedes añadir uno nuevo cuando quieras.")
-            return redirect("core:profile")
-        elif request.POST.get("profile_contact"):
-            request.user.phone = (request.POST.get("phone") or "").strip() or None
-            direccion = (request.POST.get("direccion") or "").strip()
-            request.user.direccion = direccion
-            request.user.save(update_fields=["phone", "direccion", "updated_at"])
-            if estudiante_profile:
-                estudiante_profile.direccion = direccion
-                estudiante_profile.save(update_fields=["direccion", "updated_at"])
-            messages.success(request, "Celular y dirección actualizados.")
             return redirect("core:profile")
 
         avatar = request.FILES.get("avatar")
@@ -1267,16 +1427,58 @@ def profile(request):
     if not direccion_perfil and estudiante_profile:
         direccion_perfil = (estudiante_profile.direccion or "").strip()
 
+    dep_id = (request.user.departamento or "").strip()
+    dept_choices = [("", "Seleccione departamento")] + departamento_choices()
+    if dep_id:
+        city_choices = [("", "Seleccione ciudad o municipio")] + ciudad_choices_for_departamento(
+            dep_id
+        )
+    else:
+        city_choices = [("", "Primero seleccione departamento")]
+
     context = {
         "estudiante_profile": estudiante_profile,
         "profesor_profile": profesor_profile,
         "admin_escuela_profile": admin_escuela_profile,
-        "notificaciones_estudiante": notificaciones_estudiante,
         "direccion_perfil": direccion_perfil,
+        "barrio_perfil": (request.user.barrio or "").strip(),
+        "departamento_perfil": dep_id,
+        "ciudad_perfil": (request.user.ciudad or "").strip(),
+        "departamento_choices": dept_choices,
+        "ciudad_choices": city_choices,
         "password_form": password_form,
     }
 
     return render(request, "core/profile_modern.html", context)
+
+
+@login_required
+def mis_notificaciones(request):
+    """Listado de notificaciones del estudiante (página propia)."""
+    estudiante_profile = None
+    try:
+        estudiante_profile = request.user.estudiante_profile
+    except Exception:
+        pass
+    if estudiante_profile is None:
+        messages.info(request, "Las notificaciones están disponibles para cuentas de estudiante.")
+        return redirect("core:profile")
+
+    qs = NotificacionEstudiante.objects.filter(estudiante=estudiante_profile).order_by(
+        "-created_at"
+    )
+    no_leidas = qs.filter(leida=False).count()
+    if no_leidas:
+        qs.filter(leida=False).update(leida=True)
+
+    return render(
+        request,
+        "core/mis_notificaciones.html",
+        {
+            "notificaciones": list(qs[:50]),
+            "no_leidas_marcadas": no_leidas,
+        },
+    )
 
 
 def get_user_modules(request):
@@ -1307,3 +1509,34 @@ def get_user_modules(request):
         } for perm in user_permissions if perm.app_module.is_active]
     
     return JsonResponse({'modules': modules})
+
+
+def signup_check_documento(request):
+    """
+    Consulta pública (signup): ¿este documento ya tiene cuenta?
+    No revela datos personales; solo exists=true/false.
+    """
+    from django import forms as djforms
+
+    from core.forms import (
+        MSG_DOCUMENTO_YA_EXISTE,
+        _normalize_and_validate_documento_plausible,
+        documento_ya_registrado,
+    )
+
+    raw = (request.GET.get("doc") or "").strip()
+    tipo = (request.GET.get("tipo") or Estudiante.TipoDocumento.CC).strip()
+    if not raw:
+        return JsonResponse({"exists": False, "ok": False})
+    try:
+        normalized = _normalize_and_validate_documento_plausible(raw, tipo)
+    except djforms.ValidationError:
+        # Documento incompleto o con formato inválido: no marcar como existente.
+        return JsonResponse({"exists": False, "ok": False})
+
+    exists = documento_ya_registrado(normalized)
+    payload = {"exists": exists, "ok": True, "doc": normalized}
+    if exists:
+        payload["message"] = MSG_DOCUMENTO_YA_EXISTE
+        payload["login_url"] = reverse("account_login")
+    return JsonResponse(payload)

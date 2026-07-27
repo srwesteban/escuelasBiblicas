@@ -1,5 +1,5 @@
 {% extends 'base_modern.html' %}
-{% load money_extras %}
+{% load money_extras static %}
 {% block title %}Eventos y presupuesto — {{ user_sede.nombre }}{% endblock %}
 {% block content %}
 <div class="max-w-5xl mx-auto space-y-6">
@@ -99,7 +99,7 @@
                         <td class="px-4 py-3 font-semibold text-stone-900 whitespace-nowrap">{{ e.monto_destinado|cop_short }}</td>
                         <td class="px-4 py-3 text-stone-600 max-w-xs truncate" title="{{ e.notas }}">{{ e.notas|default:"—" }}</td>
                         <td class="px-4 py-3">
-                            <form method="post" class="inline" onsubmit="return confirm('¿Eliminar este registro de evento?');">
+                            <form method="post" class="inline" data-confirm-message="¿Eliminar este registro de evento?" data-confirm-title="Eliminar evento">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="eliminar_evento">
                                 <input type="hidden" name="evento_id" value="{{ e.id }}">
@@ -119,4 +119,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/site-confirm.js' %}"></script>
 {% endblock %}

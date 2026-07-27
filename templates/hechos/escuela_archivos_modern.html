@@ -1,5 +1,5 @@
 {% extends 'base_modern.html' %}
-
+{% load static %}
 {% block title %}Archivos y materiales — {{ escuela.nombre }}{% endblock %}
 
 {% block content %}
@@ -72,7 +72,7 @@
                     <a href="{% url 'hechos:descargar_archivo_recurso_escuela' escuela.id ar.id %}" class="btn-outline inline-flex items-center px-3 py-2 text-xs font-medium border-sky-200 text-sky-900 hover:bg-sky-50">
                         <i class="fas fa-download mr-2"></i>Descargar
                     </a>
-                    <form method="post" class="inline" onsubmit="return confirm('¿Quitar este recurso de la lista? Los estudiantes dejarán de verlo.');">
+                    <form method="post" class="inline" data-confirm-message="¿Quitar este recurso de la lista? Los estudiantes dejarán de verlo." data-confirm-title="Quitar recurso">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="eliminar">
                         <input type="hidden" name="archivo_id" value="{{ ar.id }}">
@@ -92,4 +92,8 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/site-confirm.js' %}"></script>
 {% endblock %}

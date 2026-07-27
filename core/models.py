@@ -61,6 +61,15 @@ class User(AbstractUser):
         help_text=_('Número del documento; debe ser único en el sistema.'),
     )
     direccion = models.TextField(blank=True, default="", verbose_name=_("Dirección"))
+    barrio = models.CharField(max_length=120, blank=True, default="", verbose_name=_("Barrio"))
+    departamento = models.CharField(
+        max_length=10,
+        blank=True,
+        default="",
+        verbose_name=_("Departamento"),
+        help_text=_("Código del departamento (Colombia)."),
+    )
+    ciudad = models.CharField(max_length=120, blank=True, default="", verbose_name=_("Ciudad o municipio"))
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     sede = models.ForeignKey('Sede', on_delete=models.SET_NULL, null=True, blank=True, related_name='usuarios')
@@ -143,8 +152,6 @@ class Sede(models.Model):
     ciudad = models.CharField(max_length=120, blank=True, default="")
     telefono = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
-    pastor_responsable = models.CharField(max_length=200, blank=True)
-    foto_pastor = models.ImageField(upload_to='pastores/', blank=True, null=True)
     descripcion = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -184,23 +191,6 @@ class Sede(models.Model):
         return self.nombre
 
 
-class PastorSede(models.Model):
-    """
-    Pastores adicionales asociados a una sede.
-    """
-    sede = models.ForeignKey(Sede, on_delete=models.CASCADE, related_name='pastores_adicionales')
-    nombre = models.CharField(max_length=200)
-    foto = models.ImageField(upload_to='pastores/', blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = 'Pastor de sede'
-        verbose_name_plural = 'Pastores de sede'
-        ordering = ['nombre']
-
-    def __str__(self):
-        return f"{self.nombre} - {self.sede.nombre}"
 
 
 class UserAppPermission(models.Model):

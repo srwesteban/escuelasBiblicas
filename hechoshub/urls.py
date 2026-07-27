@@ -32,9 +32,6 @@ urlpatterns = [
     path('hechos/', include('hechos.urls')),
 
     path('ofrendas/', include('ofrendas.urls')),
-    
-    # Guias Module URLs
-    path('guias/', include('guias.urls')),
 ]
 
 # Serve media files in development (static files: django.contrib.staticfiles + runserver)

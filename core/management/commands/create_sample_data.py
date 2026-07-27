@@ -96,9 +96,7 @@ class Command(BaseCommand):
             estudiante1, created = Estudiante.objects.get_or_create(
                 user=user1,
                 defaults={
-                    'iglesia': 'Iglesia Central',
                     'telefono_emergencia': '555-0001',
-                    'contacto_emergencia': 'María González (Madre)'
                 }
             )
             if created:
@@ -112,9 +110,7 @@ class Command(BaseCommand):
             estudiante2, created = Estudiante.objects.get_or_create(
                 user=user2,
                 defaults={
-                    'iglesia': 'Iglesia del Norte',
                     'telefono_emergencia': '555-0002',
-                    'contacto_emergencia': 'Juan Pérez (Padre)'
                 }
             )
             if created:

@@ -2,7 +2,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from core.models import AppModule, PastorSede, Sede, User, UserAppPermission
+from core.models import AppModule, Sede, User, UserAppPermission
 from hechos.models import AdminEscuela
 
 
@@ -50,15 +50,7 @@ class DirectorInterfaceTests(TestCase):
                 "ciudad": "Medellín",
                 "telefono": "555-1000",
                 "email": "norte@example.com",
-                "pastor_responsable": "Pastor Norte",
                 "descripcion": "Sede principal",
-                "pastores-TOTAL_FORMS": "3",
-                "pastores-INITIAL_FORMS": "0",
-                "pastores-MIN_NUM_FORMS": "0",
-                "pastores-MAX_NUM_FORMS": "1000",
-                "pastores-0-nombre": "",
-                "pastores-1-nombre": "",
-                "pastores-2-nombre": "",
             },
         )
 
@@ -160,7 +152,7 @@ class DirectorInterfaceTests(TestCase):
         )
         self.assertTrue(bool(coordinador.user.avatar))
 
-    def test_deleted_coordinator_is_hidden_from_sede_detail(self):
+    def test_director_cannot_delete_team_coordinator(self):
         sede = Sede.objects.create(nombre="Hechos Norte", direccion="Calle Principal 123")
         user = User.objects.create_user(
             username="ana.lopez",
@@ -187,13 +179,47 @@ class DirectorInterfaceTests(TestCase):
         coordinador.refresh_from_db()
         coordinador.user.refresh_from_db()
         self.assertRedirects(delete_response, reverse("core:director_sede_detail", args=[sede.id]))
-        self.assertFalse(coordinador.is_active)
-        self.assertFalse(coordinador.user.is_active)
+        self.assertTrue(coordinador.is_active)
+        self.assertTrue(coordinador.user.is_active)
 
         detail_response = self.client.get(reverse("core:director_sede_detail", args=[sede.id]))
-        self.assertNotContains(detail_response, "ana@example.com")
-        self.assertContains(detail_response, "No hay coordinadores en esta sede")
+        self.assertContains(detail_response, "ana@example.com")
+        self.assertContains(detail_response, "Equipo de la sede")
+        self.assertContains(detail_response, "Ver ficha")
 
+        ficha = self.client.get(
+            reverse("core:director_coordinador_ficha_fragment", args=[sede.id, coordinador.id])
+        )
+        self.assertEqual(ficha.status_code, 200)
+        self.assertContains(ficha, "ana@example.com")
+        self.assertContains(ficha, "Académico")
+    def test_director_cannot_delete_last_sede_coordinator(self):
+        sede = Sede.objects.create(nombre="Hechos Norte", direccion="Calle Principal 123")
+        user = User.objects.create_user(
+            username="coord.sede",
+            email="coordsede@example.com",
+            password="coord12345",
+            first_name="Coord",
+            last_name="Sede",
+            role="app_admin",
+            sede=sede,
+            is_active=True,
+            is_staff=True,
+        )
+        coordinador = AdminEscuela.objects.create(
+            user=user,
+            sede=sede,
+            tipo_coordinador=AdminEscuela.TipoCoordinador.SEDE,
+            cargo=AdminEscuela.cargo_para_tipo(AdminEscuela.TipoCoordinador.SEDE, sede.nombre),
+            is_active=True,
+        )
+        self.client.force_login(self.director)
+
+        delete_response = self.client.post(reverse("core:coordinador_delete", args=[sede.id, coordinador.id]))
+
+        coordinador.refresh_from_db()
+        self.assertRedirects(delete_response, reverse("core:director_sede_detail", args=[sede.id]))
+        self.assertTrue(coordinador.is_active)
     def test_director_can_edit_sede(self):
         sede = Sede.objects.create(nombre="Hechos Norte", direccion="Calle Principal 123")
         self.client.force_login(self.director)
@@ -207,15 +233,7 @@ class DirectorInterfaceTests(TestCase):
                 "ciudad": "Guadalupe",
                 "telefono": "555-9999",
                 "email": "actualizada@example.com",
-                "pastor_responsable": "Pastor Actualizado",
                 "descripcion": "Sede actualizada",
-                "pastores-TOTAL_FORMS": "3",
-                "pastores-INITIAL_FORMS": "0",
-                "pastores-MIN_NUM_FORMS": "0",
-                "pastores-MAX_NUM_FORMS": "1000",
-                "pastores-0-nombre": "",
-                "pastores-1-nombre": "",
-                "pastores-2-nombre": "",
             },
         )
 
@@ -251,7 +269,7 @@ class DirectorInterfaceTests(TestCase):
         self.assertTrue(sede.is_active)
         self.assertRedirects(response, reverse("core:director_sede_detail", args=[sede.id]))
 
-    def test_director_can_add_optional_additional_pastors(self):
+    def test_director_can_create_sede_with_new_coordinador(self):
         self.client.force_login(self.director)
 
         response = self.client.post(
@@ -263,21 +281,25 @@ class DirectorInterfaceTests(TestCase):
                 "ciudad": "Medellín",
                 "telefono": "",
                 "email": "",
-                "pastor_responsable": "Pastor Principal",
                 "descripcion": "",
-                "pastores-TOTAL_FORMS": "3",
-                "pastores-INITIAL_FORMS": "0",
-                "pastores-MIN_NUM_FORMS": "0",
-                "pastores-MAX_NUM_FORMS": "1000",
-                "pastores-0-nombre": "Pastor Dos",
-                "pastores-1-nombre": "Pastor Tres",
-                "pastores-2-nombre": "",
+                "coordinador_modo": "nuevo",
+                "coord-nombres": "Carlos",
+                "coord-apellidos": "Ramirez",
+                "coord-tipo_documento": "CC",
+                "coord-documento_identidad": "1122334455",
+                "coord-celular": "3001112233",
+                "coord-email": "carlos@example.com",
+                "coord-password1": "coord12345",
+                "coord-password2": "coord12345",
+                "coord-tipo_coordinador": AdminEscuela.TipoCoordinador.SEDE,
             },
         )
 
         sede = Sede.objects.get(nombre="Hechos Centro")
         self.assertRedirects(response, reverse("core:director_sede_detail", args=[sede.id]))
-        self.assertEqual(PastorSede.objects.filter(sede=sede).count(), 2)
+        coordinador = AdminEscuela.objects.get(sede=sede)
+        self.assertEqual(coordinador.user.documento_identidad, "1122334455")
+        self.assertEqual(coordinador.tipo_coordinador, AdminEscuela.TipoCoordinador.SEDE)
 
     def test_director_profesores_list(self):
         from hechos.models import Profesor
@@ -303,7 +325,7 @@ class DirectorInterfaceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Luis")
 
-    def test_director_profesor_edit_updates_fields(self):
+    def test_director_profesor_ficha_fragment(self):
         from hechos.models import Profesor
 
         sede = Sede.objects.create(
@@ -322,33 +344,19 @@ class DirectorInterfaceTests(TestCase):
             role="user",
             documento_identidad="1234567890",
             tipo_documento=User.TipoDocumento.CC,
+            phone="3001112233",
         )
-        p = Profesor.objects.create(user=u, sede=sede, is_active=True, especialidad="")
+        p = Profesor.objects.create(
+            user=u, sede=sede, is_active=True, especialidad="Biblia"
+        )
         self.client.force_login(self.director)
-        url = reverse("core:director_profesor_edit", args=[p.id])
-        post_data = {
-            "first_name": "Ana",
-            "last_name": "García",
-            "email": "prof_edit_1@example.com",
-            "phone": "3001234567",
-            "tipo_documento": User.TipoDocumento.CC,
-            "documento_identidad": "1234567890",
-            "sede": str(sede.id),
-            "especialidad": "Biblia",
-            "experiencia_anos": "3",
-            "biografia": "",
-            "is_active": "on",
-            "password1": "",
-            "password2": "",
-        }
-        response = self.client.post(url, post_data, follow=False)
-        self.assertRedirects(response, reverse("core:director_profesores"))
-        u.refresh_from_db()
-        self.assertEqual(u.last_name, "García")
-        self.assertEqual(u.phone, "3001234567")
-        p.refresh_from_db()
-        self.assertEqual(p.especialidad, "Biblia")
-        self.assertEqual(p.experiencia_anos, 3)
+        url = reverse("core:director_profesor_ficha_fragment", args=[p.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ana")
+        self.assertContains(response, "Pérez")
+        self.assertContains(response, "prof_edit_1@example.com")
+        self.assertContains(response, "Biblia")
 
     def test_non_director_cannot_open_director_profesores(self):
         other = User.objects.create_user(

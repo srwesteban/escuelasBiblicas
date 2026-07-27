@@ -91,7 +91,7 @@
                         </div>
                         <div class="min-w-0">
                             <p class="font-medium text-gray-900 truncate">{{ e.user.get_full_name }}</p>
-                            <p class="text-sm text-gray-500">{{ e.codigo_estudiante|default:e.user.email }}</p>
+                            <p class="text-sm text-gray-500">{{ e.user.email|default:"—" }}</p>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full lg:justify-end" role="group" aria-label="Estado de asistencia">

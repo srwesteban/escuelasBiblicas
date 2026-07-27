@@ -4,19 +4,22 @@
 {% block title %}Crear instancia de escuela — {{ user_sede.nombre }}{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto space-y-8">
+<div class="max-w-6xl mx-auto space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
             <h1 class="text-2xl sm:text-3xl font-bold text-stone-900">Crear instancia de la escuela</h1>
             <p class="text-stone-600 mt-2 text-sm sm:text-base max-w-2xl">
-                Elige <strong>nivel</strong>, <strong>escuela del catálogo</strong>, <strong>año académico</strong> (2016–2030) y <strong>ciclo A o B</strong>.
-                Se creará la escuela en <strong>{{ user_sede.nombre }}</strong> contigo como maestro.
-                Indica el <strong>período de clases</strong> (inicio y fin), el <strong>horario</strong> (uno o más días) y, si aplica, el salón.
+                Se creará en <strong>{{ user_sede.nombre }}</strong> contigo como maestro. Completa los pasos y revisa el resumen antes de crear.
             </p>
         </div>
-        <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="btn-outline px-4 py-2.5 text-sm font-medium shrink-0 inline-flex items-center justify-center">
-            <i class="fas fa-arrow-left mr-2"></i>Mis escuelas
-        </a>
+        <div class="flex items-center gap-2 shrink-0">
+            <button type="button" id="open-tour" title="Ver tutorial" class="inline-flex items-center justify-center h-10 w-10 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-100">
+                <i class="fas fa-question"></i>
+            </button>
+            <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="btn-outline px-4 py-2.5 text-sm font-medium inline-flex items-center justify-center">
+                <i class="fas fa-arrow-left mr-2"></i>Mis escuelas
+            </a>
+        </div>
     </div>
 
     {% if not niveles or not plantillas_data %}
@@ -27,162 +30,234 @@
     {% else %}
     {{ plantillas_data|json_script:"plantillas-payload" }}
 
-    <form method="post" class="card p-5 sm:p-6 border-stone-200 space-y-6">
-        {% csrf_token %}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <form method="post" id="form-crear-instancia" class="lg:col-span-2 space-y-4">
+            {% csrf_token %}
 
-        <div>
-            <label for="nivel_select" class="block text-sm font-semibold text-stone-800">1. Nivel del programa</label>
-            <p class="text-xs text-stone-500 mt-0.5 mb-2">Primer filtro: escuelas disponibles en ese nivel.</p>
-            <select id="nivel_select" class="input w-full max-w-lg" required>
-                <option value="">Seleccionar nivel…</option>
-                {% for nv in niveles %}
-                <option value="{{ nv.id }}">{{ nv.titulo_acordeon }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div>
-            <label for="plantilla_id" class="block text-sm font-semibold text-stone-800">2. Escuela del catálogo</label>
-            <p class="text-xs text-stone-500 mt-0.5 mb-2">Solo aparecen las del nivel elegido.</p>
-            <select name="plantilla_id" id="plantilla_id" class="input w-full max-w-lg" required disabled>
-                <option value="">Primero elige un nivel</option>
-            </select>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 border-t border-stone-100 pt-6">
-            <div>
-                <label for="anio_escuela" class="block text-sm font-semibold text-stone-800">3. Año académico</label>
-                <p class="text-xs text-stone-500 mt-0.5 mb-2">Lista 2016–2030 (año de la oferta).</p>
-                <select name="anio_escuela" id="anio_escuela" class="input w-full max-w-xs" required>
-                    {% for y in anios_academicos %}
-                    <option value="{{ y }}" {% if y == anio_escuela_default %}selected{% endif %}>{{ y }}</option>
+            <section class="card p-5 sm:p-6 border-stone-200" id="tour-nivel">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 text-amber-900 text-sm font-semibold shrink-0">1</span>
+                    <div>
+                        <h2 class="text-sm font-semibold text-stone-900">Nivel del programa</h2>
+                        <p class="text-xs text-stone-500">Primer filtro: escuelas disponibles en ese nivel.</p>
+                    </div>
+                </div>
+                <select id="nivel_select" class="input w-full max-w-lg" required>
+                    <option value="">Seleccionar nivel…</option>
+                    {% for nv in niveles %}
+                    <option value="{{ nv.id }}">{{ nv.titulo_acordeon }}</option>
                     {% endfor %}
                 </select>
-            </div>
-            <div>
-                <label for="ciclo" class="block text-sm font-semibold text-stone-800">4. Ciclo</label>
-                <p class="text-xs text-stone-500 mt-0.5 mb-2">Ciclo A o B en la sede.</p>
-                <select name="ciclo" id="ciclo" class="input w-full max-w-xs" required>
-                    <option value="A">Ciclo A</option>
-                    <option value="B">Ciclo B</option>
+            </section>
+
+            <section class="card p-5 sm:p-6 border-stone-200" id="tour-escuela">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 text-amber-900 text-sm font-semibold shrink-0">2</span>
+                    <div>
+                        <h2 class="text-sm font-semibold text-stone-900">Escuela del catálogo</h2>
+                        <p class="text-xs text-stone-500">Solo aparecen las del nivel elegido.</p>
+                    </div>
+                </div>
+                <select name="plantilla_id" id="plantilla_id" class="input w-full max-w-lg" required disabled>
+                    <option value="">Primero elige un nivel</option>
                 </select>
-            </div>
-        </div>
+            </section>
 
-        <div class="border-t border-stone-100 pt-6 grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
-            <div>
-                <label for="fecha_inicio" class="block text-sm font-semibold text-stone-800">5. Fecha de inicio del ciclo</label>
-                <p class="text-xs text-stone-500 mt-0.5 mb-2">Primera clase posible; se generan sesiones en el calendario según el horario y este rango.</p>
-                <input type="date" name="fecha_inicio" id="fecha_inicio" required
-                       value="{{ fecha_inicio_default }}"
-                       class="input w-full max-w-xs">
-            </div>
-            <div>
-                <label for="fecha_fin" class="block text-sm font-semibold text-stone-800">Fecha de fin del ciclo</label>
-                <p class="text-xs text-stone-500 mt-0.5 mb-2">Último día del período (inclusive).</p>
-                <input type="date" name="fecha_fin" id="fecha_fin" required
-                       value="{{ fecha_fin_default }}"
-                       class="input w-full max-w-xs">
-            </div>
-        </div>
+            <section class="card p-5 sm:p-6 border-stone-200" id="tour-anio-ciclo">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 text-amber-900 text-sm font-semibold shrink-0">3</span>
+                    <h2 class="text-sm font-semibold text-stone-900">Año académico y ciclo</h2>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
+                    <div>
+                        <label for="anio_escuela" class="block text-xs font-medium text-stone-600 mb-1.5">Año</label>
+                        <select name="anio_escuela" id="anio_escuela" class="input w-full" required>
+                            {% for y in anios_academicos %}
+                            <option value="{{ y }}" {% if y == anio_escuela_default %}selected{% endif %}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="ciclo" class="block text-xs font-medium text-stone-600 mb-1.5">Ciclo</label>
+                        <select name="ciclo" id="ciclo" class="input w-full" required>
+                            <option value="A">Ciclo A</option>
+                            <option value="B">Ciclo B</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
 
-        <div class="border-t border-stone-100 pt-6">
-            <h2 class="text-sm font-semibold text-stone-900">6. Horario de la clase</h2>
-            <p class="text-xs text-stone-500 mt-1.5 mb-4 max-w-2xl">
-                Día y hora en formato de 12 horas. Si la clase es más de una vez por semana, usa <strong>Agregar otro día</strong>.
-            </p>
+            <section class="card p-5 sm:p-6 border-stone-200" id="tour-periodo">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 text-amber-900 text-sm font-semibold shrink-0">4</span>
+                    <h2 class="text-sm font-semibold text-stone-900">Período de clases</h2>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
+                    <div>
+                        <label for="fecha_inicio" class="block text-xs font-medium text-stone-600 mb-1.5">Fecha de inicio</label>
+                        <input type="date" name="fecha_inicio" id="fecha_inicio" required
+                               value="{{ fecha_inicio_default }}"
+                               class="input w-full">
+                        <p class="text-xs text-stone-500 mt-1.5">Primera clase posible.</p>
+                    </div>
+                    <div>
+                        <label for="fecha_fin" class="block text-xs font-medium text-stone-600 mb-1.5">Fecha de fin</label>
+                        <input type="date" name="fecha_fin" id="fecha_fin" required
+                               value="{{ fecha_fin_default }}"
+                               class="input w-full">
+                        <p class="text-xs text-stone-500 mt-1.5">Último día del período (inclusive).</p>
+                    </div>
+                </div>
+                <p class="text-xs text-stone-500 mt-3">
+                    Se generan sesiones en el calendario según el horario y este rango de fechas.
+                </p>
+            </section>
 
-            <div id="horario-rows" class="space-y-3">
-                <div class="horario-fila rounded-xl border border-stone-200 bg-white shadow-sm ring-1 ring-stone-900/5 p-4 sm:p-4">
-                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 sm:items-end">
-                        <div class="sm:col-span-5">
-                            <label class="block text-xs font-medium text-stone-600 mb-1.5">Día</label>
-                            <select name="dia_semana" class="input w-full horario-dia" required>
-                                <option value="">Elige el día…</option>
-                                <option value="0">Lunes</option>
-                                <option value="1">Martes</option>
-                                <option value="2">Miércoles</option>
-                                <option value="3">Jueves</option>
-                                <option value="4">Viernes</option>
-                                <option value="5">Sábado</option>
-                                <option value="6">Domingo</option>
-                            </select>
-                        </div>
-                        <div class="sm:col-span-3">
-                            <label class="block text-xs font-medium text-stone-600 mb-1.5">Hora</label>
-                            <select name="hora_12" class="input w-full horario-hora" required>
-                                <option value="">Hora…</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                                <option value="6">6</option>
-                                <option value="7">7</option>
-                                <option value="8">8</option>
-                                <option value="9">9</option>
-                                <option value="10">10</option>
-                                <option value="11">11</option>
-                                <option value="12">12</option>
-                            </select>
-                        </div>
-                        <div class="sm:col-span-3">
-                            <label class="block text-xs font-medium text-stone-600 mb-1.5">a. m. / p. m.</label>
-                            <select name="hora_am_pm" class="input w-full horario-ampm" required>
-                                <option value="">…</option>
-                                <option value="am">a. m.</option>
-                                <option value="pm">p. m.</option>
-                            </select>
-                        </div>
-                        <div class="sm:col-span-1 flex sm:justify-end pt-1 sm:pt-0">
-                            <button type="button" class="btn-quitar-dia btn-outline px-3 py-2 text-xs font-medium text-red-700 border-red-200 hover:bg-red-50 hidden" title="Quitar este día">
-                                <i class="fas fa-times sm:mr-1"></i><span class="hidden sm:inline">Quitar</span>
+            <section class="card p-5 sm:p-6 border-stone-200" id="tour-horario">
+                <div class="flex items-center gap-3 mb-1">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 text-amber-900 text-sm font-semibold shrink-0">5</span>
+                    <h2 class="text-sm font-semibold text-stone-900">Horario de la clase</h2>
+                </div>
+                <p class="text-xs text-stone-500 mt-1 mb-4 ml-10 max-w-2xl">
+                    Día y hora en formato de 12 horas. Si la clase es más de una vez por semana, usa <strong>Agregar otro día</strong>.
+                </p>
+
+                <div id="horario-rows" class="space-y-3">
+                    <div class="horario-fila rounded-xl border border-stone-200 bg-stone-50/60 p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="horario-fila-label text-xs font-semibold text-stone-500 uppercase tracking-wide">Día 1</span>
+                            <button type="button" class="btn-quitar-dia inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 hidden" title="Quitar este día">
+                                <i class="fas fa-times"></i> Quitar
                             </button>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-11 gap-3 sm:gap-3">
+                            <div class="sm:col-span-5">
+                                <label class="block text-xs font-medium text-stone-600 mb-1.5">Día</label>
+                                <select name="dia_semana" class="input w-full horario-dia" required>
+                                    <option value="">Elige el día…</option>
+                                    <option value="0">Lunes</option>
+                                    <option value="1">Martes</option>
+                                    <option value="2">Miércoles</option>
+                                    <option value="3">Jueves</option>
+                                    <option value="4">Viernes</option>
+                                    <option value="5">Sábado</option>
+                                    <option value="6">Domingo</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-3">
+                                <label class="block text-xs font-medium text-stone-600 mb-1.5">Hora</label>
+                                <select name="hora_12" class="input w-full horario-hora" required>
+                                    <option value="">Hora…</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8</option>
+                                    <option value="9">9</option>
+                                    <option value="10">10</option>
+                                    <option value="11">11</option>
+                                    <option value="12">12</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-3">
+                                <label class="block text-xs font-medium text-stone-600 mb-1.5">a. m. / p. m.</label>
+                                <select name="hora_am_pm" class="input w-full horario-ampm" required>
+                                    <option value="">…</option>
+                                    <option value="am">a. m.</option>
+                                    <option value="pm">p. m.</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                <button type="button" id="agregar-otro-dia" class="mt-4 inline-flex items-center gap-2 text-sm font-medium text-amber-900 bg-amber-100/80 hover:bg-amber-100 border border-amber-200/80 rounded-lg px-4 py-2.5 transition-colors">
+                    <i class="fas fa-plus text-xs"></i>
+                    Agregar otro día
+                </button>
+            </section>
+
+            <section class="card p-5 sm:p-6 border-stone-200" id="tour-modalidad-salon">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 text-amber-900 text-sm font-semibold shrink-0">6</span>
+                    <h2 class="text-sm font-semibold text-stone-900">Modalidad y salón</h2>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
+                    <div>
+                        <label for="modalidad" class="block text-xs font-medium text-stone-600 mb-1.5">Modalidad</label>
+                        <select name="modalidad" id="modalidad" class="input w-full">
+                            <option value="presencial" {% if modalidad_default == "presencial" %}selected{% endif %}>Presencial</option>
+                            <option value="virtual">Virtual</option>
+                            <option value="hibrida">Híbrida</option>
+                        </select>
+                        <p class="text-xs text-stone-500 mt-1.5">Por defecto se crea como Presencial.</p>
+                    </div>
+                    <div>
+                        <label for="salon_id" class="block text-xs font-medium text-stone-600 mb-1.5">Salón (opcional)</label>
+                        {% if salones_libres %}
+                        <select name="salon_id" id="salon_id" class="input w-full">
+                            <option value="">— Sin salón —</option>
+                            {% for s in salones_libres %}
+                            <option value="{{ s.id }}" data-capacidad="{{ s.capacidad_plazas }}">{{ s.nombre }} ({{ s.capacidad_plazas }} plazas)</option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-xs text-stone-500 mt-1.5">Si eliges un salón, el cupo se alinea a su capacidad.</p>
+                        {% else %}
+                        <p class="text-sm text-stone-600 mt-1">No hay salones libres en la sede. Puedes continuar sin salón o pedir a logística que cree uno.</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="cupo_maximo" class="block text-xs font-medium text-stone-600 mb-1.5">Cupo máximo</label>
+                        <input type="number" name="cupo_maximo" id="cupo_maximo" class="input w-full" min="1" step="1" value="{{ cupo_maximo_default }}" required>
+                        <p id="cupo-maximo-hint" class="text-xs text-stone-500 mt-1.5">Cuántos estudiantes caben en esta edición.</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="flex flex-wrap gap-3 pt-2">
+                <button type="submit" class="btn-primary px-5 py-3 text-sm font-medium inline-flex items-center">
+                    <i class="fas fa-plus mr-2"></i>Crear instancia
+                </button>
+                <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="btn-outline px-5 py-3 text-sm font-medium">Cancelar</a>
             </div>
+        </form>
 
-            <button type="button" id="agregar-otro-dia" class="mt-4 inline-flex items-center gap-2 text-sm font-medium text-amber-900 bg-amber-100/80 hover:bg-amber-100 border border-amber-200/80 rounded-lg px-4 py-2.5 transition-colors">
-                <i class="fas fa-plus text-xs"></i>
-                Agregar otro día
-            </button>
-        </div>
-
-        <div class="border-t border-stone-100 pt-6">
-            <h2 class="text-sm font-semibold text-stone-900 mb-2">7. Modalidad</h2>
-            <label for="modalidad" class="block text-sm font-medium text-stone-700">Modalidad de la edición</label>
-            <select name="modalidad" id="modalidad" class="input mt-1 w-full max-w-xs">
-                <option value="presencial" {% if modalidad_default == "presencial" %}selected{% endif %}>Presencial</option>
-                <option value="virtual">Virtual</option>
-                <option value="hibrida">Híbrida</option>
-            </select>
-            <p class="text-xs text-stone-500 mt-1">Por defecto se crea como Presencial.</p>
-        </div>
-
-        <div class="border-t border-stone-100 pt-6">
-            <h2 class="text-sm font-semibold text-stone-900 mb-2">8. Salón (opcional)</h2>
-            {% if salones_libres %}
-            <label for="salon_id" class="block text-sm font-medium text-stone-700">Salón sin asignar</label>
-            <select name="salon_id" id="salon_id" class="input mt-1 w-full max-w-xl">
-                <option value="">— Sin salón —</option>
-                {% for s in salones_libres %}
-                <option value="{{ s.id }}">{{ s.nombre }} ({{ s.capacidad_plazas }} plazas)</option>
-                {% endfor %}
-            </select>
-            <p class="text-xs text-stone-500 mt-1">El cupo de la edición se alinea a la capacidad del salón.</p>
-            {% else %}
-            <p class="text-sm text-stone-600">No hay salones libres en la sede. Puedes continuar sin salón o pedir a logística que cree uno.</p>
-            {% endif %}
-        </div>
-
-        <div class="flex flex-wrap gap-3 pt-2">
-            <button type="submit" class="btn-primary px-5 py-3 text-sm font-medium inline-flex items-center">
-                <i class="fas fa-plus mr-2"></i>Crear instancia
-            </button>
-            <a href="{% url 'hechos:mis_escuelas_profesor' %}" class="btn-outline px-5 py-3 text-sm font-medium">Cancelar</a>
-        </div>
-    </form>
+        <aside class="lg:col-span-1 lg:sticky lg:top-6" id="tour-resumen">
+            <div class="card p-5 border-stone-200">
+                <h2 class="text-sm font-semibold text-stone-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-clipboard-list text-stone-400"></i>Resumen
+                </h2>
+                <dl class="space-y-3 text-sm">
+                    <div>
+                        <dt class="text-xs font-medium text-stone-500 uppercase tracking-wide">Escuela</dt>
+                        <dd id="resumen-escuela" class="text-stone-800 mt-0.5">Selecciona nivel y escuela</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-medium text-stone-500 uppercase tracking-wide">Año y ciclo</dt>
+                        <dd id="resumen-anio-ciclo" class="text-stone-800 mt-0.5">—</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-medium text-stone-500 uppercase tracking-wide">Período</dt>
+                        <dd id="resumen-periodo" class="text-stone-800 mt-0.5">—</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-medium text-stone-500 uppercase tracking-wide">Horario</dt>
+                        <dd id="resumen-horario" class="text-stone-800 mt-0.5">Sin días configurados</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-medium text-stone-500 uppercase tracking-wide">Modalidad / Salón</dt>
+                        <dd id="resumen-modalidad" class="text-stone-800 mt-0.5">—</dd>
+                    </div>
+                </dl>
+                <div class="mt-4 pt-4 border-t border-stone-100 text-xs text-stone-500">
+                    <i class="fas fa-building mr-1"></i>Sede: <strong class="text-stone-700">{{ user_sede.nombre }}</strong>
+                </div>
+            </div>
+        </aside>
+    </div>
     {% endif %}
 </div>
 
@@ -224,7 +299,43 @@
 
     nivelSel.addEventListener('change', function() {
         refillPlantillas(this.value);
+        actualizarResumen();
     });
+    plantSel.addEventListener('change', actualizarResumen);
+})();
+
+(function() {
+    const salonSel = document.getElementById('salon_id');
+    const cupoInput = document.getElementById('cupo_maximo');
+    const cupoHint = document.getElementById('cupo-maximo-hint');
+    if (!salonSel || !cupoInput) return;
+
+    var cupoManualPrevio = cupoInput.value;
+
+    function syncCupoConSalon() {
+        var opt = salonSel.options[salonSel.selectedIndex];
+        var capacidad = opt ? opt.getAttribute('data-capacidad') : null;
+        if (capacidad) {
+            cupoInput.value = capacidad;
+            cupoInput.readOnly = true;
+            cupoInput.classList.add('bg-stone-100', 'text-stone-500');
+            if (cupoHint) cupoHint.textContent = 'Se alinea automáticamente a la capacidad del salón elegido.';
+        } else {
+            cupoInput.value = cupoManualPrevio;
+            cupoInput.readOnly = false;
+            cupoInput.classList.remove('bg-stone-100', 'text-stone-500');
+            if (cupoHint) cupoHint.textContent = 'Cuántos estudiantes caben en esta edición.';
+        }
+    }
+
+    cupoInput.addEventListener('input', function() {
+        if (!cupoInput.readOnly) cupoManualPrevio = cupoInput.value;
+    });
+    salonSel.addEventListener('change', function() {
+        syncCupoConSalon();
+        actualizarResumen();
+    });
+    syncCupoConSalon();
 })();
 
 (function() {
@@ -236,6 +347,14 @@
         return container.querySelector('.horario-fila');
     }
 
+    function relabelFilas() {
+        const filas = container.querySelectorAll('.horario-fila');
+        filas.forEach(function(fila, idx) {
+            const label = fila.querySelector('.horario-fila-label');
+            if (label) label.textContent = 'Día ' + (idx + 1);
+        });
+    }
+
     function syncQuitarVisibilidad() {
         const filas = container.querySelectorAll('.horario-fila');
         const varias = filas.length > 1;
@@ -243,6 +362,7 @@
             const q = fila.querySelector('.btn-quitar-dia');
             if (q) q.classList.toggle('hidden', !varias);
         });
+        relabelFilas();
     }
 
     function resetSelectsEnFila(fila) {
@@ -261,6 +381,7 @@
         });
         container.appendChild(clone);
         syncQuitarVisibilidad();
+        actualizarResumen();
     });
 
     container.addEventListener('click', function(ev) {
@@ -270,9 +391,131 @@
         if (!fila || container.querySelectorAll('.horario-fila').length <= 1) return;
         fila.remove();
         syncQuitarVisibilidad();
+        actualizarResumen();
     });
 
+    container.addEventListener('change', actualizarResumen);
+
     syncQuitarVisibilidad();
+})();
+
+function actualizarResumen() {
+    const nivelSel = document.getElementById('nivel_select');
+    const plantSel = document.getElementById('plantilla_id');
+    const anioSel = document.getElementById('anio_escuela');
+    const cicloSel = document.getElementById('ciclo');
+    const fechaInicio = document.getElementById('fecha_inicio');
+    const fechaFin = document.getElementById('fecha_fin');
+    const modalidadSel = document.getElementById('modalidad');
+    const salonSel = document.getElementById('salon_id');
+
+    const resEscuela = document.getElementById('resumen-escuela');
+    const resAnioCiclo = document.getElementById('resumen-anio-ciclo');
+    const resPeriodo = document.getElementById('resumen-periodo');
+    const resHorario = document.getElementById('resumen-horario');
+    const resModalidad = document.getElementById('resumen-modalidad');
+
+    if (resEscuela) {
+        const nombreEscuela = plantSel && plantSel.value ? plantSel.options[plantSel.selectedIndex].textContent : '';
+        const nombreNivel = nivelSel && nivelSel.value ? nivelSel.options[nivelSel.selectedIndex].textContent : '';
+        resEscuela.textContent = nombreEscuela ? nombreEscuela + (nombreNivel ? ' · ' + nombreNivel : '') : 'Selecciona nivel y escuela';
+    }
+
+    if (resAnioCiclo && anioSel && cicloSel) {
+        resAnioCiclo.textContent = anioSel.value + ' · Ciclo ' + cicloSel.value;
+    }
+
+    if (resPeriodo && fechaInicio && fechaFin) {
+        if (fechaInicio.value && fechaFin.value) {
+            resPeriodo.textContent = formatearFecha(fechaInicio.value) + ' — ' + formatearFecha(fechaFin.value);
+        } else {
+            resPeriodo.textContent = '—';
+        }
+    }
+
+    if (resHorario) {
+        const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+        const filas = document.querySelectorAll('#horario-rows .horario-fila');
+        const partes = [];
+        filas.forEach(function(fila) {
+            const dia = fila.querySelector('.horario-dia');
+            const hora = fila.querySelector('.horario-hora');
+            const ampm = fila.querySelector('.horario-ampm');
+            if (dia && dia.value !== '' && hora && hora.value && ampm && ampm.value) {
+                partes.push(dias[parseInt(dia.value, 10)] + ' ' + hora.value + (ampm.value === 'am' ? ' a. m.' : ' p. m.'));
+            }
+        });
+        resHorario.textContent = partes.length ? partes.join(' · ') : 'Sin días configurados';
+    }
+
+    if (resModalidad && modalidadSel) {
+        const modalidadTxt = modalidadSel.options[modalidadSel.selectedIndex].textContent;
+        const salonTxt = salonSel && salonSel.value ? salonSel.options[salonSel.selectedIndex].textContent : 'Sin salón';
+        const cupoInput = document.getElementById('cupo_maximo');
+        const cupoTxt = cupoInput && cupoInput.value ? cupoInput.value + ' cupos' : '';
+        resModalidad.textContent = [modalidadTxt, salonTxt, cupoTxt].filter(Boolean).join(' · ');
+    }
+}
+
+function formatearFecha(iso) {
+    const partes = iso.split('-');
+    if (partes.length !== 3) return iso;
+    return partes[2] + '/' + partes[1] + '/' + partes[0];
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('form-crear-instancia');
+    if (form) {
+        form.addEventListener('change', actualizarResumen);
+    }
+    actualizarResumen();
+});
+</script>
+
+<script src="{% static 'js/site-tour.js' %}"></script>
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                selector: '#tour-nivel',
+                title: 'Elige el nivel',
+                text: 'Selecciona el nivel del programa; esto filtra qué escuelas del catálogo vas a poder elegir después.'
+            },
+            {
+                selector: '#tour-escuela',
+                title: 'Elige la escuela',
+                text: 'Acá solo aparecen las escuelas del catálogo que pertenecen al nivel que elegiste.'
+            },
+            {
+                selector: '#tour-anio-ciclo',
+                title: 'Año y ciclo',
+                text: 'Define el año académico y si esta edición es Ciclo A o Ciclo B en tu sede.'
+            },
+            {
+                selector: '#tour-periodo',
+                title: 'Período de clases',
+                text: 'Indica cuándo empieza y termina el ciclo. Junto con el horario, esto genera las clases en el calendario.'
+            },
+            {
+                selector: '#tour-horario',
+                title: 'Horario semanal',
+                text: 'Agrega el día y la hora de la clase. Si se dicta varias veces por semana, usa «Agregar otro día» para sumar más.'
+            },
+            {
+                selector: '#tour-modalidad-salon',
+                title: 'Modalidad y salón',
+                text: 'Elige si la edición es presencial, virtual o híbrida, y asigna un salón libre si aplica.'
+            },
+            {
+                selector: '#tour-resumen',
+                title: 'Revisa el resumen',
+                text: 'Acá vas viendo en tiempo real lo que estás por crear. Confirmá que todo esté bien antes de tocar «Crear instancia».'
+            }
+        ]);
+    });
 })();
 </script>
 {% endif %}

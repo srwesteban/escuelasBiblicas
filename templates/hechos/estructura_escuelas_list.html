@@ -24,14 +24,32 @@
         {% for item in escuelas_feed %}
         <div class="card p-6 flex flex-col h-full">
             <div class="min-w-0 flex-1">
-                <h2 class="text-lg font-semibold text-slate-900 leading-snug">{{ item.escuela.titulo_tarjeta }}</h2>
-                {% if not item.num_ediciones %}
-                <p class="text-sm text-amber-800 mt-2">Sin ediciones activas</p>
-                {% endif %}
+                <div class="flex items-start justify-between gap-3">
+                    <h2 class="text-lg sm:text-xl font-semibold text-slate-900 leading-snug break-words">
+                        {{ item.escuela.nombre }}
+                        {% if item.escuela.maestro %}
+                        <span class="font-semibold text-stone-700"> ({{ item.escuela.maestro.user.get_full_name }})</span>
+                        {% else %}
+                        <span class="font-medium text-stone-500"> (Por asignar)</span>
+                        {% endif %}
+                    </h2>
+                    <div class="w-10 h-10 shrink-0 rounded-xl bg-stone-100 text-stone-500 flex items-center justify-center" aria-hidden="true">
+                        <i class="fas fa-school"></i>
+                    </div>
+                </div>
+                <dl class="mt-4 space-y-2 text-sm">
+                    <div>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Ciclo</dt>
+                        <dd class="mt-0.5 text-slate-800">{{ item.escuela.anio }} · {{ item.escuela.get_ciclo_display }}</dd>
+                    </div>
+                    {% if not item.num_ediciones %}
+                    <p class="text-sm text-amber-800">Sin ediciones activas</p>
+                    {% endif %}
+                </dl>
             </div>
             <div class="mt-6">
                 {% if item.num_ediciones %}
-                <a href="{% url 'hechos:estructura_escuela' item.escuela.id %}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                <a href="{% url 'hechos:estructura_configurar' item.escuela.id 1 %}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
                     <i class="fas fa-sliders mr-2"></i>Configurar
                 </a>
                 {% else %}

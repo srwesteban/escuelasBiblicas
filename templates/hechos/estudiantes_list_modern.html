@@ -54,9 +54,17 @@
 
     <div class="estudiantes-hero flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div class="relative z-10 max-w-xl">
-            <p class="text-xs font-semibold uppercase tracking-wider text-amber-200/90">Coordinación académica</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-amber-200/90">
+                {% if user.profesor_profile %}Directorio del profesor
+                {% elif user.admin_escuela_profile.tipo_coordinador == 'sede' %}Coordinación de sede
+                {% elif user.admin_escuela_profile %}Coordinación académica
+                {% elif ve_todas_las_sedes %}Dirección — todas las sedes
+                {% else %}Directorio de estudiantes{% endif %}
+            </p>
             <h1 class="mt-1 text-2xl font-bold text-white">Estudiantes</h1>
-            <p class="mt-2 text-sm text-stone-200/95">Altas, búsqueda y seguimiento por sede. Misma línea visual que el resto del módulo.</p>
+            <p class="mt-2 text-sm text-stone-200/95">
+                {% if ve_todas_las_sedes %}Altas, búsqueda y seguimiento en todas las sedes.{% else %}Altas, búsqueda y seguimiento por sede.{% endif %}
+            </p>
             {% if user_sede %}
                 <p class="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/95">
                     <i class="fas fa-building text-amber-200"></i>{{ user_sede.nombre }}
@@ -124,14 +132,14 @@
     <div class="card border border-stone-200/80 overflow-hidden">
         <div class="px-4 py-4 sm:px-6 border-b border-stone-200 bg-stone-50/50">
             <h2 class="text-base font-semibold text-gray-900">Lista de estudiantes</h2>
-            <p class="text-sm text-stone-600 mt-0.5">Filtra por nombre, correo, código o estado de matrícula.</p>
+            <p class="text-sm text-stone-600 mt-0.5">Filtra por nombre, correo, documento{% if ve_todas_las_sedes %} o sede{% endif %} o estado de matrícula.</p>
 
             <form method="get" class="mt-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
                 <div class="flex-1 min-w-[12rem]">
                     <label for="id-busqueda-est" class="sr-only">Buscar</label>
                     <div class="relative">
                         <input type="text" id="id-busqueda-est" name="busqueda" value="{{ busqueda }}"
-                               placeholder="Nombre, email, código, iglesia…"
+                               placeholder="Nombre, email, documento…"
                                class="w-full rounded-lg border border-stone-300 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-500/20">
                         <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-stone-400">
                             <i class="fas fa-search text-sm"></i>
@@ -181,7 +189,10 @@
                 <thead class="bg-stone-50">
                     <tr>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Estudiante</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Código</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Documento</th>
+                        {% if ve_todas_las_sedes %}
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Sede</th>
+                        {% endif %}
                         <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Contacto</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Cursos</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Estado</th>
@@ -198,14 +209,16 @@
                                 </div>
                                 <div class="min-w-0">
                                     <p class="text-sm font-semibold text-gray-900 truncate">{{ estudiante_data.estudiante.user.get_full_name }}</p>
-                                    <p class="text-xs text-stone-500 truncate">{{ estudiante_data.estudiante.user.email }}</p>
+                                    <p class="text-xs text-stone-500 truncate">{{ estudiante_data.estudiante.user.email|default:"—" }}</p>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-4 py-4 text-sm text-stone-800 tabular-nums sm:px-6">{{ estudiante_data.estudiante.codigo_estudiante|default:"—" }}</td>
+                        <td class="px-4 py-4 text-sm text-stone-800 tabular-nums sm:px-6">{{ estudiante_data.estudiante.numero_documento|default:"—" }}</td>
+                        {% if ve_todas_las_sedes %}
+                        <td class="px-4 py-4 text-sm text-stone-700 sm:px-6">{{ estudiante_data.estudiante.sede.nombre|default:"—" }}</td>
+                        {% endif %}
                         <td class="px-4 py-4 text-sm sm:px-6">
-                            <p class="text-stone-800">{{ estudiante_data.estudiante.telefono_emergencia|default:"—" }}</p>
-                            <p class="text-xs text-stone-500 truncate max-w-[12rem]">{{ estudiante_data.estudiante.contacto_emergencia|default:"" }}</p>
+                            <p class="text-stone-800">{{ estudiante_data.estudiante.user.phone|default:"—" }}</p>
                         </td>
                         <td class="px-4 py-4 text-sm sm:px-6">
                             <span class="font-medium text-gray-900">{{ estudiante_data.total_matriculas }}</span>

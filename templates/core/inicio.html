@@ -13,6 +13,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="dns-prefetch" href="https://esm.sh">
 <style>
     .inicio-ogl-canvas {
         position: fixed;
@@ -32,7 +34,7 @@
         background: #000000;
     }
 
-    body:has(#inicio-ogl-particles) > .min-h-full {
+    body:has(#inicio-ogl-particles) > .h-full.flex.flex-col {
         position: relative;
         z-index: 1;
         background: transparent;
@@ -76,6 +78,15 @@
         border-radius: 2rem;
         background: rgba(9, 9, 11, 0.72);
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .inicio-hero-copy__inner {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
 
     .inicio-hero-welcome {
@@ -165,14 +176,71 @@
         z-index: 1;
     }
 
-    body:has(#inicio-ogl-particles) > .min-h-full {
+    body:has(#inicio-ogl-particles) > .h-full.flex.flex-col {
         display: flex;
         flex-direction: column;
         min-height: 100vh;
         min-height: 100dvh;
     }
 
-    body:has(#inicio-ogl-particles) > .min-h-full > .flex.flex-1.min-h-0.min-w-0 > main {
+    /* Personalidad por red social — mismo tamaño de botón, solo color/acento propio */
+    .inicio-social-btn {
+        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+    }
+
+    .inicio-social-btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .inicio-social-btn:active {
+        transform: translateY(0);
+    }
+
+    .inicio-social-btn--tiktok i {
+        color: #ff0050;
+    }
+    .inicio-social-btn--tiktok:hover {
+        border-color: #25f4ee;
+        box-shadow: 0 6px 16px rgba(37, 244, 238, 0.22), 0 6px 16px rgba(255, 0, 80, 0.14);
+    }
+
+    .inicio-social-btn--youtube i {
+        color: #ff0000;
+    }
+    .inicio-social-btn--youtube:hover {
+        border-color: #ff0000;
+        box-shadow: 0 6px 16px rgba(255, 0, 0, 0.22);
+    }
+
+    .inicio-social-btn--instagram i {
+        background: linear-gradient(45deg, #feda75, #d62976, #962fbf, #4f5bd5);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .inicio-social-btn--instagram:hover {
+        border-color: #d62976;
+        box-shadow: 0 6px 16px rgba(214, 41, 118, 0.25);
+    }
+
+    .inicio-social-btn--facebook i {
+        color: #1877f2;
+    }
+    .inicio-social-btn--facebook:hover {
+        border-color: #1877f2;
+        box-shadow: 0 6px 16px rgba(24, 119, 242, 0.22);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .inicio-social-btn {
+            transition: none;
+        }
+        .inicio-social-btn:hover {
+            transform: none;
+        }
+    }
+
+    body:has(#inicio-ogl-particles) > .h-full.flex.flex-col > .flex.flex-1.min-h-0.min-w-0 > main {
         flex: 1 1 auto;
         display: flex;
         flex-direction: column;
@@ -308,7 +376,7 @@
     }
 
     /* Solo contenedor principal sin marco; bordes/redondeos vuelven en secciones internas */
-    body:has(#inicio-ogl-particles) > .min-h-full > .flex.flex-1.min-h-0.min-w-0 > main > .inicio-main-grid {
+    body:has(#inicio-ogl-particles) > .h-full.flex.flex-col > .flex.flex-1.min-h-0.min-w-0 > main > .inicio-main-grid {
         box-sizing: border-box;
         border: none;
         border-radius: 0;
@@ -627,8 +695,8 @@
         margin: 0;
     }
 
-    @media (max-width: 1023px) {
-        body:has(#inicio-ogl-particles) > .min-h-full > .flex.flex-1.min-h-0.min-w-0 > main > .inicio-main-grid {
+    @media (max-width: 639px) {
+        body:has(#inicio-ogl-particles) > .h-full.flex.flex-col > .flex.flex-1.min-h-0.min-w-0 > main > .inicio-main-grid {
             flex: 0 1 auto;
             grid-template-columns: 1fr;
             grid-auto-rows: auto;
@@ -647,7 +715,6 @@
         main > .inicio-main-grid:not(:has(> .mb-6)) > .inicio-below {
             grid-column: 1;
             grid-row: auto;
-            /* Antes max 18rem dejaba la franja muy baja frente a texto + vídeo */
             min-height: clamp(17.5rem, 46dvh, 30rem);
         }
 
@@ -685,12 +752,94 @@
         }
     }
 
+    /* Tablet / escritorio estrecho: texto a la izquierda, video a la derecha */
+    @media (min-width: 640px) and (max-width: 1023px) {
+        body:has(#inicio-ogl-particles) > .h-full.flex.flex-col > .flex.flex-1.min-h-0.min-w-0 > main > .inicio-main-grid {
+            flex: 0 1 auto;
+            grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+            gap: 0.75rem;
+            align-items: stretch;
+        }
+
+        main > .inicio-main-grid:not(:has(> .mb-6)) {
+            grid-template-rows: auto auto;
+        }
+
+        main > .inicio-main-grid:not(:has(> .mb-6)) > .inicio-hero-copy {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        main > .inicio-main-grid:not(:has(> .mb-6)) > .inicio-hero-media {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        main > .inicio-main-grid:not(:has(> .mb-6)) > .inicio-below {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            min-height: clamp(16rem, 40dvh, 26rem);
+        }
+
+        main > .inicio-main-grid:has(> .mb-6) {
+            grid-template-rows: auto auto auto;
+        }
+
+        main > .inicio-main-grid:has(> .mb-6) > .mb-6 {
+            grid-column: 1 / -1;
+            grid-row: 1;
+        }
+
+        main > .inicio-main-grid:has(> .mb-6) > .inicio-hero-copy {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        main > .inicio-main-grid:has(> .mb-6) > .inicio-hero-media {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        main > .inicio-main-grid:has(> .mb-6) > .inicio-below {
+            grid-column: 1 / -1;
+            grid-row: 3;
+            min-height: clamp(16rem, 40dvh, 26rem);
+        }
+
+        main > .inicio-main-grid > section.inicio-hero-copy {
+            overflow: auto;
+        }
+
+        .inicio-hero-copy__inner {
+            padding-left: 1.25rem;
+            padding-right: 1.25rem;
+        }
+
+        .inicio-hero-copy h1 {
+            font-size: clamp(1.75rem, 4.2vw, 2.75rem);
+        }
+
+        .inicio-hero-video-wrap {
+            max-width: min(100%, 280px);
+            max-height: min(58dvh, 420px);
+        }
+
+        .inicio-carousel-viewport {
+            min-height: 12.5rem;
+        }
+
+        .inicio-school-card {
+            min-height: 12.5rem;
+            align-self: stretch;
+        }
+    }
+
     @media (min-width: 1024px) {
-        body:has(#inicio-ogl-particles) > .min-h-full > .flex.flex-1.min-h-0.min-w-0 > main {
+        body:has(#inicio-ogl-particles) > .h-full.flex.flex-col > .flex.flex-1.min-h-0.min-w-0 > main {
             min-height: 0;
         }
 
-        body:has(#inicio-ogl-particles) > .min-h-full > .flex.flex-1.min-h-0.min-w-0 > main > .inicio-main-grid {
+        body:has(#inicio-ogl-particles) > .h-full.flex.flex-col > .flex.flex-1.min-h-0.min-w-0 > main > .inicio-main-grid {
             flex: 1 1 0;
             padding: 1rem 1.25rem !important;
             grid-template-columns: minmax(0, 1.32fr) minmax(0, 0.68fr);
@@ -759,7 +908,7 @@
     </div>
     <div class="inicio-hero-copy__inner px-6 py-6 sm:px-8 sm:py-8">
         <h1 id="inicio-hero-heading" class="max-w-3xl text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-zinc-50">
-            Escuelas biblicas
+            Escuelas bíblicas
         </h1>
 
         <blockquote class="mt-4 max-w-2xl border-l-4 border-amber-500/50 pl-4 text-base sm:text-lg leading-8 text-zinc-300 italic">
@@ -792,7 +941,7 @@
 
 <section class="inicio-hero-media inicio-card inicio-illustration rounded-3xl" aria-label="Video de presentación">
     <div class="inicio-hero-video-wrap">
-        <video autoplay muted loop playsinline controls preload="metadata" title="Hechos Norte Youth">
+        <video id="inicio-hero-video" autoplay muted loop playsinline controls preload="metadata" title="Hechos Norte Youth">
             <source src="{% static 'videos/inicio-hero.mp4' %}" type="video/mp4">
             Tu navegador no soporta reproducción de video HTML5.
         </video>
@@ -947,16 +1096,16 @@
         <div class="max-w-7xl mx-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p class="text-sm text-zinc-400">Síguenos:</p>
             <div class="flex flex-wrap items-center gap-2">
-                <a href="https://www.tiktok.com/@hechosnorte" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center px-3 py-1.5 text-xs font-medium">
+                <a href="https://www.tiktok.com/@hechosnorte" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center px-3 py-1.5 text-xs font-medium inicio-social-btn inicio-social-btn--tiktok">
                     <i class="fab fa-tiktok mr-2"></i>TikTok
                 </a>
-                <a href="https://www.youtube.com/@HechosNorte" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center px-3 py-1.5 text-xs font-medium">
+                <a href="https://www.youtube.com/@HechosNorte" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center px-3 py-1.5 text-xs font-medium inicio-social-btn inicio-social-btn--youtube">
                     <i class="fab fa-youtube mr-2"></i>YouTube
                 </a>
-                <a href="https://www.instagram.com/hechosnorte/" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center px-3 py-1.5 text-xs font-medium">
+                <a href="https://www.instagram.com/hechosnorte/" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center px-3 py-1.5 text-xs font-medium inicio-social-btn inicio-social-btn--instagram">
                     <i class="fab fa-instagram mr-2"></i>Instagram
                 </a>
-                <a href="https://www.facebook.com/hechosnorte" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center px-3 py-1.5 text-xs font-medium">
+                <a href="https://www.facebook.com/hechosnorte" target="_blank" rel="noopener noreferrer" class="btn-outline inline-flex items-center px-3 py-1.5 text-xs font-medium inicio-social-btn inicio-social-btn--facebook">
                     <i class="fab fa-facebook-f mr-2"></i>Facebook
                 </a>
             </div>
@@ -968,4 +1117,17 @@
 {% block extra_js %}
 <script type="module" src="{% static 'js/inicio-ogl-particles.js' %}"></script>
 <script src="{% static 'js/inicio-escuelas-carousel.js' %}" defer></script>
+<script>
+(function () {
+    var video = document.getElementById('inicio-hero-video');
+    if (!video) return;
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            video.pause();
+        } else if (video.paused) {
+            video.play().catch(function () {});
+        }
+    });
+})();
+</script>
 {% endblock %}

@@ -36,12 +36,6 @@ class Command(BaseCommand):
             default='sede@iglesia.com',
             help='Email de la sede'
         )
-        parser.add_argument(
-            '--pastor',
-            type=str,
-            default='Pastor Juan Pérez',
-            help='Nombre del pastor responsable'
-        )
 
     def handle(self, *args, **options):
         # Crear la sede
@@ -51,7 +45,6 @@ class Command(BaseCommand):
                 'direccion': options['sede_direccion'],
                 'telefono': options['sede_telefono'],
                 'email': options['sede_email'],
-                'pastor_responsable': options['pastor'],
                 'descripcion': f'Sede {options["sede_nombre"]} de la iglesia',
                 'is_active': True
             }
@@ -185,9 +178,7 @@ class Command(BaseCommand):
                     'sede': sede,
                     'fecha_nacimiento': '1990-01-01',
                     'direccion': 'Dirección del estudiante',
-                    'iglesia': sede.nombre,
                     'telefono_emergencia': '+1-234-567-8901',
-                    'contacto_emergencia': 'Contacto de emergencia',
                     'is_active': True
                 }
             )

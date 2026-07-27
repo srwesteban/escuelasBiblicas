@@ -1,5 +1,5 @@
 {% extends 'base_modern.html' %}
-
+{% load static %}
 {% block main_container_class %}w-full max-w-none mx-auto px-0 py-0 sm:px-0 lg:px-0{% endblock %}
 
 {% block title %}Notas — {{ escuela.nombre }}{% endblock %}
@@ -17,13 +17,13 @@
                 <h1 class="text-base sm:text-lg font-semibold tracking-tight truncate">Notas (grilla)</h1>
                 <p class="text-[11px] text-white/85 truncate max-w-[min(100vw-8rem,28rem)]">{{ escuela.nombre }} — {{ escuela.anio }} · {{ escuela.get_ciclo_display }}</p>
             </div>
-            {% if num_columnas %}
-            <span class="hidden sm:inline-flex items-center rounded-sm border border-white/25 bg-black/10 px-2 py-1 text-[11px] font-medium text-white/95">
-                {{ num_columnas }} {% if num_columnas == 1 %}columna{% else %}columnas{% endif %} de nota
-            </span>
-            {% endif %}
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2">
+            <button type="button" id="open-tour"
+                    class="inline-flex items-center justify-center rounded-sm border border-white/35 bg-white/15 h-10 w-10 text-white shadow-sm hover:bg-white/25 shrink-0"
+                    title="Ver tutorial">
+                <i class="fas fa-question text-xs" aria-hidden="true"></i>
+            </button>
             {% if matricular_modal_activo %}
             <button type="button" id="btn-abrir-matricular-notas"
                     class="inline-flex items-center justify-center gap-2 rounded-sm border border-white/35 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-white/25 min-h-[40px] shrink-0">
@@ -31,7 +31,7 @@
                 Matricular
             </button>
             {% endif %}
-            <a href="{% url 'hechos:profesor_escuela_notas_excel_formato' escuela.id %}"
+            <a id="tour-plantilla-excel-notas" href="{% url 'hechos:profesor_escuela_notas_excel_formato' escuela.id %}"
                class="inline-flex items-center justify-center gap-2 rounded-sm border border-white/35 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-white/25 min-h-[40px] shrink-0">
                 <i class="fas fa-file-excel text-xs" aria-hidden="true"></i>
                 Plantilla Excel
@@ -39,11 +39,7 @@
         </div>
     </div>
 
-    <div class="flex flex-col gap-2 border-b border-neutral-300 bg-[#f3f3f3] px-2 py-2 sm:flex-row sm:items-center sm:gap-3 shrink-0">
-        <div class="flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs text-neutral-700">
-            <span class="font-semibold text-neutral-600 mr-1">Celdas:</span>
-            <span class="text-neutral-600">Valores libres (números o texto). El <strong>promedio</strong> usa solo valores numéricos. La columna <strong>Estado</strong> es la decisión de aprobación.</span>
-        </div>
+    <div class="flex flex-col gap-2 border-b border-neutral-300 bg-[#f3f3f3] px-2 py-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3 shrink-0">
         {% if tiene_estudiantes %}
         <div class="flex flex-1 min-w-0 items-center gap-2 sm:justify-end">
             <label for="grilla-buscar-estudiante-notas" class="sr-only">Buscar</label>
@@ -57,7 +53,7 @@
         {% endif %}
     </div>
 
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-neutral-300 bg-white px-3 py-1.5 text-[11px] text-neutral-600 shrink-0">
+    <div id="tour-notas-columnas" class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-neutral-300 bg-white px-3 py-1.5 text-[11px] text-neutral-600 shrink-0">
         <span><span class="text-neutral-400">Docente</span> <span class="font-medium text-neutral-800">{{ nombre_docente }}</span></span>
         <span class="hidden sm:inline text-neutral-300">|</span>
         <span><span class="text-neutral-400">Horario</span> <span class="font-medium text-neutral-800">{{ horario_txt }}</span></span>
@@ -75,7 +71,7 @@
             {% if not puede_quitar_col %}
             <button type="button" disabled title="Debe quedar al menos una nota" class="rounded-sm border border-neutral-200 px-2 py-1.5 text-[11px] text-neutral-400 min-h-[36px] cursor-not-allowed">− Última</button>
             {% else %}
-            <form method="post" action="{{ quitar_nota_url }}" class="inline" onsubmit="return confirm('¿Eliminar la última columna de nota y sus valores?');">
+            <form method="post" action="{{ quitar_nota_url }}" class="inline" data-confirm-message="¿Eliminar la última columna de nota y sus valores?" data-confirm-title="Eliminar columna">
                 {% csrf_token %}
                 <button type="submit" class="rounded-sm border border-red-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-red-800 min-h-[36px] hover:bg-red-50">− Última</button>
             </form>
@@ -110,6 +106,7 @@
                         {% endfor %}
                         <th class="sticky top-0 z-20 excel-grid-border px-1 py-2 text-center font-semibold bg-indigo-100 text-indigo-950 w-[5rem] min-w-[5rem] text-[10px]">Prom.</th>
                         <th class="sticky top-0 z-20 excel-grid-border px-1 py-2 text-center font-semibold bg-amber-100 text-amber-950 w-[7.5rem] min-w-[7.5rem] text-[10px]">Estado</th>
+                        <th class="sticky top-0 z-20 excel-grid-border px-1 py-2 text-center font-semibold bg-emerald-100 text-emerald-950 w-[8rem] min-w-[8rem] text-[10px]">Certificado</th>
                     </tr>
                 </thead>
                 <tbody id="grilla-notas-tbody">
@@ -123,6 +120,7 @@
                             style="left: 2.5rem;" title="{{ e.user.get_full_name }}">{{ e.user.get_full_name }}</td>
                         <td class="notas-sticky-ver excel-td-frozen sticky z-10 w-10 min-w-[2.5rem] excel-grid-border p-0.5 text-center align-middle bg-white">
                             <button type="button"
+                                    {% if forloop.first %}id="tour-fila-menu-notas"{% endif %}
                                     class="js-notas-fila-menu-trigger mx-auto flex h-9 w-9 items-center justify-center rounded-sm border border-neutral-400 bg-white text-neutral-600 hover:bg-[#f0f0f0] text-lg font-bold leading-none shadow-sm"
                                     data-resumen-url="{% url 'hechos:estudiante_resumen_fragment' e.id %}"
                                     data-quitar-form-id="form-quitar-matricula-notas-{{ e.id }}">⋯</button>
@@ -137,7 +135,7 @@
                         </td>
                         {% endfor %}
                         <td class="excel-grid-border px-1 py-1 text-center font-mono text-xs bg-indigo-50/80 text-indigo-950 w-[5rem] min-w-[5rem] tabular-nums js-notas-promedio">{{ fila.promedio_ui }}</td>
-                        <td class="excel-grid-border p-0 align-middle bg-amber-50/50 js-notas-estado-td">
+                        <td {% if forloop.first %}id="tour-notas-estado"{% endif %} class="excel-grid-border p-0 align-middle bg-amber-50/50 js-notas-estado-td">
                             <label class="sr-only" for="estado_{{ e.id }}">Estado final</label>
                             <select name="estado_{{ e.id }}" id="estado_{{ e.id }}"
                                     class="grilla-nota-estado w-full min-h-[40px] text-[12px] font-medium text-center border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-amber-600 py-1 px-0 text-neutral-900">
@@ -146,18 +144,28 @@
                                 <option value="no_aprobado" {% if fila.estado_final == 'no_aprobado' %}selected{% endif %}>No aprobado</option>
                             </select>
                         </td>
+                        <td class="excel-grid-border p-1 align-middle bg-white text-center">
+                            <button type="submit"
+                                    form="form-certificado-{{ e.id }}"
+                                    {% if fila.estado_final != 'aprobado' %}disabled{% endif %}
+                                    {% if forloop.first %}id="tour-certificado-notas"{% endif %}
+                                    title="{% if fila.estado_final != 'aprobado' %}Solo disponible cuando el estado guardado es Aprobado{% endif %}"
+                                    class="js-cert-btn w-full rounded-sm border px-2 py-1.5 text-[11px] font-semibold min-h-[36px] shadow-sm disabled:bg-neutral-100 disabled:text-neutral-400 disabled:border-neutral-200 disabled:cursor-not-allowed disabled:shadow-none {% if fila.certificado_activo %}bg-red-600 border-red-800 text-white hover:bg-red-700{% else %}bg-emerald-600 border-emerald-800 text-white hover:bg-emerald-700{% endif %}">
+                                {% if fila.certificado_activo %}Desactivar certificado{% else %}Enviar certificado{% endif %}
+                            </button>
+                        </td>
                     </tr>
                     {% endwith %}
                     {% endfor %}
                     <tr id="grilla-notas-sin-resultados" class="hidden" aria-live="polite">
-                        <td colspan="{{ num_columnas|add:5 }}" class="text-center py-10 px-4 text-sm text-stone-600 bg-stone-50/90 border border-gray-200">
+                        <td colspan="{{ num_columnas|add:6 }}" class="text-center py-10 px-4 text-sm text-stone-600 bg-stone-50/90 border border-gray-200">
                             No hay estudiantes que coincidan con la búsqueda.
                         </td>
                     </tr>
                 </tbody>
             </table>
         </div>
-        <div class="excel-status-bar flex flex-wrap items-center justify-between gap-3 border-t-2 border-indigo-800 bg-[#f3f3f3] px-3 py-2.5 shrink-0">
+        <div id="tour-guardar-notas" class="excel-status-bar flex flex-wrap items-center justify-between gap-3 border-t-2 border-indigo-800 bg-[#f3f3f3] px-3 py-2.5 shrink-0">
             <div class="min-w-0 text-[12px] text-neutral-600">
                 <p class="text-[11px] text-neutral-500">Pulse <strong>Guardar hoja</strong> para registrar cambios. <strong>Estado</strong> (aprobado / no aprobado) es el dato clave al final de cada fila.</p>
             </div>
@@ -180,10 +188,18 @@
         {% csrf_token %}
         <input type="hidden" name="redirect_to" value="notas"/>
     </form>
+    <form id="form-certificado-{{ fila.estudiante.id }}" method="post" action="{{ toggle_certificado_url }}"
+          data-confirm-title="{% if fila.certificado_activo %}Desactivar certificado{% else %}Enviar certificado{% endif %}"
+          data-confirm-message="{% if fila.certificado_activo %}El estudiante dejará de ver y descargar su certificado de esta escuela.{% else %}El estudiante podrá ver y descargar su certificado de esta escuela desde «Mis certificados».{% endif %}"
+          data-confirm-label="{% if fila.certificado_activo %}Desactivar{% else %}Enviar{% endif %}">
+        {% csrf_token %}
+        <input type="hidden" name="estudiante_id" value="{{ fila.estudiante.id }}">
+        <input type="hidden" name="accion" value="{% if fila.certificado_activo %}desactivar{% else %}enviar{% endif %}">
+    </form>
     {% endfor %}
     {% endif %}
 
-    <details class="excel-import-panel border-t border-neutral-300 bg-[#fffbeb] shrink-0">
+    <details id="tour-importar-excel-notas" class="excel-import-panel border-t border-neutral-300 bg-[#fffbeb] shrink-0">
         <summary class="list-none cursor-pointer px-3 py-2.5 text-sm font-semibold text-amber-950 hover:bg-amber-100/50 flex items-center gap-2 [&::-webkit-details-marker]:hidden">
             <i class="fas fa-file-import text-amber-800" aria-hidden="true"></i>
             Importar desde Excel (.xlsx)
@@ -482,6 +498,30 @@
 </script>
 <script>
 (function () {
+    var form = document.getElementById('form-notas-grilla');
+    if (!form) return;
+    var motivo = 'Guarda la hoja antes de enviar o desactivar un certificado.';
+    function bloquearCertificados() {
+        form.querySelectorAll('.js-cert-btn').forEach(function (b) {
+            b.disabled = true;
+            b.title = motivo;
+        });
+    }
+    form.addEventListener('change', function (ev) {
+        var t = ev.target;
+        if (t && t.matches && (t.matches('input.grilla-nota-input') || t.matches('select.grilla-nota-estado'))) {
+            bloquearCertificados();
+        }
+    });
+    form.addEventListener('input', function (ev) {
+        if (ev.target && ev.target.matches && ev.target.matches('input.grilla-nota-input')) {
+            bloquearCertificados();
+        }
+    });
+})();
+</script>
+<script>
+(function () {
     var modal = document.getElementById('modal-resumen-estudiante-notas');
     var modalBody = document.getElementById('modal-resumen-notas-body');
     var btnCerrar = document.getElementById('modal-resumen-notas-cerrar');
@@ -568,6 +608,64 @@
     });
     var scrollGrilla = document.getElementById('grilla-notas-scroll');
     if (scrollGrilla) scrollGrilla.addEventListener('scroll', cerrar, { passive: true });
+})();
+</script>
+<script src="{% static 'js/site-confirm.js' %}"></script>
+
+<script src="{% static 'js/site-tour.js' %}"></script>
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                selector: '#btn-abrir-matricular-notas',
+                title: 'Matricular estudiante',
+                text: 'Abre un formulario rápido para inscribir a alguien por número de documento, sin salir de esta pantalla.'
+            },
+            {
+                selector: '#tour-plantilla-excel-notas',
+                title: 'Plantilla Excel',
+                text: 'Descarga un .xlsx vacío con la misma estructura de esta escuela (estudiantes y columnas de nota) para trabajar sin conexión.'
+            },
+            {
+                selector: '#tour-notas-columnas',
+                title: 'Agregar o quitar una nota',
+                text: '«+ Nota» suma una columna de evaluación; «− Última» quita la más reciente junto con los valores guardados ahí. Debe quedar al menos una.'
+            },
+            {
+                selector: '#grilla-notas-scroll',
+                title: 'Escribe las notas',
+                text: 'Cada celda acepta el valor que uses en tu sede (número u otro criterio). La columna «Prom.» calcula el promedio automáticamente mientras escribís, sin necesidad de guardar.'
+            },
+            {
+                selector: '#tour-notas-estado',
+                title: 'Estado final',
+                text: 'El promedio NO aprueba solo: elegí manualmente «Aprobado» o «No aprobado» en esta columna. Ese es el dato que queda como resultado final del estudiante.'
+            },
+            {
+                selector: '#tour-certificado-notas',
+                title: 'Enviar el certificado',
+                text: 'Marcar «Aprobado» NO envía el certificado solo: este botón se habilita únicamente cuando el estado guardado es Aprobado. Al enviarlo, el estudiante ya puede verlo en «Mis certificados»; si te equivocaste, «Desactivar certificado» lo revierte. Si guardaste un cambio sin volver a esta hoja, el botón se bloquea hasta que guardes de nuevo.'
+            },
+            {
+                selector: '#tour-fila-menu-notas',
+                title: 'Ficha o quitar matrícula',
+                text: 'El botón «⋯» de cada fila abre la ficha del estudiante o te deja quitar su matrícula de esta escuela.'
+            },
+            {
+                selector: '#tour-guardar-notas',
+                title: 'Guarda o exporta',
+                text: 'Los cambios no quedan registrados hasta tocar «Guardar hoja». «Exportar .xlsx» descarga la hoja tal como está, con lo ya guardado.'
+            },
+            {
+                selector: '#tour-importar-excel-notas',
+                title: 'Importar desde Excel',
+                text: 'Sube un libro ya diligenciado (Nota 1…, Promedio, Estado) para aplicar los valores en bloque. Las celdas vacías del archivo no borran lo que ya tenías guardado; se cruza por documento.'
+            }
+        ]);
+    });
 })();
 </script>
 {% endblock %}

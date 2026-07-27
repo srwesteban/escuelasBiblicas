@@ -24,5 +24,5 @@ DJANGO_SETTINGS_MODULE = "hechoshub.settings"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
 
 [tool.coverage.run]
-source = ["core", "hechos", "guias"]
+source = ["core", "hechos"]
 omit = ["*/migrations/*", "manage.py"]

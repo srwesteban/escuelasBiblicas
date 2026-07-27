@@ -85,8 +85,8 @@
 
 ## Director
 
-### GET `/director/`
-- dashboard global
+### GET `/direccion/sedes/`
+- gestion de sedes (dashboard global); `/director/` redirige aqui (301)
 
 ### POST `/direccion/sedes/`
 - crea sede

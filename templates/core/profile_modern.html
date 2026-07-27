@@ -54,28 +54,30 @@
 <div class="profile-shell min-h-[60vh] -mx-4 px-4 py-8 sm:py-10 sm:mx-0 sm:px-0">
     <div class="max-w-4xl mx-auto space-y-8">
 
-        <header class="text-center sm:text-left">
+        <header class="text-center sm:text-left px-6 sm:px-7">
             <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900">Mi perfil</h1>
-            <p class="mt-2 text-sm text-stone-600 max-w-xl">Actualiza tu foto, correo, contraseña y datos de contacto en un solo lugar.</p>
+            <p class="mt-2 text-sm text-stone-600 max-w-xl">Actualiza tu foto, contacto y contraseña en un solo lugar.</p>
         </header>
 
         {# — Identidad + foto — #}
         <div class="profile-card overflow-hidden">
             <div class="px-5 py-6 sm:px-8 sm:py-8 flex flex-col md:flex-row gap-8 md:gap-10 md:items-start">
                 <div class="flex flex-col items-center md:items-start shrink-0 mx-auto md:mx-0">
-                    <div class="profile-avatar-ring w-[7.25rem] h-[7.25rem] rounded-2xl overflow-hidden bg-stone-100 flex items-center justify-center">
+                    <div id="avatar-preview-box" class="profile-avatar-ring w-[7.25rem] h-[7.25rem] rounded-2xl overflow-hidden bg-stone-100 flex items-center justify-center">
                         {% if user.avatar %}
-                            <img src="{{ user.avatar.url }}" alt="" class="w-full h-full object-cover">
+                            <img id="avatar-preview-img" src="{{ user.avatar.url }}" alt="" class="w-full h-full object-cover">
                         {% else %}
-                            <i class="fas fa-user text-5xl text-stone-300"></i>
+                            <img id="avatar-preview-img" src="" alt="" class="w-full h-full object-cover hidden">
+                            <i id="avatar-preview-placeholder" class="fas fa-user text-5xl text-stone-300"></i>
                         {% endif %}
                     </div>
                     <form method="post" enctype="multipart/form-data" class="mt-5 w-full max-w-[16rem] space-y-2">
                         {% csrf_token %}
                         <label class="profile-section-h block mb-1.5 text-center md:text-left">Cambiar foto</label>
-                        <input type="file" name="avatar" accept="image/*"
+                        <input type="file" name="avatar" id="avatar-input" accept="image/*"
                                class="profile-field text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-stone-100 file:text-stone-700 hover:file:bg-stone-200">
-                        <button type="submit" class="btn-outline w-full py-2.5 text-sm font-medium rounded-xl">
+                        <p id="avatar-preview-hint" class="hidden text-[11px] text-stone-500">Vista previa lista. Toca «Subir imagen» para guardarla.</p>
+                        <button type="submit" id="avatar-submit" class="btn-outline w-full py-2.5 text-sm font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                             Subir imagen
                         </button>
                     </form>
@@ -108,118 +110,137 @@
                             <dt class="text-xs font-medium text-stone-500 flex items-center gap-2"><i class="fas fa-id-card text-stone-400 w-4"></i>Documento</dt>
                             <dd class="mt-1 text-sm font-medium text-stone-900 break-all">{{ user.documento_identidad|default:"Sin documento" }}</dd>
                         </div>
-                        <div class="rounded-xl bg-stone-50/80 px-4 py-3 border border-stone-100/80">
-                            <dt class="text-xs font-medium text-stone-500 flex items-center gap-2"><i class="fas fa-envelope text-stone-400 w-4"></i>Correo actual</dt>
-                            <dd class="mt-1 text-sm font-medium text-stone-900 break-all">{{ user.email|default:"Sin correo" }}</dd>
-                        </div>
                     </dl>
-
-                    {% if estudiante_profile %}
-                        <p class="text-sm">
-                            <a href="{% url 'hechos:seleccionar_sede_estudiante' %}" class="font-medium text-stone-800 underline decoration-stone-300 underline-offset-2 hover:decoration-stone-600">
-                                Cambiar sede de estudiante
-                            </a>
-                        </p>
-                    {% endif %}
                 </div>
             </div>
         </div>
 
-        {# — Seguridad: correo + contraseña — #}
-        <div>
-            <p class="profile-section-h mb-4 px-0.5">Seguridad y acceso</p>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="profile-card p-6 sm:p-7">
-                    <div class="flex items-start gap-3 mb-5">
-                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700"><i class="fas fa-envelope"></i></span>
-                        <div>
-                            <h3 class="text-base font-semibold text-stone-900">Correo electrónico</h3>
-                            <p class="text-xs text-stone-500 mt-0.5 leading-relaxed">Único en el sistema. Notificaciones y recuperación de acceso.</p>
-                        </div>
-                    </div>
-                    <form method="post" class="space-y-4">
-                        {% csrf_token %}
-                        <input type="hidden" name="profile_account" value="1">
-                        <div>
-                            <label for="profile_email" class="sr-only">Correo</label>
-                            <input type="email" name="email" id="profile_email" value="{{ user.email|default:'' }}"
-                                   inputmode="email" autocomplete="email" placeholder="correo@ejemplo.com"
-                                   class="profile-field">
-                        </div>
-                        <button type="submit" class="btn-primary w-full sm:w-auto px-6 py-2.5 text-sm font-medium rounded-xl">
-                            Guardar correo
-                        </button>
-                    </form>
-                </div>
-
-                <div class="profile-card p-6 sm:p-7">
-                    <div class="flex items-start gap-3 mb-5">
-                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700"><i class="fas fa-lock"></i></span>
-                        <div>
-                            <h3 class="text-base font-semibold text-stone-900">Contraseña</h3>
-                            <p class="text-xs text-stone-500 mt-0.5 leading-relaxed">Tras guardar, esta sesión sigue activa. Usa la nueva clave en otros dispositivos.</p>
-                        </div>
-                    </div>
-                    <form method="post" class="space-y-4">
-                        {% csrf_token %}
-                        <input type="hidden" name="profile_password" value="1">
-                        {% if password_form.non_field_errors %}
-                            <div class="rounded-xl bg-red-50 border border-red-100 text-red-800 text-sm px-4 py-3" role="alert">
-                                {{ password_form.non_field_errors }}
-                            </div>
-                        {% endif %}
-                        <div>
-                            <label for="id_old_password" class="block text-xs font-medium text-stone-600 mb-1.5">Contraseña actual</label>
-                            {{ password_form.old_password.errors }}
-                            {{ password_form.old_password }}
-                        </div>
-                        <div>
-                            <label for="id_new_password1" class="block text-xs font-medium text-stone-600 mb-1.5">Nueva contraseña</label>
-                            {{ password_form.new_password1.errors }}
-                            {{ password_form.new_password1 }}
-                        </div>
-                        <div>
-                            <label for="id_new_password2" class="block text-xs font-medium text-stone-600 mb-1.5">Confirmar</label>
-                            {{ password_form.new_password2.errors }}
-                            {{ password_form.new_password2 }}
-                        </div>
-                        <button type="submit" class="btn-primary w-full sm:w-auto px-6 py-2.5 text-sm font-medium rounded-xl">
-                            Actualizar contraseña
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        {# — Contacto — #}
+        {# — Contacto: correo + celular + dirección — #}
         <div>
             <p class="profile-section-h mb-4 px-0.5">Contacto</p>
             <div class="profile-card p-6 sm:p-7">
                 <div class="flex items-start gap-3 mb-5">
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700"><i class="fas fa-phone"></i></span>
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700"><i class="fas fa-address-card"></i></span>
                     <div>
-                        <h3 class="text-base font-semibold text-stone-900">Celular y dirección</h3>
-                        <p class="text-xs text-stone-500 mt-0.5 leading-relaxed">WhatsApp y dirección para ubicarte cuando haga falta.</p>
+                        <h3 class="text-base font-semibold text-stone-900">Datos de contacto</h3>
+                        <p class="text-xs text-stone-500 mt-0.5 leading-relaxed">Correo, WhatsApp y ubicación (como en el registro) para ubicarte y recuperar el acceso.</p>
                     </div>
                 </div>
                 <form method="post" class="space-y-5">
                     {% csrf_token %}
                     <input type="hidden" name="profile_contact" value="1">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <div class="sm:col-span-2">
-                            <label for="profile_phone" class="block text-xs font-medium text-stone-600 mb-1.5">Celular <span class="text-stone-400 font-normal">(WhatsApp)</span></label>
-                            <input type="tel" name="phone" id="profile_phone" value="{{ user.phone|default:'' }}"
-                                   autocomplete="tel" placeholder="Ej. 300 123 4567"
+                        <div>
+                            <label for="profile_email" class="block text-xs font-medium text-stone-600 mb-1.5">
+                                Correo electrónico
+                                <span class="text-stone-400 font-normal">(opcional)</span>
+                            </label>
+                            <input type="email" name="email" id="profile_email" value="{{ user.email|default:'' }}"
+                                   inputmode="email" autocomplete="email" placeholder="correo@ejemplo.com"
                                    class="profile-field">
+                            <p class="mt-1.5 text-[11px] text-stone-500 leading-snug">Único en el sistema. Sirve para notificaciones y recuperación de acceso.</p>
                         </div>
-                        <div class="sm:col-span-2">
-                            <label for="profile_direccion" class="block text-xs font-medium text-stone-600 mb-1.5">Dirección</label>
-                            <textarea name="direccion" id="profile_direccion" rows="3" placeholder="Barrio, ciudad…"
-                                      class="profile-field resize-y min-h-[5rem]">{{ direccion_perfil }}</textarea>
+                        <div>
+                            <label for="profile_phone" class="block text-xs font-medium text-stone-600 mb-1.5">
+                                Celular <span class="text-stone-400 font-normal">(WhatsApp)</span>
+                            </label>
+                            <input type="tel" name="phone" id="profile_phone" value="{{ user.phone|default:'' }}"
+                                   autocomplete="tel" inputmode="numeric" maxlength="15"
+                                   placeholder="Ej. 3001234567"
+                                   class="profile-field" data-phone-input>
+                        </div>
+                        <div>
+                            <label for="profile_departamento" class="block text-xs font-medium text-stone-600 mb-1.5">Departamento</label>
+                            <select name="departamento" id="profile_departamento" class="profile-field">
+                                {% for val, label in departamento_choices %}
+                                <option value="{{ val }}" {% if departamento_perfil == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="profile_ciudad" class="block text-xs font-medium text-stone-600 mb-1.5">Ciudad o municipio</label>
+                            <select name="ciudad" id="profile_ciudad" class="profile-field">
+                                {% for val, label in ciudad_choices %}
+                                <option value="{{ val }}" {% if ciudad_perfil == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="sm:col-span-1">
+                            <label for="profile_direccion" class="block text-xs font-medium text-stone-600 mb-1.5">
+                                Dirección de residencia
+                                <span class="text-stone-400 font-normal">(opcional)</span>
+                            </label>
+                            <textarea name="direccion" id="profile_direccion" rows="2" placeholder="Calle, carrera, número…"
+                                      class="profile-field resize-y min-h-[4.5rem]">{{ direccion_perfil }}</textarea>
+                        </div>
+                        <div>
+                            <label for="profile_barrio" class="block text-xs font-medium text-stone-600 mb-1.5">
+                                Barrio
+                                <span class="text-stone-400 font-normal">(opcional)</span>
+                            </label>
+                            <input type="text" name="barrio" id="profile_barrio" value="{{ barrio_perfil }}"
+                                   maxlength="120" placeholder="Ej. Centro"
+                                   class="profile-field" autocomplete="address-level3">
                         </div>
                     </div>
                     <button type="submit" class="btn-primary px-6 py-2.5 text-sm font-medium rounded-xl">
-                        Guardar contacto
+                        Actualizar contacto
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {# — Seguridad: contraseña — #}
+        <div>
+            <p class="profile-section-h mb-4 px-0.5">Seguridad y acceso</p>
+            <div class="profile-card p-6 sm:p-7 max-w-xl">
+                <div class="flex items-start gap-3 mb-5">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700"><i class="fas fa-lock"></i></span>
+                    <div>
+                        <h3 class="text-base font-semibold text-stone-900">Contraseña</h3>
+                        <p class="text-xs text-stone-500 mt-0.5 leading-relaxed">Tras guardar, esta sesión sigue activa. Usa la nueva clave en otros dispositivos.</p>
+                    </div>
+                </div>
+                <form method="post" class="space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="profile_password" value="1">
+                    {% if password_form.non_field_errors %}
+                        <div class="rounded-xl bg-red-50 border border-red-100 text-red-800 text-sm px-4 py-3" role="alert">
+                            {{ password_form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    <div>
+                        <label for="id_old_password" class="block text-xs font-medium text-stone-600 mb-1.5">Contraseña actual</label>
+                        {{ password_form.old_password.errors }}
+                        <div class="relative">
+                            {{ password_form.old_password }}
+                            <button type="button" class="profile-pw-toggle absolute inset-y-0 right-0 w-10 flex items-center justify-center text-stone-400 hover:text-stone-700" data-target="id_old_password" aria-label="Mostrar contraseña">
+                                <i class="fas fa-eye text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="id_new_password1" class="block text-xs font-medium text-stone-600 mb-1.5">Nueva contraseña</label>
+                        {{ password_form.new_password1.errors }}
+                        <div class="relative">
+                            {{ password_form.new_password1 }}
+                            <button type="button" class="profile-pw-toggle absolute inset-y-0 right-0 w-10 flex items-center justify-center text-stone-400 hover:text-stone-700" data-target="id_new_password1" aria-label="Mostrar contraseña">
+                                <i class="fas fa-eye text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="id_new_password2" class="block text-xs font-medium text-stone-600 mb-1.5">Confirmar</label>
+                        {{ password_form.new_password2.errors }}
+                        <div class="relative">
+                            {{ password_form.new_password2 }}
+                            <button type="button" class="profile-pw-toggle absolute inset-y-0 right-0 w-10 flex items-center justify-center text-stone-400 hover:text-stone-700" data-target="id_new_password2" aria-label="Mostrar contraseña">
+                                <i class="fas fa-eye text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary w-full sm:w-auto px-6 py-2.5 text-sm font-medium rounded-xl">
+                        Actualizar contraseña
                     </button>
                 </form>
             </div>
@@ -227,4 +248,103 @@
 
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const el = document.querySelector("[data-phone-input]");
+    if (!el) return;
+    function soloDigitos(s) {
+        return (s || "").replace(/\D/g, "").slice(0, 15);
+    }
+    el.addEventListener("input", function () {
+        const v = soloDigitos(this.value);
+        if (this.value !== v) this.value = v;
+    });
+})();
+
+(function () {
+    const deptSel = document.getElementById("profile_departamento");
+    const citySel = document.getElementById("profile_ciudad");
+    if (!deptSel || !citySel) return;
+    const citiesUrl = "{% static 'geo/colombia_cities.json' %}";
+    const selectedCity = "{{ ciudad_perfil|default:''|escapejs }}";
+    let cache = null;
+    function loadAll() {
+        if (cache) return Promise.resolve(cache);
+        return fetch(citiesUrl).then(function (r) { return r.json(); }).then(function (d) {
+            cache = d.data || [];
+            return cache;
+        });
+    }
+    function fillCities(depId, keepCity) {
+        const firstLabel = depId ? "Seleccione ciudad o municipio" : "Primero seleccione departamento";
+        citySel.innerHTML = "";
+        const opt0 = document.createElement("option");
+        opt0.value = "";
+        opt0.textContent = firstLabel;
+        citySel.appendChild(opt0);
+        if (!depId) return;
+        loadAll().then(function (rows) {
+            var list = rows.filter(function (c) { return String(c.departmentId) === String(depId); });
+            list.sort(function (a, b) { return a.name.localeCompare(b.name, "es"); });
+            list.forEach(function (c) {
+                var o = document.createElement("option");
+                o.value = c.name;
+                o.textContent = c.name;
+                citySel.appendChild(o);
+            });
+            if (keepCity) citySel.value = keepCity;
+        });
+    }
+    deptSel.addEventListener("change", function () {
+        fillCities(deptSel.value, "");
+    });
+    if (deptSel.value) fillCities(deptSel.value, selectedCity);
+})();
+
+(function () {
+    const input = document.getElementById("avatar-input");
+    const img = document.getElementById("avatar-preview-img");
+    const placeholder = document.getElementById("avatar-preview-placeholder");
+    const hint = document.getElementById("avatar-preview-hint");
+    const submitBtn = document.getElementById("avatar-submit");
+    if (!input || !img || !submitBtn) return;
+    input.addEventListener("change", function () {
+        const file = input.files && input.files[0];
+        if (!file) {
+            submitBtn.disabled = true;
+            if (hint) hint.classList.add("hidden");
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            img.src = e.target.result;
+            img.classList.remove("hidden");
+            if (placeholder) placeholder.classList.add("hidden");
+        };
+        reader.readAsDataURL(file);
+        submitBtn.disabled = false;
+        if (hint) hint.classList.remove("hidden");
+    });
+})();
+
+(function () {
+    document.querySelectorAll(".profile-pw-toggle").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            const target = document.getElementById(btn.dataset.target);
+            if (!target) return;
+            const icon = btn.querySelector("i");
+            const showing = target.type === "text";
+            target.type = showing ? "password" : "text";
+            if (icon) {
+                icon.classList.toggle("fa-eye", showing);
+                icon.classList.toggle("fa-eye-slash", !showing);
+            }
+            btn.setAttribute("aria-label", showing ? "Mostrar contraseña" : "Ocultar contraseña");
+        });
+    });
+})();
+</script>
 {% endblock %}

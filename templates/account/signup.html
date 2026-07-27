@@ -44,7 +44,7 @@
     <div class="max-w-3xl mx-auto space-y-6">
         <div class="text-center">
             <img src="{% static 'img/logos/logohechoshub.svg' %}" alt="HechosHub" class="signup-brand">
-            <p class="mt-3 text-sm text-slate-600">Registro de estudiante para Escuelas Biblicas.</p>
+            <p class="mt-3 text-sm text-slate-600">Registro de estudiante para Escuelas Bíblicas.</p>
         </div>
 
         <div class="card signup-card p-6 sm:p-8">
@@ -55,11 +55,16 @@
                     class="w-full h-32 object-cover object-center"
                 >
             </div>
-            <div class="mb-6">
-                <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Formulario Unico de Inscripcion</h1>
-                <p class="mt-3 text-xs text-slate-500">
-                    <span class="font-semibold text-red-600">*</span> Obligatorio.
-                </p>
+            <div class="mb-6 flex items-start justify-between gap-3">
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Formulario único de inscripción</h1>
+                    <p class="mt-3 text-xs text-slate-500">
+                        <span class="font-semibold text-red-600">*</span> Obligatorio.
+                    </p>
+                </div>
+                <button type="button" id="open-tour" title="Ver tutorial" class="shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-100">
+                    <i class="fas fa-question"></i>
+                </button>
             </div>
 
             {% if form.errors %}
@@ -80,8 +85,41 @@
 
                 <section class="space-y-4">
                     <div class="border-b border-stone-200 pb-2">
-                        <h2 class="text-sm font-semibold text-stone-800 tracking-wide">Datos Personales</h2>
+                        <h2 class="text-sm font-semibold text-stone-800 tracking-wide">Datos personales</h2>
+                        <p class="mt-1 text-xs text-slate-500">Si un profesor ya te registró, usa ese mismo documento para iniciar sesión.</p>
                     </div>
+
+                    <div id="tour-documento" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="{{ form.tipo_documento.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Tipo de documento <span class="text-red-600">*</span></label>
+                            <select name="{{ form.tipo_documento.name }}" id="{{ form.tipo_documento.id_for_label }}"
+                                    class="input signup-input w-full" required>
+                                {% for val, label in form.tipo_documento.field.choices %}
+                                    <option value="{{ val }}" {% if form.tipo_documento.value == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Número de documento <span class="text-red-600">*</span></label>
+                            <input type="text" name="{{ form.username.name }}" id="{{ form.username.id_for_label }}"
+                                   value="{{ form.username.value|default:'' }}"
+                                   class="input signup-input w-full"
+                                   required autocomplete="username" spellcheck="false" autocorrect="off"
+                                   data-doc-input
+                                   aria-describedby="doc-exists-banner">
+                        </div>
+                    </div>
+
+                    {% with doc_err=form.username.errors.0 %}
+                    <div id="doc-exists-banner" class="{% if doc_err and 'ya existe' in doc_err %}{% else %}hidden {% endif %}rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="status" aria-live="polite">
+                        <p class="font-medium" data-doc-exists-msg>{% if doc_err and 'ya existe' in doc_err %}{{ doc_err }}{% endif %}</p>
+                        <p class="mt-2">
+                            <a href="{% url 'account_login' %}" class="font-semibold underline underline-offset-2 hover:text-amber-800" data-doc-login-link>
+                                Ir a iniciar sesión
+                            </a>
+                        </p>
+                    </div>
+                    {% endwith %}
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -97,32 +135,21 @@
                                    class="input signup-input w-full" required>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div id="tour-celular" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label for="{{ form.tipo_documento.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Tipo de documento <span class="text-red-600">*</span></label>
-                            <select name="{{ form.tipo_documento.name }}" id="{{ form.tipo_documento.id_for_label }}"
-                                    class="input signup-input w-full" required>
-                                {% for val, label in form.tipo_documento.field.choices %}
-                                    <option value="{{ val }}" {% if form.tipo_documento.value == val %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div>
-                            <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Numero de documento <span class="text-red-600">*</span></label>
-                            <input type="text" name="{{ form.username.name }}" id="{{ form.username.id_for_label }}"
-                                   value="{{ form.username.value|default:'' }}"
-                                   class="input signup-input w-full"
-                                   required autocomplete="username" spellcheck="false" autocorrect="off"
-                                   data-doc-input>
-                            <p id="doc-field-hint" class="mt-1.5 text-xs text-slate-500 leading-snug" aria-live="polite"></p>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="{{ form.phone.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Celular <span class="text-red-600">*</span></label>
-                            <input type="text" name="{{ form.phone.name }}" id="{{ form.phone.id_for_label }}"
+                            <label for="{{ form.phone.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Celular <span class="text-slate-500 font-normal">(WhatsApp)</span> <span class="text-red-600">*</span></label>
+                            <input type="tel" name="{{ form.phone.name }}" id="{{ form.phone.id_for_label }}"
                                    value="{{ form.phone.value|default:'' }}"
-                                   class="input signup-input w-full" required>
+                                   class="input signup-input w-full"
+                                   inputmode="numeric"
+                                   maxlength="15"
+                                   pattern="[0-9]{10,15}"
+                                   autocomplete="tel"
+                                   data-phone-input
+                                   required>
+                            {% if form.phone.errors %}
+                                <p class="mt-1 text-sm text-red-600">{{ form.phone.errors.0 }}</p>
+                            {% endif %}
                         </div>
                         <div>
                             <label for="{{ form.fecha_nacimiento.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Fecha de nacimiento <span class="text-red-600">*</span></label>
@@ -134,7 +161,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="{{ form.genero.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
-                                Genero <span class="text-red-600">*</span>
+                                Género <span class="text-red-600">*</span>
                             </label>
                             <select name="{{ form.genero.name }}" id="{{ form.genero.id_for_label }}"
                                     class="input signup-input w-full" required>
@@ -156,24 +183,10 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="md:col-span-2">
-                            <label for="{{ form.direccion_detallada.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
-                                Direccion de residencia<span class="text-red-600">*</span>
-                            </label>
-                            <textarea name="{{ form.direccion_detallada.name }}" id="{{ form.direccion_detallada.id_for_label }}"
-                                      class="input signup-input w-full resize-none"
-                                      rows="2" required>{{ form.direccion_detallada.value|default:'' }}</textarea>
-                        </div>
-                        <div>
-                            <label for="{{ form.barrio.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
-                                Barrio <span class="text-red-600">*</span>
-                            </label>
-                            <input type="text" name="{{ form.barrio.name }}" id="{{ form.barrio.id_for_label }}"
-                                   value="{{ form.barrio.value|default:'' }}"
-                                   class="input signup-input w-full" required>
-                        </div>
+                    <div id="tour-ubicacion" class="border-b border-stone-200 pb-2 pt-2">
+                        <h2 class="text-sm font-semibold text-stone-800 tracking-wide">Ubicación</h2>
                     </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="{{ form.departamento.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
@@ -198,9 +211,31 @@
                             </select>
                         </div>
                     </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="md:col-span-2">
+                            <label for="{{ form.direccion_detallada.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+                                Dirección de residencia <span class="text-slate-500 font-normal">(opcional)</span>
+                            </label>
+                            <textarea name="{{ form.direccion_detallada.name }}" id="{{ form.direccion_detallada.id_for_label }}"
+                                      class="input signup-input w-full resize-none"
+                                      rows="2">{{ form.direccion_detallada.value|default:'' }}</textarea>
+                        </div>
+                        <div>
+                            <label for="{{ form.barrio.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
+                                Barrio <span class="text-slate-500 font-normal">(opcional)</span>
+                            </label>
+                            <input type="text" name="{{ form.barrio.name }}" id="{{ form.barrio.id_for_label }}"
+                                   value="{{ form.barrio.value|default:'' }}"
+                                   class="input signup-input w-full">
+                        </div>
+                    </div>
+
+                    <div class="border-b border-stone-200 pb-2 pt-2">
+                        <h2 class="text-sm font-semibold text-stone-800 tracking-wide">Acceso a tu cuenta</h2>
+                    </div>
 
                     <div>
-                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Correo electronico <span class="text-slate-500 font-normal">(opcional)</span></label>
+                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Correo electrónico <span class="text-slate-500 font-normal">(opcional)</span></label>
                         <input type="email"
                                name="{{ form.email.name }}"
                                id="{{ form.email.id_for_label }}"
@@ -209,30 +244,16 @@
                                placeholder="usuario@correo.com"
                                autocomplete="email">
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Contrasena <span class="text-red-600">*</span></label>
-                            <input type="password"
-                                   name="{{ form.password1.name }}"
-                                   id="{{ form.password1.id_for_label }}"
-                                   class="input signup-input w-full"
-                                   autocomplete="new-password"
-                                   required>
-                        </div>
-                        <div>
-                            <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Confirmar contrasena <span class="text-red-600">*</span></label>
-                            <input type="password"
-                                   name="{{ form.password2.name }}"
-                                   id="{{ form.password2.id_for_label }}"
-                                   class="input signup-input w-full"
-                                   placeholder="Repite la contrasena"
-                                   autocomplete="new-password"
-                                   required>
-                        </div>
+                    <div id="tour-password" class="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+                        <p class="font-medium text-stone-900">Tu contraseña inicial</p>
+                        <p class="mt-1 leading-relaxed">
+                            Será igual a tu <span class="font-medium">número de documento</span>.
+                            Podrás cambiarla después desde tu perfil.
+                        </p>
                     </div>
                 </section>
 
-                <section class="space-y-2">
+                <section id="tour-autorizacion" class="space-y-2">
                     <label for="{{ form.autoriza_tratamiento_datos.id_for_label }}" class="flex items-start gap-3 text-sm text-slate-700">
                         <input
                             type="checkbox"
@@ -243,7 +264,7 @@
                             required
                         >
                         <span>
-                            Autorizo a la organizacion Hechos el tratamiento de mis datos personales.
+                            Autorizo a la organización Hechos el tratamiento de mis datos personales.
                         </span>
                     </label>
                     {% if form.autoriza_tratamiento_datos.errors %}
@@ -255,18 +276,20 @@
                     <a href="{% url 'core:inicio' %}" class="text-sm text-slate-600 hover:text-slate-900">
                         Cancelar y volver al inicio
                     </a>
-                    <button type="submit" class="btn-primary inline-flex items-center justify-center py-3 px-5 text-sm font-medium">
+                    {% with doc_err=form.username.errors.0 %}
+                    <button type="submit" id="signup-submit-btn" class="btn-primary inline-flex items-center justify-center py-3 px-5 text-sm font-medium{% if doc_err and 'ya existe' in doc_err %} opacity-50 cursor-not-allowed{% endif %}"{% if doc_err and 'ya existe' in doc_err %} disabled aria-disabled="true"{% endif %}>
                         <i class="fas fa-user-plus mr-2"></i>
                         Registrarme
                     </button>
+                    {% endwith %}
                 </div>
             </form>
         </div>
 
         <div class="text-center">
             <p class="text-sm text-slate-600">
-                Ya tienes cuenta?
-                <a href="{% url 'account_login' %}" class="signup-link font-medium">Inicia sesion</a>
+                ¿Ya tienes cuenta?
+                <a href="{% url 'account_login' %}" class="signup-link font-medium">Inicia sesión</a>
             </p>
         </div>
     </div>
@@ -320,19 +343,39 @@
 (function () {
     const tipoSel = document.getElementById("{{ form.tipo_documento.id_for_label }}");
     const docInput = document.querySelector("[data-doc-input]");
-    const docHint = document.getElementById("doc-field-hint");
+    const existsBanner = document.getElementById("doc-exists-banner");
+    const existsMsg = existsBanner ? existsBanner.querySelector("[data-doc-exists-msg]") : null;
+    const loginLink = existsBanner ? existsBanner.querySelector("[data-doc-login-link]") : null;
+    const submitBtn = document.getElementById("signup-submit-btn");
+    const checkUrl = "{% url 'core:signup_check_documento' %}";
     if (!tipoSel || !docInput) return;
 
-    const DOC_HINTS = {
-        CC: "Cédula o TI: solo números (6 a 10 dígitos). Si tiene pasaporte, elija «Pasaporte» en tipo de documento para poder usar letras.",
-        TI: "Cédula o TI: solo números (6 a 10 dígitos). Si tiene pasaporte, elija «Pasaporte» en tipo de documento para poder usar letras.",
-        CE: "Cédula de extranjería: letras y números (3 a 12 caracteres).",
-        PAS: "Pasaporte: letras y números (5 a 14 caracteres), sin espacios."
-    };
+    let checkTimer = null;
+    let lastChecked = "";
 
-    function setDocHint(tipo) {
-        if (!docHint) return;
-        docHint.textContent = DOC_HINTS[tipo] || DOC_HINTS.PAS;
+    function setExistsState(exists, message, loginUrl) {
+        if (!existsBanner) return;
+        if (exists) {
+            existsBanner.classList.remove("hidden");
+            if (existsMsg) {
+                existsMsg.textContent = message || "Este usuario ya existe. Ingresa con tu número de documento y contraseña.";
+            }
+            if (loginLink && loginUrl) loginLink.href = loginUrl;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add("opacity-50", "cursor-not-allowed");
+                submitBtn.setAttribute("aria-disabled", "true");
+            }
+            docInput.classList.add("border-amber-400", "ring-1", "ring-amber-300");
+        } else {
+            existsBanner.classList.add("hidden");
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+                submitBtn.removeAttribute("aria-disabled");
+            }
+            docInput.classList.remove("border-amber-400", "ring-1", "ring-amber-300");
+        }
     }
 
     function filterByTipo() {
@@ -352,7 +395,6 @@
 
     function applyTipoMode() {
         const tipo = tipoSel.value;
-        setDocHint(tipo);
         if (tipo === "CC" || tipo === "TI") {
             docInput.setAttribute("inputmode", "numeric");
             docInput.setAttribute("maxlength", "10");
@@ -371,17 +413,114 @@
             docInput.setAttribute("autocapitalize", "characters");
         }
         filterByTipo();
+        scheduleCheck();
+    }
+
+    function scheduleCheck() {
+        if (checkTimer) clearTimeout(checkTimer);
+        const doc = (docInput.value || "").trim();
+        const tipo = tipoSel.value;
+        const key = tipo + ":" + doc;
+        if (!doc || doc.length < 3) {
+            lastChecked = "";
+            setExistsState(false);
+            return;
+        }
+        checkTimer = setTimeout(function () {
+            if (key === lastChecked) return;
+            const url = checkUrl + "?doc=" + encodeURIComponent(doc) + "&tipo=" + encodeURIComponent(tipo);
+            fetch(url, { headers: { "Accept": "application/json" } })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    lastChecked = key;
+                    if (data && data.ok && data.exists) {
+                        setExistsState(true, data.message, data.login_url);
+                    } else {
+                        setExistsState(false);
+                    }
+                })
+                .catch(function () {
+                    /* Si falla la consulta, dejar enviar y validar en el servidor. */
+                    setExistsState(false);
+                });
+        }, 350);
     }
 
     tipoSel.addEventListener("change", applyTipoMode);
-    docInput.addEventListener("input", filterByTipo);
-    docInput.addEventListener("blur", filterByTipo);
+    docInput.addEventListener("input", function () {
+        filterByTipo();
+        scheduleCheck();
+    });
+    docInput.addEventListener("blur", function () {
+        filterByTipo();
+        scheduleCheck();
+    });
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", applyTipoMode);
+        document.addEventListener("DOMContentLoaded", function () {
+            applyTipoMode();
+            if ((docInput.value || "").trim()) scheduleCheck();
+        });
     } else {
         applyTipoMode();
+        if ((docInput.value || "").trim()) scheduleCheck();
     }
 })();
 
+(function () {
+    const el = document.querySelector("[data-phone-input]");
+    if (!el) return;
+    function soloDigitos(s) {
+        return (s || "").replace(/\D/g, "").slice(0, 15);
+    }
+    el.addEventListener("input", function () {
+        const v = soloDigitos(this.value);
+        if (this.value !== v) this.value = v;
+    });
+    el.addEventListener("paste", function (e) {
+        e.preventDefault();
+        const t = (e.clipboardData || window.clipboardData).getData("text") || "";
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        const merged = (this.value || "").slice(0, start) + t + (this.value || "").slice(end);
+        this.value = soloDigitos(merged);
+    });
+})();
+
+</script>
+<script src="{% static 'js/site-tour.js' %}"></script>
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                selector: '#tour-documento',
+                title: 'Tipo y número de documento',
+                text: 'Cédula/TI: solo números (6 a 10 dígitos). Cédula de extranjería: letras y números (3 a 12). Pasaporte: letras y números (5 a 14). Si ya te registraste antes, te avisamos aquí mismo y te llevamos a iniciar sesión.'
+            },
+            {
+                selector: '#tour-celular',
+                title: 'Celular',
+                text: 'Solo números, entre 10 y 15 dígitos, sin espacios ni signo +.'
+            },
+            {
+                selector: '#tour-ubicacion',
+                title: 'Ubicación',
+                text: 'Elige tu departamento y luego la ciudad o municipio. Dirección y barrio son opcionales.'
+            },
+            {
+                selector: '#tour-password',
+                title: 'Tu contraseña inicial',
+                text: 'Se crea automáticamente igual a tu número de documento. La puedes cambiar luego desde tu perfil.'
+            },
+            {
+                selector: '#tour-autorizacion',
+                title: 'Autorización y envío',
+                text: 'Acepta el tratamiento de datos y toca «Registrarme» para terminar.'
+            }
+        ]);
+    });
+})();
 </script>
 {% endblock %}

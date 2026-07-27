@@ -44,7 +44,7 @@ make run
 
 ### 7. Administracion global
 - iniciar sesion como Director
-- abrir `/director/`
+- abrir `/direccion/sedes/`
 - crear sede
 - crear coordinador de la sede
 
