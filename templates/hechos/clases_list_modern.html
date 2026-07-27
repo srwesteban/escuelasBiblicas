@@ -34,15 +34,10 @@
             <a href="{% if volver_listado_escuelas %}{{ volver_listado_escuelas }}{% else %}{% url 'hechos:mis_escuelas_profesor' %}{% endif %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex">
                 <i class="fas fa-arrow-left mr-2"></i>{% if escuela_solo_lectura %}Volver a inactivas{% else %}Todas mis escuelas{% endif %}
             </a>
-            {% else %}
-            {% if docente_mis_escuelas_modo == 'escuelas' %}
+            {% elif docente_mis_escuelas_modo == 'escuelas' %}
             <button type="button" id="open-tour" title="Ver tutorial" class="inline-flex items-center justify-center h-10 w-10 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-100 shrink-0 order-first sm:order-none">
                 <i class="fas fa-question"></i>
             </button>
-            {% endif %}
-            <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2.5 text-sm font-medium text-center justify-center inline-flex">
-                <i class="fas fa-arrow-left mr-2"></i>Volver
-            </a>
             {% endif %}
         </div>
     </div>

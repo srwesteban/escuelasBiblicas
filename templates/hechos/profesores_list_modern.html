@@ -81,23 +81,27 @@
             {% endif %}
         </div>
         <div class="relative z-10 flex flex-wrap items-center gap-2">
-            {% if not es_coordinador_pedagogico %}
+            {% if es_coordinador_pedagogico %}
+            <button type="button" id="open-tour" title="Ver tutorial" class="inline-flex items-center justify-center h-10 w-10 rounded-full border border-white/30 bg-white/10 text-white hover:bg-white/15">
+                <i class="fas fa-question"></i>
+            </button>
+            {% else %}
             <a href="{% url 'hechos:dashboard' %}" class="btn-outline px-4 py-2 text-sm font-medium border-white/30 bg-white/10 text-white hover:bg-white/15">
                 <i class="fas fa-arrow-left mr-2"></i>Inicio
             </a>
             {% endif %}
-            <a href="{% url 'hechos:crear_profesor' %}" class="docentes-fab">
+            <a href="{% url 'hechos:crear_profesor' %}" id="tour-docentes-nuevo" class="docentes-fab">
                 <i class="fas fa-user-plus text-amber-700"></i>
                 {% if es_coordinador_pedagogico %}Registrar profesor{% else %}Nuevo maestro{% endif %}
             </a>
         </div>
     </div>
 
-    <div class="card p-5 border border-stone-200/80">
+    <div class="card p-5 border border-stone-200/80" id="tour-docentes-buscar">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h2 class="text-base font-semibold text-gray-900">Buscar en tiempo real</h2>
-                <p class="text-sm text-stone-600 mt-0.5">Nombre, correo, código o especialidad.</p>
+                <p class="text-sm text-stone-600 mt-0.5">Nombre, correo o celular.</p>
             </div>
             <div class="text-sm text-stone-600">
                 <span class="font-semibold text-gray-900" id="docentes-visible-count">{{ profesores|length }}</span>
@@ -111,13 +115,7 @@
         </div>
     </div>
 
-    {% if es_coordinador_pedagogico %}
-    <div class="card p-5 border border-stone-200/80 max-w-sm">
-        <p class="text-sm text-stone-600">Total registrados</p>
-        <p class="text-2xl font-bold text-gray-900 mt-1">{{ total_profesores }}</p>
-    </div>
-    {% else %}
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" id="tour-docentes-total">
         <div class="card p-4 sm:p-5 border border-stone-200/80">
             <div class="flex items-center gap-3">
                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
@@ -140,6 +138,19 @@
                 </div>
             </div>
         </div>
+        {% if es_coordinador_pedagogico %}
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {% if profesores_sin_asignacion %}bg-amber-100 text-amber-800{% else %}bg-stone-100 text-stone-500{% endif %}">
+                    <i class="fas fa-user-clock"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Sin asignar</p>
+                    <p class="text-xl font-bold text-gray-900">{{ profesores_sin_asignacion }}</p>
+                </div>
+            </div>
+        </div>
+        {% else %}
         <div class="card p-4 sm:p-5 border border-stone-200/80">
             <div class="flex items-center gap-3">
                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-800">
@@ -151,25 +162,14 @@
                 </div>
             </div>
         </div>
-        <div class="card p-4 sm:p-5 border border-stone-200/80 col-span-2 lg:col-span-1">
-            <div class="flex items-center gap-3">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <div>
-                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Experiencia media</p>
-                    <p class="text-xl font-bold text-gray-900">{{ experiencia_promedio }} <span class="text-sm font-normal text-stone-600">años</span></p>
-                </div>
-            </div>
-        </div>
+        {% endif %}
     </div>
-    {% endif %}
 
     <div class="grid gap-4 sm:grid-cols-2" id="docentes-grid">
         {% for profesor in profesores %}
         <article
             class="card border border-stone-200/80 overflow-visible hover:border-stone-300 transition-colors js-docente-card"
-            data-search="{{ profesor.user.get_full_name|default:'' }} {{ profesor.user.email|default:'' }} {{ profesor.codigo_profesor|default:'' }} {{ profesor.especialidad|default:'' }} {{ profesor.user.phone|default:'' }}">
+            data-search="{{ profesor.user.get_full_name|default:'' }} {{ profesor.user.email|default:'' }} {{ profesor.user.phone|default:'' }}">
             <div class="p-5">
                 <div class="flex items-start gap-3">
                     <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-600 overflow-hidden font-semibold text-sm">
@@ -182,22 +182,16 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-start justify-between gap-2">
                             <h3 class="text-lg font-semibold text-gray-900 leading-snug">{{ profesor.user.get_full_name }}</h3>
-                            {% if not es_coordinador_pedagogico %}
-                                {% if profesor.num_ediciones_activas %}
-                                    <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                                        <i class="fas fa-check"></i>{{ profesor.num_ediciones_activas }} edición{{ profesor.num_ediciones_activas|pluralize:"es" }}
-                                    </span>
-                                {% else %}
-                                    <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
-                                        Sin edición activa
-                                    </span>
-                                {% endif %}
+                            {% if profesor.num_ediciones_activas %}
+                                <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                                    <i class="fas fa-check"></i>{{ profesor.num_ediciones_activas }} edición{{ profesor.num_ediciones_activas|pluralize:"es" }}
+                                </span>
+                            {% else %}
+                                <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
+                                    Sin edición activa
+                                </span>
                             {% endif %}
                         </div>
-                        <p class="text-xs text-stone-500 mt-1 font-mono">{{ profesor.codigo_profesor|default:"—" }}</p>
-                        {% if profesor.especialidad %}
-                        <p class="text-sm text-stone-600 mt-2"><i class="fas fa-graduation-cap mr-1 text-stone-400"></i>{{ profesor.especialidad }}</p>
-                        {% endif %}
                         <div class="mt-3 space-y-1 text-sm text-stone-700">
                             <p class="truncate"><span class="text-stone-500">Correo:</span> {{ profesor.user.email|default:"—" }}</p>
                             <p><span class="text-stone-500">Celular (WhatsApp):</span> {{ profesor.user.phone|default:"—" }}</p>
@@ -238,6 +232,11 @@
                                     {% endif %}
                                 </div>
                             </details>
+                            {% endif %}
+                            {% if es_coordinador_pedagogico and not profesor.num_ediciones_activas %}
+                            <a href="{% url 'hechos:pedagogico_crear_escuela' %}" class="inline-flex items-center gap-1.5 rounded-lg bg-amber-100/80 border border-amber-200/80 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100">
+                                <i class="fas fa-plus text-[0.65rem]"></i>Crear escuela
+                            </a>
                             {% endif %}
                             <a href="{% url 'hechos:detalle_profesor' profesor.id %}" class="btn-outline px-3 py-1.5 text-xs font-medium">Ver</a>
                             <a href="{% url 'hechos:editar_profesor' profesor.id %}" class="btn-outline px-3 py-1.5 text-xs font-medium">Editar</a>
@@ -331,4 +330,42 @@
     });
 })();
 </script>
+
+{% if es_coordinador_pedagogico %}
+<script src="{% static 'js/site-tour.js' %}"></script>
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                title: 'Profesores de tu sede',
+                text: 'Regístralos, edítalos o dalos de baja. Desde aquí también los contactas por WhatsApp o correo.'
+            },
+            {
+                selector: '#tour-docentes-buscar',
+                title: 'Buscar en tiempo real',
+                text: 'Filtra por nombre, correo o celular mientras escribes, sin recargar la página.'
+            },
+            {
+                selector: '#tour-docentes-total',
+                title: 'De un vistazo',
+                text: 'Cuántos profesores hay, cuántos ya tienen una escuela y cuántos siguen «Sin asignar» — a esos últimos hay que crearles una escuela.'
+            },
+            {
+                selector: '#tour-docentes-nuevo',
+                title: 'Registrar profesor',
+                text: 'Crea un profesor nuevo con sus datos básicos. Después podrás asignarle una escuela desde «Crear escuela».'
+            },
+            {
+                selector: '#docentes-grid',
+                title: 'Cada profesor',
+                text: '«Contactar» abre WhatsApp o correo directo. Si dice «Sin edición activa», el botón «Crear escuela» te lleva directo a asignarle una. «Ver», «Editar» y «Dar de baja» gestionan sus datos.'
+            }
+        ]);
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

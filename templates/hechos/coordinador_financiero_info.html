@@ -1,0 +1,47 @@
+{% extends 'base_modern.html' %}
+{% block title %}Info — {{ user_sede.nombre }}{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <div class="card p-6 sm:p-8">
+        <h1 class="text-2xl font-bold text-gray-900">Info</h1>
+        <p class="text-stone-600 mt-3 max-w-3xl leading-relaxed">
+            Como coordinador financiero llevas el dinero de <strong class="text-stone-800">{{ user_sede.nombre }}</strong>: lo que entra y lo que planeas gastar. Estas son tus tres pantallas.
+        </p>
+        <div class="mt-4">
+            {% include 'hechos/_coordinador_financiero_subnav.html' %}
+        </div>
+    </div>
+
+    <div class="card border border-stone-200/80 overflow-hidden">
+        <div class="divide-y divide-stone-100">
+            <a href="{% url 'hechos:coordinador_recursos' %}" class="flex items-start gap-4 p-4 md:px-8 hover:bg-stone-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
+                    <i class="fas fa-hand-holding-dollar"></i>
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-stone-900">Ingresos de la sede</p>
+                    <p class="text-sm text-stone-600 mt-0.5">Consulta todo el dinero que ha entrado: ofrendas que registran los maestros y recaudos ocasionales. Aquí solo ves; no registras nada nuevo.</p>
+                </div>
+            </a>
+            <a href="{% url 'hechos:coordinador_recaudos_ocasionales' %}" class="flex items-start gap-4 p-4 md:px-8 hover:bg-stone-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                    <i class="fas fa-piggy-bank"></i>
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-stone-900">Registrar un recaudo ocasional</p>
+                    <p class="text-sm text-stone-600 mt-0.5">Dinero que entra fuera de las ofrendas de clase: un extra, un sobrante, una donación puntual. Es lo único que tú registras como ingreso.</p>
+                </div>
+            </a>
+            <a href="{% url 'hechos:coordinador_eventos_presupuesto' %}" class="flex items-start gap-4 p-4 md:px-8 hover:bg-stone-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
+                    <i class="fas fa-calendar-check"></i>
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-stone-900">Planificar un evento o gasto</p>
+                    <p class="text-sm text-stone-600 mt-0.5">Deja escrito cuánto piensas destinar a un evento o gasto (retiro, materiales, transporte...). No mueve dinero de verdad, solo planifica cuánto tienes disponible.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -123,11 +123,7 @@ class Command(BaseCommand):
             user3 = User.objects.get(email='profesor1@ejemplo.com')
             profesor, created = Profesor.objects.get_or_create(
                 user=user3,
-                defaults={
-                    'especialidad': 'Teología Sistemática',
-                    'experiencia_anos': 10,
-                    'biografia': 'Pastor con más de 10 años de experiencia en enseñanza bíblica.'
-                }
+                defaults={}
             )
             if created:
                 self.stdout.write('✓ Perfil de profesor creado')

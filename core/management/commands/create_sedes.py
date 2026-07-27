@@ -159,9 +159,6 @@ class Command(BaseCommand):
                 user=profesor_user,
                 defaults={
                     'sede': sede,
-                    'especialidad': 'Teología',
-                    'experiencia_anos': 5,
-                    'biografia': 'Profesor con experiencia en enseñanza bíblica',
                     'is_active': True
                 }
             )

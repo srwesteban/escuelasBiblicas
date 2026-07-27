@@ -12,6 +12,7 @@ from hechos.models import (
     ActividadEscuela,
     ArchivoRecursoEscuela,
     EntregaActividad,
+    ItemInventario,
     Ofrenda,
     PresupuestoEvento,
     QuejaReclamo,
@@ -273,6 +274,33 @@ class SalonForm(forms.ModelForm):
         n = self.cleaned_data.get("capacidad_plazas")
         if n is not None and n < 1:
             raise forms.ValidationError("La capacidad debe ser al menos 1.")
+        return n
+
+
+class ItemInventarioForm(forms.ModelForm):
+    class Meta:
+        model = ItemInventario
+        fields = ("nombre", "cantidad", "notas")
+        labels = {
+            "nombre": "Producto",
+            "cantidad": "Cantidad",
+            "notas": "Notas (opcional)",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        input_class = (
+            "w-full rounded-xl border-2 border-stone-300 bg-stone-50 px-4 py-3 "
+            "text-slate-900 shadow-sm transition focus:border-stone-500 "
+            "focus:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200"
+        )
+        for name in self.fields:
+            self.fields[name].widget.attrs.update({"class": input_class})
+
+    def clean_cantidad(self):
+        n = self.cleaned_data.get("cantidad")
+        if n is not None and n < 0:
+            raise forms.ValidationError("La cantidad no puede ser negativa.")
         return n
 
 

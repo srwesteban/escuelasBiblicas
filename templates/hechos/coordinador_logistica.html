@@ -215,6 +215,145 @@
         {% endif %}
     </section>
     {% endif %}
+
+    {# —— Inventario (sidebar: ?tab=inventario) —— #}
+    {% if logistica_tab == 'inventario' %}
+    <section class="card p-6 md:p-8 ring-1 ring-stone-200/80" aria-labelledby="panel-inventario-titulo">
+        <h2 id="panel-inventario-titulo" class="text-lg font-semibold text-stone-900">Inventario de la sede</h2>
+        <p class="text-sm text-stone-500 mt-1 mb-6">Control inicial de lo que hay: producto y cantidad.</p>
+
+        {% if item_editando and item_edit_form %}
+        <div class="mb-8 rounded-xl border border-amber-200 bg-amber-50/50 p-5 md:p-6">
+            <h3 class="text-base font-semibold text-stone-900">Editar ítem</h3>
+            <p class="text-sm text-stone-600 mt-1 mb-4">{{ item_editando.nombre }}</p>
+            <form method="post" action="{% url 'hechos:coordinador_logistica' %}?tab=inventario" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4 md:items-end">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="actualizar_item_inventario">
+                <input type="hidden" name="item_id" value="{{ item_editando.id }}">
+                <div class="md:col-span-2">
+                    <label for="{{ item_edit_form.nombre.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ item_edit_form.nombre.label }}</label>
+                    {{ item_edit_form.nombre }}
+                    {% if item_edit_form.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ item_edit_form.nombre.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ item_edit_form.cantidad.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ item_edit_form.cantidad.label }}</label>
+                    {{ item_edit_form.cantidad }}
+                    {% if item_edit_form.cantidad.errors %}<p class="text-sm text-red-600 mt-1">{{ item_edit_form.cantidad.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ item_edit_form.notas.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ item_edit_form.notas.label }}</label>
+                    {{ item_edit_form.notas }}
+                </div>
+                <div class="md:col-span-2 lg:col-span-4 flex flex-wrap gap-3">
+                    <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-900 transition">
+                        Guardar cambios
+                    </button>
+                    <a href="{% url 'hechos:coordinador_logistica' %}?tab=inventario" class="inline-flex items-center justify-center rounded-xl border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 transition">
+                        Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        <h3 class="text-sm font-semibold text-stone-800 mb-4">Nuevo ítem</h3>
+        <form method="post" action="{% url 'hechos:coordinador_logistica' %}?tab=inventario" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4 md:items-end">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="crear_item_inventario">
+            <div class="md:col-span-2">
+                <label for="{{ item_form.nombre.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ item_form.nombre.label }}</label>
+                {{ item_form.nombre }}
+                {% if item_form.nombre.errors %}<p class="text-sm text-red-600 mt-1">{{ item_form.nombre.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="{{ item_form.cantidad.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ item_form.cantidad.label }}</label>
+                {{ item_form.cantidad }}
+                {% if item_form.cantidad.errors %}<p class="text-sm text-red-600 mt-1">{{ item_form.cantidad.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="{{ item_form.notas.id_for_label }}" class="block text-sm font-medium text-stone-700 mb-1">{{ item_form.notas.label }}</label>
+                {{ item_form.notas }}
+            </div>
+            <div class="md:col-span-2 lg:col-span-4">
+                <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-900 transition">
+                    Agregar al inventario
+                </button>
+            </div>
+        </form>
+
+        <div class="mt-8 border-t border-stone-200 pt-6">
+            <h3 class="text-sm font-semibold text-stone-800 mb-4">Listado</h3>
+            {% if items_inventario %}
+            <ul class="divide-y divide-stone-100">
+                {% for it in items_inventario %}
+                <li class="flex flex-col gap-3 py-4 first:pt-0 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                        <p class="font-medium text-stone-900">{{ it.nombre }} <span class="text-stone-500 font-normal">· {{ it.cantidad }}</span></p>
+                        {% if it.notas %}<p class="text-sm text-stone-600">{{ it.notas }}</p>{% endif %}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 shrink-0">
+                        <a href="{% url 'hechos:coordinador_logistica' %}?tab=inventario&editar={{ it.id }}"
+                           class="text-sm rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-stone-700 hover:bg-stone-50 inline-flex items-center justify-center">
+                            Editar
+                        </a>
+                        <form method="post" action="{% url 'hechos:coordinador_logistica' %}?tab=inventario" class="inline"
+                              data-confirm-title="Eliminar ítem" data-confirm-message="¿Eliminar «{{ it.nombre }}» del inventario?" data-confirm-label="Eliminar">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="eliminar_item_inventario">
+                            <input type="hidden" name="item_id" value="{{ it.id }}">
+                            <button type="submit" class="text-sm rounded-lg border border-red-300 px-3 py-1.5 text-red-700 hover:bg-red-50">
+                                Eliminar
+                            </button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-stone-500">Aún no hay ítems registrados en esta sede.</p>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    {# —— Info (sidebar: ?tab=info) —— #}
+    {% if logistica_tab == 'info' %}
+    <section class="card border border-stone-200/80 overflow-hidden" aria-labelledby="panel-info-titulo">
+        <div class="px-6 py-4 md:px-8 md:py-6 border-b border-stone-200 bg-stone-50/50">
+            <h2 id="panel-info-titulo" class="text-lg font-semibold text-stone-900">Info</h2>
+            <p class="text-sm text-stone-600 mt-0.5">Como coordinador de logística te encargas de los espacios y recursos físicos de tu sede. Estas son tus tareas principales.</p>
+        </div>
+        <div class="divide-y divide-stone-100">
+            <a href="{% url 'hechos:coordinador_logistica' %}?tab=salones" class="flex items-start gap-4 p-4 md:px-8 hover:bg-stone-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-800">
+                    <i class="fas fa-door-open"></i>
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-stone-900">Crear y administrar los salones</p>
+                    <p class="text-sm text-stone-600 mt-0.5">Registra cada espacio físico de la sede (aulas, salones, auditorio) con su capacidad de plazas.</p>
+                </div>
+            </a>
+            <a href="{% url 'hechos:coordinador_logistica' %}?tab=escuelas" class="flex items-start gap-4 p-4 md:px-8 hover:bg-stone-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                    <i class="fas fa-school"></i>
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-stone-900">Asignar un salón a cada escuela</p>
+                    <p class="text-sm text-stone-600 mt-0.5">Cada escuela necesita un salón donde funcionar; aquí decides cuál, y la capacidad del salón fija el cupo máximo de la escuela.</p>
+                </div>
+            </a>
+            <a href="{% url 'hechos:coordinador_logistica' %}?tab=inventario" class="flex items-start gap-4 p-4 md:px-8 hover:bg-stone-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
+                    <i class="fas fa-boxes-stacked"></i>
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-stone-900">Llevar el inventario de la sede</p>
+                    <p class="text-sm text-stone-600 mt-0.5">Un control simple de lo que hay (sillas, mesas, equipo, etc.) y cuánto, para saber con qué se cuenta.</p>
+                </div>
+            </a>
+        </div>
+    </section>
+    {% endif %}
 </div>
 {% endblock %}
 

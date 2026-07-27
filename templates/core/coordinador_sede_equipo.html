@@ -15,6 +15,21 @@
 
     <div class="card p-6">
         <div class="space-y-4">
+            {% if yo %}
+                <div class="rounded-xl border border-amber-200 bg-amber-50/40 p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            {{ yo.user.get_full_name }}
+                            <span class="ml-2 align-middle inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Tú</span>
+                        </h2>
+                        <p class="text-sm text-stone-600 mt-1">{{ yo.roles_display }}</p>
+                        <p class="text-xs text-stone-500 mt-1">{{ yo.user.email }}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="{% url 'core:coordinador_sede_self_roles' sede.id %}" class="btn-primary px-4 py-2 text-sm font-medium">Rol y acceso</a>
+                    </div>
+                </div>
+            {% endif %}
             {% for c in coordinadores %}
                 <div class="rounded-xl border border-stone-200 p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>

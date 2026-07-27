@@ -127,8 +127,8 @@
                 </div>
                 <div class="min-w-0 flex-1">
                     <p class="font-medium text-stone-900 truncate">{{ e.user.get_full_name|default:e.user.email }}</p>
-                    {% if e.numero_documento %}
-                    <p class="text-xs text-stone-500 truncate">Doc. {{ e.numero_documento }}</p>
+                    {% if e.documento_numero %}
+                    <p class="text-xs text-stone-500 truncate">Doc. {{ e.documento_numero }}</p>
                     {% elif e.user.email %}
                     <p class="text-xs text-stone-500 truncate">{{ e.user.email }}</p>
                     {% endif %}

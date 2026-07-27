@@ -20,7 +20,7 @@
             <h1 class="text-lg sm:text-xl font-semibold text-stone-900 truncate">{{ estudiante.user.get_full_name|default:estudiante.user.username }}</h1>
             <p class="text-sm text-stone-600 mt-0.5">
                 {{ estudiante.get_tipo_documento_display|default:estudiante.tipo_documento }}
-                {{ estudiante.numero_documento|default:estudiante.user.documento_identidad|default:"—" }}
+                {{ estudiante.documento_numero|default:"—" }}
                 <span class="text-stone-300 mx-1.5">·</span>{{ escuela.nombre }}
             </p>
         </div>

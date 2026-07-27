@@ -13,7 +13,7 @@
                     {% if escuela %}{{ escuela.nombre }} — {% endif %}{{ edicion.linea_identificacion_pedagogica }}
                 </p>
             </div>
-            <a href="{% url 'hechos:estructura_configurar' edicion.id 1 %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
+            <a href="{% url 'hechos:pedagogico_editar_escuela_paso' edicion.id 1 %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
                 <i class="fas fa-arrow-left mr-2"></i>Atrás
             </a>
         </div>

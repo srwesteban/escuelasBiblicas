@@ -31,7 +31,11 @@
             {% endif %}
             <div>
                 <p class="text-xs font-medium text-stone-600">Documento</p>
-                <p class="mt-1 text-sm font-mono text-stone-900">{{ estudiante.tipo_documento }} {{ estudiante.numero_documento|default:"—" }}</p>
+                            <p class="mt-1 text-sm font-mono text-stone-900">
+                                {% if estudiante.documento_numero %}
+                                    {{ estudiante.tipo_documento }} {{ estudiante.documento_numero }}
+                                {% else %}—{% endif %}
+                            </p>
             </div>
             <div>
                 <p class="text-xs font-medium text-stone-600">Género</p>
@@ -57,23 +61,6 @@
                 <p class="text-xs font-medium text-stone-600">Dirección</p>
                 <p class="mt-1 text-sm text-stone-900 whitespace-pre-wrap">{% if estudiante.direccion %}{{ estudiante.direccion }}{% else %}No especificada{% endif %}</p>
             </div>
-            {% if estudiante.peticion_area or estudiante.peticion_texto %}
-            <div class="sm:col-span-2">
-                <p class="text-xs font-medium text-stone-600">Petición / área de interés</p>
-                {% if estudiante.peticion_area %}
-                    <p class="mt-1 text-sm text-stone-900">{{ estudiante.get_peticion_area_display }}</p>
-                {% endif %}
-                {% if estudiante.peticion_texto %}
-                    <p class="mt-1 text-sm text-stone-900 whitespace-pre-wrap">{{ estudiante.peticion_texto }}</p>
-                {% endif %}
-            </div>
-            {% endif %}
-            {% if estudiante.notas_medicas %}
-            <div class="sm:col-span-2">
-                <p class="text-xs font-medium text-stone-600">Notas médicas (confidencial)</p>
-                <p class="mt-1 text-sm text-stone-900 whitespace-pre-wrap">{{ estudiante.notas_medicas }}</p>
-            </div>
-            {% endif %}
         </div>
     </section>
 

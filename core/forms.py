@@ -1339,6 +1339,57 @@ class CoordinadorForm(forms.Form):
         return admin_profile
 
 
+class CoordinadorRolesForm(forms.Form):
+    """
+    El coordinador de sede se autoasigna tareas en Hechos (académico, pedagógico,
+    financiero, logístico), sin tocar datos personales ni el tipo «sede».
+    """
+
+    def __init__(self, *args, admin_profile=None, **kwargs):
+        self.admin_profile = admin_profile
+        super().__init__(*args, **kwargs)
+
+        catalog = list(
+            CapacidadCoordinador.objects.order_by("orden", "nombre").values_list("codigo", "nombre")
+        )
+        self.fields["capacidades"] = forms.MultipleChoiceField(
+            required=False,
+            choices=catalog,
+            label="Tareas en Hechos",
+            widget=forms.CheckboxSelectMultiple(
+                attrs={"class": "capacidad-check rounded border-stone-300 text-stone-800 focus:ring-stone-300"}
+            ),
+        )
+        self.fields["capacidades_orden"] = forms.CharField(required=False, widget=forms.HiddenInput())
+
+        initial_caps = []
+        if self.admin_profile:
+            asigs = self.admin_profile.capacidad_asignaciones.select_related("capacidad").order_by(
+                "orden", "id"
+            )
+            initial_caps = [a.capacidad.codigo for a in asigs]
+        self.fields["capacidades"].initial = initial_caps
+        self.fields["capacidades_orden"].initial = ",".join(initial_caps)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        valid = {c[0] for c in self.fields["capacidades"].choices}
+        caps = [c for c in (cleaned_data.get("capacidades") or []) if c in valid]
+        caps_set = set(caps)
+
+        orden_raw = (cleaned_data.get("capacidades_orden") or "").strip()
+        orden_in = [x.strip() for x in orden_raw.split(",") if x.strip()]
+        orden_final = [c for c in orden_in if c in caps_set]
+        catalog_order = [c[0] for c in self.fields["capacidades"].choices]
+        for c in catalog_order:
+            if c in caps_set and c not in orden_final:
+                orden_final.append(c)
+
+        cleaned_data["capacidades"] = caps
+        cleaned_data["_capacidades_orden_final"] = orden_final
+        return cleaned_data
+
+
 class DirectorProfesorEditForm(forms.Form):
     """
     Edición de profesor desde la consola del director (todas las sedes).
@@ -1363,18 +1414,6 @@ class DirectorProfesorEditForm(forms.Form):
         required=False,
         label="Sede",
         empty_label="Sin sede asignada",
-    )
-    especialidad = forms.CharField(max_length=200, required=False, label="Especialidad")
-    experiencia_anos = forms.IntegerField(
-        min_value=0,
-        max_value=80,
-        required=False,
-        label="Años de experiencia",
-    )
-    biografia = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 4}),
-        required=False,
-        label="Biografía",
     )
     is_active = forms.BooleanField(required=False, label="Perfil activo")
     password1 = forms.CharField(
@@ -1402,13 +1441,10 @@ class DirectorProfesorEditForm(forms.Form):
             "email",
             "phone",
             "documento_identidad",
-            "especialidad",
-            "experiencia_anos",
             "password1",
             "password2",
         ):
             self.fields[fname].widget.attrs.setdefault("class", ctrl)
-        self.fields["biografia"].widget.attrs.setdefault("class", ctrl)
         self.fields["tipo_documento"].widget.attrs.setdefault("class", ctrl)
         self.fields["sede"].widget.attrs.setdefault("class", ctrl)
         self.fields["is_active"].widget.attrs.setdefault(
@@ -1470,8 +1506,5 @@ class DirectorProfesorEditForm(forms.Form):
         u.save()
 
         profesor.sede = data.get("sede")
-        profesor.especialidad = (data.get("especialidad") or "").strip()
-        profesor.experiencia_anos = int(data.get("experiencia_anos") or 0)
-        profesor.biografia = (data.get("biografia") or "").strip()
         profesor.is_active = bool(data.get("is_active"))
         profesor.save()

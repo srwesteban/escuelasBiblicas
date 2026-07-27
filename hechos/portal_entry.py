@@ -68,5 +68,5 @@ def home_redirect_response(user) -> HttpResponse:
     if hasattr(user, 'profesor_profile'):
         return redirect('hechos:mis_escuelas_profesor')
     if p and ca.has_capacidad(user, 'academico'):
-        return redirect('hechos:estudiantes_list')
+        return redirect('core:estudiantes_list')
     return redirect('core:profile')

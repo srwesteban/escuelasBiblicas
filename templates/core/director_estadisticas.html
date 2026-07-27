@@ -1,0 +1,147 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Estadísticas — Hechos Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <nav class="text-sm text-stone-600" aria-label="Migas de pan">
+        <a href="{% url 'core:director_dashboard' %}" class="font-medium text-amber-800 hover:underline">Gestión de sedes</a>
+        <span class="mx-1.5 text-stone-400">/</span>
+        <span class="text-stone-800">Estadísticas</span>
+    </nav>
+
+    <div>
+        <h1 class="text-2xl font-bold text-stone-900">Estadísticas</h1>
+        <p class="mt-1 text-sm text-stone-600 max-w-xl">Panorama general del sistema, en todas las sedes.</p>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
+                    <i class="fas fa-building"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Sedes</p>
+                    <p class="text-xl font-bold text-gray-900">{{ totales.sedes }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-800">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Profesores</p>
+                    <p class="text-xl font-bold text-gray-900">{{ totales.profesores }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Estudiantes</p>
+                    <p class="text-xl font-bold text-gray-900">{{ totales.estudiantes }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-800">
+                    <i class="fas fa-user-tie"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Coordinadores</p>
+                    <p class="text-xl font-bold text-gray-900">{{ totales.coordinadores }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
+                    <i class="fas fa-school"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Escuelas vigentes</p>
+                    <p class="text-xl font-bold text-gray-900">{{ totales.escuelas_activas }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="card p-4 sm:p-5 border border-stone-200/80">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
+                    <i class="fas fa-list-check"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Matrículas activas</p>
+                    <p class="text-xl font-bold text-gray-900">{{ totales.matriculas_activas }}</p>
+                </div>
+            </div>
+        </div>
+        <a href="{% url 'hechos:solicitudes_matricula_admin' %}" class="card p-4 sm:p-5 border border-stone-200/80 hover:border-amber-300 transition-colors">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {% if totales.solicitudes_pendientes %}bg-amber-100 text-amber-800{% else %}bg-stone-100 text-stone-500{% endif %}">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Matrículas por revisar</p>
+                    <p class="text-xl font-bold text-gray-900">{{ totales.solicitudes_pendientes }}</p>
+                </div>
+            </div>
+        </a>
+        <a href="{% url 'hechos:solicitudes_especiales_admin' %}" class="card p-4 sm:p-5 border border-stone-200/80 hover:border-amber-300 transition-colors">
+            <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {% if totales.solicitudes_especiales_pendientes %}bg-amber-100 text-amber-800{% else %}bg-stone-100 text-stone-500{% endif %}">
+                    <i class="fas fa-inbox"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wide">Solicitudes por revisar</p>
+                    <p class="text-xl font-bold text-gray-900">{{ totales.solicitudes_especiales_pendientes }}</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="card border border-stone-200/80 overflow-hidden">
+        <div class="px-4 py-4 sm:px-6 border-b border-stone-200 bg-stone-50/50">
+            <h2 class="text-base font-semibold text-gray-900">Por sede</h2>
+            <p class="text-sm text-stone-600 mt-0.5">Solo sedes activas. Escuelas y matrículas cuentan lo vigente ahora mismo.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-stone-200">
+                <thead class="bg-stone-50">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Sede</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Profesores</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Estudiantes</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Coordinadores</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Escuelas vigentes</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500 sm:px-6">Matrículas activas</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100 bg-white">
+                    {% for sede in sedes %}
+                    <tr class="hover:bg-stone-50/80 transition-colors">
+                        <td class="px-4 py-3 sm:px-6 text-sm font-medium text-stone-900">{{ sede.nombre }}</td>
+                        <td class="px-4 py-3 sm:px-6 text-sm text-right tabular-nums text-stone-800">{{ sede.profesores_count }}</td>
+                        <td class="px-4 py-3 sm:px-6 text-sm text-right tabular-nums text-stone-800">{{ sede.estudiantes_count }}</td>
+                        <td class="px-4 py-3 sm:px-6 text-sm text-right tabular-nums text-stone-800">{{ sede.coordinadores_count }}</td>
+                        <td class="px-4 py-3 sm:px-6 text-sm text-right tabular-nums text-stone-800">{{ sede.escuelas_count }}</td>
+                        <td class="px-4 py-3 sm:px-6 text-sm text-right tabular-nums text-stone-800">{{ sede.matriculas_count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-10 text-center text-sm text-stone-600">No hay sedes activas todavía.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

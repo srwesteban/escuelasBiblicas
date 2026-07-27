@@ -285,7 +285,7 @@
                         <div>
                             <label for="{{ coordinador_form.email.id_for_label }}" class="sede-label">Correo electrónico</label>
                             {{ coordinador_form.email }}
-                            <p class="sede-hint">Con este correo va a iniciar sesión.</p>
+                            <p class="sede-hint">El inicio de sesión es con el número de documento, no con el correo.</p>
                             {% if coordinador_form.email.errors %}<p class="sede-error">{{ coordinador_form.email.errors|join:", " }}</p>{% endif %}
                         </div>
                         <div>

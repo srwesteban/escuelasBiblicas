@@ -1,0 +1,174 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Directorio de coordinadores — Hechos Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <nav class="text-sm text-stone-600" aria-label="Migas de pan">
+        {% if user.is_super_admin %}
+        <a href="{% url 'core:director_dashboard' %}" class="font-medium text-amber-800 hover:underline">Gestión de sedes</a>
+        <span class="mx-1.5 text-stone-400">/</span>
+        {% endif %}
+        <span class="text-stone-800">Coordinadores</span>
+    </nav>
+
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-stone-900">Directorio de coordinadores</h1>
+            <p class="mt-1 text-sm text-stone-600 max-w-xl">
+                Todos los coordinadores activos, de todas las sedes. Buscá o filtrá por sede y abrí <strong class="font-medium text-stone-800">Ver ficha</strong> para ver su información personal (solo lectura).
+            </p>
+        </div>
+    </div>
+
+    <div class="card p-4 border border-stone-200 bg-white shadow-sm">
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <div class="flex-1 min-w-[12rem] relative">
+                <label for="filtro-coordinadores" class="block text-xs font-medium text-stone-600 mb-1">Buscar</label>
+                <input type="search" id="filtro-coordinadores"
+                       placeholder="Nombre, correo, documento, cargo…"
+                       autocomplete="off"
+                       class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 shadow-sm focus:border-amber-500 focus:ring-amber-500">
+                <div id="filtro-coordinadores-spinner" class="hidden absolute inset-y-0 right-0 top-6 flex items-center pr-3">
+                    <i class="fas fa-circle-notch fa-spin text-stone-400 text-sm"></i>
+                </div>
+            </div>
+            <div class="w-full sm:w-52">
+                <label for="filtro-coordinadores-sede" class="block text-xs font-medium text-stone-600 mb-1">Sede</label>
+                <select id="filtro-coordinadores-sede"
+                        class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 shadow-sm focus:border-amber-500 focus:ring-amber-500">
+                    <option value="">Todas</option>
+                    {% for s in sedes %}
+                        <option value="{{ s.id }}">{{ s.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="coordinadores-resultados" class="space-y-3">
+        {% include 'core/_director_coordinadores_resultados.html' %}
+    </div>
+</div>
+
+<div id="modal-ficha-coordinador" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true" aria-labelledby="modal-ficha-coordinador-titulo">
+    <button type="button" id="modal-ficha-coordinador-backdrop" class="absolute inset-0 bg-stone-900/50 w-full h-full border-0 cursor-default" aria-label="Cerrar ventana"></button>
+    <div class="relative z-10 mx-auto mt-8 sm:mt-12 w-[calc(100%-1.5rem)] max-w-2xl max-h-[min(85vh,40rem)] flex flex-col rounded-2xl border border-stone-200 bg-stone-50 shadow-xl overflow-hidden">
+        <div class="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-stone-200 bg-white shrink-0">
+            <h2 id="modal-ficha-coordinador-titulo" class="text-base font-semibold text-stone-900 truncate">Ficha del coordinador</h2>
+            <button type="button" id="modal-ficha-coordinador-cerrar" class="rounded-lg p-2 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Cerrar">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div id="modal-ficha-coordinador-body" class="overflow-y-auto p-4 sm:p-5 text-sm text-stone-800 min-h-0 flex-1">
+            <p class="text-stone-500">Cargando…</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var input = document.getElementById('filtro-coordinadores');
+    var sedeSel = document.getElementById('filtro-coordinadores-sede');
+    var spinner = document.getElementById('filtro-coordinadores-spinner');
+    var resultados = document.getElementById('coordinadores-resultados');
+    var baseUrl = "{% url 'core:director_coordinadores' %}";
+    if (!input || !resultados) return;
+
+    var debounceTimer = null;
+    var activeRequest = null;
+
+    function cargar(page) {
+        if (activeRequest) activeRequest.abort();
+        var controller = new AbortController();
+        activeRequest = controller;
+        if (spinner) spinner.classList.remove('hidden');
+
+        var params = new URLSearchParams();
+        params.set('q', input.value.trim());
+        params.set('sede', sedeSel ? sedeSel.value : '');
+        params.set('page', page || 1);
+
+        fetch(baseUrl + '?' + params.toString(), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: controller.signal,
+        })
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+                resultados.innerHTML = html;
+                if (spinner) spinner.classList.add('hidden');
+                activeRequest = null;
+            })
+            .catch(function (err) {
+                if (err.name === 'AbortError') return;
+                if (spinner) spinner.classList.add('hidden');
+            });
+    }
+
+    input.addEventListener('input', function () {
+        window.clearTimeout(debounceTimer);
+        debounceTimer = window.setTimeout(function () { cargar(1); }, 300);
+    });
+    if (sedeSel) sedeSel.addEventListener('change', function () { cargar(1); });
+
+    resultados.addEventListener('click', function (ev) {
+        var pagina = ev.target.closest('.js-pagina-link');
+        if (pagina) {
+            ev.preventDefault();
+            cargar(pagina.getAttribute('data-page'));
+            resultados.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+})();
+
+(function () {
+    var modal = document.getElementById('modal-ficha-coordinador');
+    var modalBody = document.getElementById('modal-ficha-coordinador-body');
+    var modalTitulo = document.getElementById('modal-ficha-coordinador-titulo');
+    var btnCerrar = document.getElementById('modal-ficha-coordinador-cerrar');
+    var backdrop = document.getElementById('modal-ficha-coordinador-backdrop');
+    var resultados = document.getElementById('coordinadores-resultados');
+    if (!modal || !modalBody || !resultados) return;
+
+    function openModal() {
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+    function closeModal() {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        modalBody.innerHTML = '<p class="text-stone-500">Cargando…</p>';
+    }
+    if (btnCerrar) btnCerrar.addEventListener('click', closeModal);
+    if (backdrop) backdrop.addEventListener('click', closeModal);
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
+
+    resultados.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.js-ver-ficha-coordinador');
+        if (!btn) return;
+        var url = btn.getAttribute('data-ficha-url');
+        var nombre = btn.getAttribute('data-nombre') || 'Ficha del coordinador';
+        if (!url) return;
+        if (modalTitulo) modalTitulo.textContent = nombre;
+        modalBody.innerHTML = '<p class="text-stone-500">Cargando…</p>';
+        openModal();
+        fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.text();
+            })
+            .then(function (html) {
+                modalBody.innerHTML = html;
+            })
+            .catch(function () {
+                modalBody.innerHTML = '<p class="text-red-700">No se pudo cargar la ficha. Probá de nuevo.</p>';
+            });
+    });
+})();
+</script>
+{% endblock %}

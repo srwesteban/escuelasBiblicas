@@ -55,16 +55,18 @@
 
                 <div>
                     <label for="{{ form.login.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">
-                        <i class="fas fa-id-card mr-2"></i>Documento o correo
+                        <i class="fas fa-id-card mr-2"></i>Documento
                     </label>
                     <input type="text"
                            name="{{ form.login.name }}"
                            id="{{ form.login.id_for_label }}"
                            value="{{ form.login.value|default:'' }}"
                            class="input w-full px-3 py-3 border rounded-xl focus:outline-none"
-                           placeholder="Ej. 123456789 o tu@correo.com"
+                           placeholder="Ej. 123456789"
                            required
-                           autocomplete="username">
+                           inputmode="text"
+                           autocomplete="username"
+                           spellcheck="false">
                     {% if form.login.errors %}
                         <p class="mt-1 text-sm text-red-600">{{ form.login.errors.0 }}</p>
                     {% endif %}

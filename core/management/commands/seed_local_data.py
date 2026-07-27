@@ -180,9 +180,6 @@ class Command(BaseCommand):
                 "profile": "profesor",
                 "profile_defaults": {
                     "sede": sede,
-                    "especialidad": "Teologia Basica",
-                    "experiencia_anos": 5,
-                    "biografia": "Perfil de prueba para desarrollo local.",
                 },
             },
             {
@@ -195,9 +192,6 @@ class Command(BaseCommand):
                 "profile": "profesor",
                 "profile_defaults": {
                     "sede": sede,
-                    "especialidad": "Liderazgo",
-                    "experiencia_anos": 8,
-                    "biografia": "Perfil de prueba para desarrollo local.",
                 },
             },
             {

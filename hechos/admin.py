@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    Estudiante, Profesor, AdminEscuela, Escuela, EscuelaHorario, Salon, RutaEstudio, Curso,
+    Estudiante, Profesor, AdminEscuela, Escuela, EscuelaHorario, Salon, ItemInventario, RutaEstudio, Curso,
     Matricula, Clase, Asistencia, Nota, ActividadEscuela, EntregaActividad,
     ArchivoRecursoEscuela, EscuelaPrograma, EscuelaProgramaPlantilla, NivelPrograma,
     NivelProgramaPlantilla,
@@ -34,22 +34,20 @@ class EstudianteAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Información Personal', {'fields': ('user', 'sede', 'fecha_nacimiento')}),
         ('Contacto', {'fields': ('direccion', 'telefono_emergencia')}),
-        ('Información Adicional', {'fields': ('notas_medicas',)}),
         ('Estado', {'fields': ('is_active', 'created_at', 'updated_at')}),
     )
 
 
 @admin.register(Profesor)
 class ProfesorAdmin(admin.ModelAdmin):
-    list_display = ('user', 'sede', 'codigo_profesor', 'especialidad', 'experiencia_anos', 'is_active', 'created_at')
-    list_filter = ('sede', 'is_active', 'experiencia_anos', 'created_at')
-    search_fields = ('user__first_name', 'user__last_name', 'user__email', 'codigo_profesor', 'especialidad', 'sede__nombre')
-    readonly_fields = ('codigo_profesor', 'created_at', 'updated_at')
+    list_display = ('user', 'sede', 'is_active', 'created_at')
+    list_filter = ('sede', 'is_active', 'created_at')
+    search_fields = ('user__first_name', 'user__last_name', 'user__email', 'sede__nombre')
+    readonly_fields = ('created_at', 'updated_at')
     ordering = ('user__first_name', 'user__last_name')
-    
+
     fieldsets = (
-        ('Información Personal', {'fields': ('user', 'sede', 'codigo_profesor')}),
-        ('Información Profesional', {'fields': ('especialidad', 'experiencia_anos', 'biografia')}),
+        ('Información Personal', {'fields': ('user', 'sede')}),
         ('Estado', {'fields': ('is_active', 'created_at', 'updated_at')}),
     )
 
@@ -105,6 +103,14 @@ class SalonAdmin(admin.ModelAdmin):
     list_display = ('sede', 'nombre', 'codigo', 'capacidad_plazas', 'escuela', 'is_active', 'updated_at')
     list_filter = ('sede', 'is_active')
     search_fields = ('nombre', 'codigo', 'sede__nombre')
+    ordering = ('sede', 'nombre')
+
+
+@admin.register(ItemInventario)
+class ItemInventarioAdmin(admin.ModelAdmin):
+    list_display = ('sede', 'nombre', 'cantidad', 'updated_at')
+    list_filter = ('sede',)
+    search_fields = ('nombre', 'sede__nombre')
     ordering = ('sede', 'nombre')
 
 

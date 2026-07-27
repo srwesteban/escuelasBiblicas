@@ -1,0 +1,18 @@
+<nav class="flex flex-wrap gap-2" aria-label="Finanzas de la sede">
+    <a href="{% url 'hechos:coordinador_recursos' %}"
+       class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition {% if request.resolver_match.url_name == 'coordinador_recursos' %}bg-stone-900 text-white{% else %}bg-stone-100 text-stone-700 hover:bg-stone-200{% endif %}">
+        <i class="fas fa-hand-holding-dollar"></i> Ingresos de la sede
+    </a>
+    <a href="{% url 'hechos:coordinador_recaudos_ocasionales' %}"
+       class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition {% if request.resolver_match.url_name == 'coordinador_recaudos_ocasionales' %}bg-stone-900 text-white{% else %}bg-stone-100 text-stone-700 hover:bg-stone-200{% endif %}">
+        <i class="fas fa-piggy-bank"></i> Recaudos ocasionales
+    </a>
+    <a href="{% url 'hechos:coordinador_eventos_presupuesto' %}"
+       class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition {% if request.resolver_match.url_name == 'coordinador_eventos_presupuesto' %}bg-stone-900 text-white{% else %}bg-stone-100 text-stone-700 hover:bg-stone-200{% endif %}">
+        <i class="fas fa-calendar-check"></i> Eventos y presupuesto
+    </a>
+    <a href="{% url 'hechos:coordinador_financiero_info' %}"
+       class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition {% if request.resolver_match.url_name == 'coordinador_financiero_info' %}bg-stone-900 text-white{% else %}bg-stone-100 text-stone-700 hover:bg-stone-200{% endif %}">
+        <i class="fas fa-circle-info"></i> Info
+    </a>
+</nav>

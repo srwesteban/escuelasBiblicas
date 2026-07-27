@@ -9,6 +9,7 @@ urlpatterns = [
     path('dashboard/', views.hechos_dashboard, name='dashboard'),
     path('mi-sede/', views.seleccionar_sede_estudiante, name='seleccionar_sede_estudiante'),
     path('coordinacion/recursos/', views.coordinador_recursos, name='coordinador_recursos'),
+    path('coordinacion/financiero/info/', views.coordinador_financiero_info, name='coordinador_financiero_info'),
     path(
         'coordinacion/eventos-presupuesto/',
         views.coordinador_eventos_presupuesto,
@@ -28,17 +29,36 @@ urlpatterns = [
     ),
     path('quejas-reclamos/', views.quejas_reclamos, name='quejas_reclamos'),
     path('escuelas/<int:edicion_id>/solicitar-matricula/', views.solicitar_matricula, name='solicitar_matricula'),
-    path('estructura/', views.estructura_ediciones, name='estructura_ediciones'),
+    path(
+        'coordinacion/pedagogico/editar-escuela/',
+        views.estructura_ediciones,
+        name='pedagogico_editar_escuela',
+    ),
+    path(
+        'coordinacion/pedagogico/editar-escuela/<int:escuela_id>/',
+        views.estructura_escuela_portal,
+        name='pedagogico_editar_escuela_portal',
+    ),
+    path(
+        'coordinacion/pedagogico/editar-escuela/<int:escuela_id>/paso/<int:step>/',
+        views.estructura_configurar_paso,
+        name='pedagogico_editar_escuela_paso',
+    ),
+    # Rutas antiguas /estructura/ → pedagogico/editar-escuela
+    path(
+        'estructura/',
+        RedirectView.as_view(pattern_name='hechos:pedagogico_editar_escuela', permanent=False),
+    ),
     path(
         'estructura/escuela/<int:escuela_id>/',
-        views.estructura_escuela_portal,
-        name='estructura_escuela',
+        RedirectView.as_view(pattern_name='hechos:pedagogico_editar_escuela_portal', permanent=False),
     ),
     path(
         'estructura/escuela/<int:escuela_id>/paso/<int:step>/',
-        views.estructura_configurar_paso,
-        name='estructura_configurar',
+        RedirectView.as_view(pattern_name='hechos:pedagogico_editar_escuela_paso', permanent=False),
     ),
+    path('coordinacion/pedagogico/escuelas/crear/', views.pedagogico_crear_escuela, name='pedagogico_crear_escuela'),
+    path('coordinacion/pedagogico/info/', views.pedagogico_info, name='pedagogico_info'),
     path('mis-certificados/', views.mis_certificados, name='mis_certificados'),
     path('mis-escuelas/', views.mis_escuelas, name='mis_escuelas'),
     path('historial-escuelas/', views.historial_escuelas, name='historial_escuelas'),
@@ -80,8 +100,8 @@ urlpatterns = [
     path('solicitudes-especiales/', views.solicitudes_especiales_admin, name='solicitudes_especiales_admin'),
     path('solicitudes-especiales/<int:solicitud_id>/revisar/', views.revisar_solicitud_especial_admin, name='revisar_solicitud_especial_admin'),
     
-    # Estudiantes
-    path('estudiantes/', views.estudiantes_list, name='estudiantes_list'),
+    # Estudiantes (el directorio en sí vive en core:estudiantes_list, /director/estudiantes/,
+    # junto a los otros dos directorios compartidos: profesores y coordinadores)
     path('estudiantes/crear/', views.crear_estudiante, name='crear_estudiante'),
     path('estudiantes/<int:estudiante_id>/', views.detalle_estudiante, name='detalle_estudiante'),
     path(
@@ -92,13 +112,36 @@ urlpatterns = [
     path('estudiantes/<int:estudiante_id>/editar/', views.editar_estudiante, name='editar_estudiante'),
     path('estudiantes/<int:estudiante_id>/eliminar/', views.eliminar_estudiante, name='eliminar_estudiante'),
     
-    # Profesores
-    path('profesores/', views.profesores_list, name='profesores_list'),
-    path('profesores/crear/', views.crear_profesor, name='crear_profesor'),
-    path('profesores/<int:profesor_id>/', views.detalle_profesor, name='detalle_profesor'),
-    path('profesores/<int:profesor_id>/editar/', views.editar_profesor, name='editar_profesor'),
-    path('profesores/<int:profesor_id>/eliminar/', views.eliminar_profesor, name='eliminar_profesor'),
-    
+    # Profesores (coordinador pedagógico)
+    path('coordinacion/pedagogico/profesores/', views.profesores_list, name='profesores_list'),
+    path('coordinacion/pedagogico/profesores/crear/', views.crear_profesor, name='crear_profesor'),
+    path('coordinacion/pedagogico/profesores/<int:profesor_id>/', views.detalle_profesor, name='detalle_profesor'),
+    path(
+        'coordinacion/pedagogico/profesores/<int:profesor_id>/editar/',
+        views.editar_profesor,
+        name='editar_profesor',
+    ),
+    path(
+        'coordinacion/pedagogico/profesores/<int:profesor_id>/eliminar/',
+        views.eliminar_profesor,
+        name='eliminar_profesor',
+    ),
+    # Rutas antiguas /profesores/ → coordinacion/pedagogico/profesores/
+    path('profesores/', RedirectView.as_view(pattern_name='hechos:profesores_list', permanent=False)),
+    path('profesores/crear/', RedirectView.as_view(pattern_name='hechos:crear_profesor', permanent=False)),
+    path(
+        'profesores/<int:profesor_id>/',
+        RedirectView.as_view(pattern_name='hechos:detalle_profesor', permanent=False),
+    ),
+    path(
+        'profesores/<int:profesor_id>/editar/',
+        RedirectView.as_view(pattern_name='hechos:editar_profesor', permanent=False),
+    ),
+    path(
+        'profesores/<int:profesor_id>/eliminar/',
+        RedirectView.as_view(pattern_name='hechos:eliminar_profesor', permanent=False),
+    ),
+
     # Cursos
     path('cursos/', views.cursos_list, name='cursos_list'),
     path('cursos/crear/', views.crear_curso, name='crear_curso'),

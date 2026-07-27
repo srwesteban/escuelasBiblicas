@@ -65,16 +65,6 @@
                     </div>
                     
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Especialidad</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ profesor.especialidad|default:"No especificada" }}</dd>
-                    </div>
-                    
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Experiencia</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ profesor.experiencia_anos }} años</dd>
-                    </div>
-                    
-                    <div>
                         <dt class="text-sm font-medium text-gray-500">Estado</dt>
                         <dd class="mt-1">
                             {% if profesor.is_active %}

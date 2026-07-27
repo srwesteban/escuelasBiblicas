@@ -1,260 +1,178 @@
-# HechosHub - Sistema Modular para Escuelas Bíblicas
+# HechosHub
 
-HechosHub es un sistema web modular desarrollado con Django que permite gestionar escuelas bíblicas de manera eficiente y organizada. El sistema está diseñado con una arquitectura modular donde existe un **core** central y se pueden registrar múltiples aplicaciones.
+Sistema web (Django) para gestionar **escuelas bíblicas** por sede: matrículas, asistencia, notas, coordinadores y catálogo de formación.
 
-## 🚀 Características Principales
+## Requisitos
 
-### Core (Sistema General)
-- **Autenticación centralizada** usando el sistema de usuarios de Django
-- **Modelo de usuario extendido** con roles y permisos
-- **Roles globales**:
-  - **Super Admin**: controla todo el sistema
-  - **Admin de aplicación**: controla una aplicación específica
-  - **Usuario**: acceso básico según permisos
-- **Dashboard central** con navegación dinámica
-- **Autenticación social** (Google, GitHub) con django-allauth
+- Python **3.12+**
+- pip / venv
+- Git (opcional)
 
-### Módulo Hechos (Escuelas Bíblicas)
-- **Gestión de Estudiantes**: perfiles, matrículas, notas, asistencia
-- **Gestión de Profesores**: perfiles, cursos, clases, calificaciones
-- **Gestión de Cursos**: rutas de estudio, horarios, capacidad
-- **Sistema de Asistencia**: registro por clase
-- **Sistema de Notas**: calificaciones y evaluaciones
-- **Dashboard específico** según el rol del usuario
+## Arranque rápido (desarrollo local)
 
-## 🛠️ Tecnologías Utilizadas
+### 1. Clonar e instalar
 
-- **Django 5.2.6** - Framework web
-- **SQLite** - Base de datos
-- **Bootstrap 5** - Framework CSS
-- **django-allauth** - Autenticación social
-- **Font Awesome** - Iconos
-- **Python 3.12** - Lenguaje de programación
-
-## 📋 Requisitos del Sistema
-
-- Python 3.12+
-- pip (gestor de paquetes de Python)
-- Git (opcional, para clonar el repositorio)
-
-## 🚀 Instalación y Configuración
-
-### 1. Clonar el Repositorio
 ```bash
 git clone <url-del-repositorio>
-cd HechosHub
+cd escuelasBiblicas
+
+python -m venv .venv
+
+# Windows (PowerShell)
+.\.venv\Scripts\Activate.ps1
+
+# macOS / Linux
+source .venv/bin/activate
+
+pip install -r requirements.txt
 ```
 
-### 2. Crear Entorno Virtual
+### 2. Variables de entorno
+
 ```bash
-python3 -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
+# Windows
+copy .env.example .env
+
+# macOS / Linux
+cp .env.example .env
 ```
 
-Si prefieres el flujo estandarizado del proyecto:
-```bash
-make setup
-```
+Para desarrollo local puedes dejar `DATABASE_URL` vacío: se usa **SQLite** (`db.sqlite3`).
 
-### 3. Instalar Dependencias
-```bash
-pip install django django-allauth pillow requests PyJWT cryptography
-```
+Si usas Postgres (Neon, Supabase, etc.), pon la cadena en `DATABASE_URL` dentro de `.env`.
 
-### 4. Configurar Base de Datos
-La app usa SQLite local por defecto, pero ahora puede cambiarse facilmente mediante variables de entorno.
-
-1. Copia `.env.example` a tu entorno preferido o exporta las variables manualmente.
-2. Para desarrollo local no necesitas cambiar nada: se usara `db.sqlite3`.
-3. Si luego quieres PostgreSQL o MySQL, solo cambia `DB_ENGINE` y las variables `DB_*` o define `DATABASE_URL`.
+### 3. Migrar y cargar datos base
 
 ```bash
-python manage.py makemigrations
 python manage.py migrate
+
+# Catálogo de Formación global (niveles + escuelas plantilla)
+python manage.py ensure_programa_global
+
+# Cuentas de prueba + una sede (borra usuarios/sedes previos)
+python manage.py reset_datos_prueba --yes
 ```
 
-### 5. Inicializar Datos Básicos
-```bash
-python manage.py init_data
-python manage.py seed_local_data
-```
+### 4. Servidor
 
-### 6. Ejecutar el Servidor
 ```bash
 python manage.py runserver
 ```
 
-O usando comandos estandarizados:
-```bash
-make migrate
-make seed
-make run
-```
+Abre: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
 
-## 🔐 Acceso al Sistema
-
-### Credenciales por Defecto
-- **URL**: http://localhost:8000
-- **Admin**: http://localhost:8000/admin/
-- **Usuario**: admin@hechoshub.com
-- **Contraseña**: admin123
-
-### Usuarios Locales de Desarrollo
-Despues de ejecutar `python manage.py seed_local_data`, todos los usuarios creados usan la misma clave:
-
-- **Contraseña**: `local12345`
-- **Super Admin**: `super1@local.test`, `super2@local.test`
-- **Admin Hechos**: `hechos.admin1@local.test`, `hechos.admin2@local.test`
-- **Profesores**: `profesor1@local.test`, `profesor2@local.test`
-- **Estudiantes**: `estudiante1@local.test`, `estudiante2@local.test`
-
-### Primer Acceso
-1. Ve a http://localhost:8000
-2. Inicia sesión con las credenciales por defecto
-3. Explora el dashboard central
-4. Accede al módulo "Hechos" desde el menú lateral
-
-## 📱 Funcionalidades por Rol
-
-### Super Administrador
-- Acceso completo al sistema
-- Gestión de usuarios y roles
-- Configuración de módulos
-- Acceso al panel de administración de Django
-
-### Admin de Escuela
-- Gestión de estudiantes, profesores y cursos
-- Creación de rutas de estudio
-- Asignación de matrículas
-- Reportes y estadísticas
-
-### Profesor
-- Ver sus cursos asignados
-- Crear y gestionar clases
-- Tomar asistencia de estudiantes
-- Asignar notas y calificaciones
-
-### Estudiante
-- Ver cursos matriculados
-- Consultar notas y calificaciones
-- Ver horarios de clases
-- Revisar asistencia
-
-## 🏗️ Arquitectura del Sistema
-
-```
-hechoshub/
-├── hechoshub/          # Configuración principal
-├── core/               # App central (usuarios, roles, dashboard)
-├── hechos/             # App de escuelas bíblicas
-├── templates/          # Templates HTML
-├── static/            # Archivos estáticos (CSS, JS, imágenes)
-├── media/             # Archivos subidos por usuarios
-└── db.sqlite3         # Base de datos SQLite
-```
-
-## 🔧 Configuración Adicional
-
-### Autenticación Social (Opcional)
-Para configurar autenticación con Google o GitHub:
-
-1. Ve al panel de administración: http://localhost:8000/admin/
-2. Navega a "Social Applications"
-3. Agrega una nueva aplicación social
-4. Configura las credenciales de OAuth
-
-### Personalización de Módulos
-Para agregar nuevos módulos:
-
-1. Crea una nueva app Django
-2. Registra el módulo en `AppModule`
-3. Configura permisos de usuario
-4. Agrega las URLs correspondientes
-
-## 📊 Modelos de Datos
-
-### Core
-- **User**: Usuario extendido con roles
-- **AppModule**: Módulos del sistema
-- **UserAppPermission**: Permisos por módulo
-
-### Hechos
-- **Estudiante**: Perfil de estudiante
-- **Profesor**: Perfil de profesor
-- **AdminEscuela**: Perfil de administrador
-- **RutaEstudio**: Rutas de estudio disponibles
-- **Curso**: Cursos específicos
-- **Matricula**: Matrículas de estudiantes
-- **Clase**: Sesiones de clase
-- **Asistencia**: Registro de asistencia
-- **Nota**: Calificaciones y evaluaciones
-
-## 🎨 Personalización Visual
-
-El sistema utiliza Bootstrap 5 con un tema personalizado. Los colores principales son:
-- **Primario**: #2c3e50 (Azul oscuro)
-- **Secundario**: #34495e (Gris oscuro)
-- **Acento**: #3498db (Azul claro)
-- **Éxito**: #27ae60 (Verde)
-- **Advertencia**: #f39c12 (Naranja)
-- **Peligro**: #e74c3c (Rojo)
-
-## 🚀 Despliegue en Producción
-
-Para desplegar en producción:
-
-1. Configura una base de datos PostgreSQL o MySQL
-2. Actualiza `settings.py` con configuración de producción
-3. Configura variables de entorno para credenciales
-4. Usa un servidor web como Nginx + Gunicorn
-5. Configura SSL/HTTPS
-
-## 📝 Comandos Útiles
-
-```bash
-# Preparar entorno local
-make setup
-
-# Verificar configuración
-make check
-
-# Crear superusuario
-python manage.py createsuperuser
-
-# Inicializar datos básicos
-python manage.py init_data
-
-# Crear usuarios locales por rol
-python manage.py seed_local_data
-
-# Recopilar archivos estáticos
-python manage.py collectstatic
-
-# Ejecutar pruebas
-python manage.py test
-```
-
-## 🤝 Contribución
-
-Para contribuir al proyecto:
-
-1. Fork el repositorio
-2. Crea una rama para tu feature
-3. Realiza los cambios
-4. Envía un Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo LICENSE para más detalles.
-
-## 🆘 Soporte
-
-Para soporte técnico o preguntas:
-- Crea un issue en el repositorio
-- Contacta al equipo de desarrollo
-- Revisa la documentación de Django
+El login pide **número de documento** (no correo).
 
 ---
 
-**HechosHub** - Sistema Modular para Escuelas Bíblicas
-Desarrollado con ❤️ para la comunidad cristiana
+## Acceso de prueba
+
+Tras `reset_datos_prueba`, todos usan la misma contraseña:
+
+**Contraseña:** `Prueba2026!`
+
+| Rol | Documento |
+|-----|-----------|
+| Director | `1000000001` |
+| Coordinador de sede | `1000000011` |
+| Coordinador académico | `1000000012` |
+| Coordinador pedagógico | `1000000013` |
+| Coordinador financiero | `1000000014` |
+| Coordinador logístico | `1000000015` |
+| Profesor | `1000000020` |
+| Estudiante | `1000000030` |
+| Coordinador (varios roles) | `1000000040` |
+
+El usuario `1000000040` es un coordinador **combinado** (académico + pedagógico + financiero + logístico) en la misma sede de prueba.
+
+---
+
+## Formación global (niveles y escuelas)
+
+La pantalla del director **Formación global** (`/director/programa-escuelas/`) usa plantillas globales:
+
+- `NivelProgramaPlantilla` — niveles (Fundamentos, Sanos y Libres, Equipados, Liderando, Desarrollando llamado, …)
+- `EscuelaProgramaPlantilla` — escuelas de cada nivel
+
+Ese catálogo vive en código en `hechos/catalogo_formacion.py` y se carga/actualiza con:
+
+```bash
+python manage.py ensure_programa_global
+```
+
+**Importante**
+
+- Corre `ensure_programa_global` después de `migrate` en una BD nueva (o al cambiar de base).
+- `reset_datos_prueba` **no borra** ese catálogo: solo recrea sedes y usuarios.
+- Si editas niveles/escuelas en la UI y quieres que queden en el repo para la próxima BD, actualiza `catalogo_formacion.py` y vuelve a correr el comando.
+
+---
+
+## Qué hace cada rol (resumen)
+
+| Rol | Enfoque |
+|-----|---------|
+| **Director** | Sedes, Formación global, directorios, estadísticas, admin Django |
+| **Coordinador de sede** | Info y equipo de la sede |
+| **Académico** | Matrículas, bandeja, directorios de personas |
+| **Pedagógico** | Crear / editar escuelas, profesores |
+| **Financiero** | Ingresos, eventos, recaudos |
+| **Logístico** | Salones, inventario |
+| **Profesor** | Sus escuelas, asistencia, notas, ofrendas |
+| **Estudiante** | Escuelas, horario, certificados |
+
+---
+
+## Comandos útiles
+
+```bash
+python manage.py migrate
+python manage.py ensure_programa_global
+python manage.py reset_datos_prueba --yes
+python manage.py sync_estudiante_documentos   # alinea documento User ↔ perfil
+python manage.py check
+python manage.py runserver
+```
+
+Con Make (macOS/Linux; el Makefile apunta a `.venv`):
+
+```bash
+make setup
+make migrate
+make run
+```
+
+---
+
+## Estructura del proyecto
+
+```
+hechoshub/     # settings, URLs raíz, config de BD
+core/          # usuarios, sedes, director, directorios
+hechos/        # escuelas, matrículas, asistencia, notas, coordinadores
+ofrendas/      # ofrendas (profesor)
+templates/     # HTML
+static/        # CSS/JS/imágenes
+media/         # archivos locales (si no usas S3)
+```
+
+---
+
+## Base de datos y archivos
+
+- **Sin `DATABASE_URL`:** SQLite local.
+- **Con `DATABASE_URL`:** Postgres/MySQL según la URL (ver `.env.example`).
+- **Archivos subidos:** sin variables `S3_*` → carpeta `media/`. Con `S3_*` completas → storage S3-compatible (útil en hosts con disco efímero). Detalle en `.env.example`.
+
+---
+
+## Producción (mínimo)
+
+1. Completa en `.env` (o en el panel del host): `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=false`, `DJANGO_ALLOWED_HOSTS`, `DATABASE_URL`.
+2. Si el disco no es persistente, configura también `S3_*`.
+3. `migrate` → `ensure_programa_global` → `collectstatic`.
+4. Sirve con Gunicorn (hay `Procfile` / `render.yaml` de referencia).
+
+---
+
+**HechosHub** — escuelas bíblicas por sede.

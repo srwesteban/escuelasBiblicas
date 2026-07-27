@@ -32,10 +32,6 @@
                 </p>
             </div>
             <div>
-                <p class="text-xs font-medium text-stone-600">Código de profesor</p>
-                <p class="mt-1 text-sm font-mono text-stone-900">{{ profesor.codigo_profesor|default:"—" }}</p>
-            </div>
-            <div>
                 <p class="text-xs font-medium text-stone-600">Estado</p>
                 <p class="mt-1 text-sm text-stone-900">{% if profesor.is_active %}Activo{% else %}Inactivo{% endif %}</p>
             </div>
@@ -43,20 +39,6 @@
                 <p class="text-xs font-medium text-stone-600">Sede</p>
                 <p class="mt-1 text-sm text-stone-900">{% if profesor.sede %}{{ profesor.sede.nombre }}{% else %}Sin sede{% endif %}</p>
             </div>
-            <div>
-                <p class="text-xs font-medium text-stone-600">Especialidad</p>
-                <p class="mt-1 text-sm text-stone-900">{% if profesor.especialidad %}{{ profesor.especialidad }}{% else %}No especificada{% endif %}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-stone-600">Años de experiencia</p>
-                <p class="mt-1 text-sm text-stone-900">{{ profesor.experiencia_anos }}</p>
-            </div>
-            {% if profesor.biografia %}
-            <div class="sm:col-span-2">
-                <p class="text-xs font-medium text-stone-600">Biografía</p>
-                <p class="mt-1 text-sm text-stone-900 whitespace-pre-wrap">{{ profesor.biografia }}</p>
-            </div>
-            {% endif %}
         </div>
     </section>
 </div>

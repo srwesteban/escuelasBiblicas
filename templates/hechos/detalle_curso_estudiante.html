@@ -207,12 +207,6 @@
                 <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Nombre</dt>
                 <dd class="mt-0.5 font-medium text-slate-900">{{ profesor_contacto.user.get_full_name|default:profesor_contacto.user.username }}</dd>
             </div>
-            {% if profesor_contacto.especialidad %}
-            <div>
-                <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Especialidad</dt>
-                <dd class="mt-0.5 text-slate-800">{{ profesor_contacto.especialidad }}</dd>
-            </div>
-            {% endif %}
             <div>
                 <dt class="text-xs font-medium uppercase tracking-wide text-stone-500">Correo</dt>
                 <dd class="mt-0.5 text-slate-900 break-all">

@@ -347,7 +347,7 @@ class DirectorInterfaceTests(TestCase):
             phone="3001112233",
         )
         p = Profesor.objects.create(
-            user=u, sede=sede, is_active=True, especialidad="Biblia"
+            user=u, sede=sede, is_active=True
         )
         self.client.force_login(self.director)
         url = reverse("core:director_profesor_ficha_fragment", args=[p.id])
@@ -356,7 +356,6 @@ class DirectorInterfaceTests(TestCase):
         self.assertContains(response, "Ana")
         self.assertContains(response, "Pérez")
         self.assertContains(response, "prof_edit_1@example.com")
-        self.assertContains(response, "Biblia")
 
     def test_non_director_cannot_open_director_profesores(self):
         other = User.objects.create_user(

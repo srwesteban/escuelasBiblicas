@@ -17,17 +17,16 @@ def _login_identifier_variants(login: str) -> list[str]:
             out.append(s)
 
     add(raw)
-    if "@" not in raw:
-        digits = re.sub(r"[\s.\-]", "", raw)
-        if digits.isdigit() and digits != raw:
-            add(digits)
+    digits = re.sub(r"[\s.\-]", "", raw)
+    if digits.isdigit() and digits != raw:
+        add(digits)
     return out
 
 
 class EmailOrDocumentBackend(ModelBackend):
     """
-    Login con correo (campo email del usuario), username de Django o número de
-    documento (username o Estudiante.numero_documento, p. ej. cédula con o sin puntos).
+    Login solo con número de documento (username, User.documento_identidad o
+    Estudiante.numero_documento). El correo ya no se acepta como identificador.
     Debe ir antes que ModelBackend / AuthenticationBackend de allauth.
     """
 
@@ -35,31 +34,35 @@ class EmailOrDocumentBackend(ModelBackend):
         if not password:
             return None
         login = (username or kwargs.get("email") or "").strip()
-        if not login:
+        if not login or "@" in login:
             return None
 
         User = get_user_model()
         user = None
 
-        if "@" in login:
-            user = User.objects.filter(email__iexact=login.lower()).first()
-        else:
+        for candidate in _login_identifier_variants(login):
+            user = User.objects.filter(username__iexact=candidate).first()
+            if user:
+                break
+        if user is None:
+            # Documento en el propio User (director, coordinador, profesor o
+            # estudiante): cubre a cualquier rol, no solo estudiantes.
             for candidate in _login_identifier_variants(login):
-                user = User.objects.filter(username__iexact=candidate).first()
+                user = User.objects.filter(documento_identidad__iexact=candidate).first()
                 if user:
                     break
-            if user is None:
-                from hechos.models import Estudiante
+        if user is None:
+            from hechos.models import Estudiante
 
-                for candidate in _login_identifier_variants(login):
-                    est = (
-                        Estudiante.objects.filter(numero_documento__iexact=candidate)
-                        .select_related("user")
-                        .first()
-                    )
-                    if est:
-                        user = est.user
-                        break
+            for candidate in _login_identifier_variants(login):
+                est = (
+                    Estudiante.objects.filter(numero_documento__iexact=candidate)
+                    .select_related("user")
+                    .first()
+                )
+                if est:
+                    user = est.user
+                    break
 
         if user is None:
             return None

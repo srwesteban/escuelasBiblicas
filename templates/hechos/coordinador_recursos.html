@@ -1,20 +1,22 @@
 {% extends 'base_modern.html' %}
-{% load money_extras %}
+{% load money_extras static %}
 {% block title %}Ingresos de la sede — {{ user_sede.nombre }}{% endblock %}
 {% block content %}
 <div class="max-w-5xl mx-auto space-y-6">
     <div class="card p-6 sm:p-8">
-        <h1 class="text-2xl font-bold text-gray-900">Ingresos de la sede</h1>
+        <div class="flex items-start justify-between gap-3">
+            <h1 class="text-2xl font-bold text-gray-900">Ingresos de la sede</h1>
+            <button type="button" id="open-tour" title="Ver tutorial" class="inline-flex items-center justify-center h-10 w-10 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-100 shrink-0">
+                <i class="fas fa-question"></i>
+            </button>
+        </div>
         <p class="text-stone-600 mt-2 max-w-3xl">
-            Aquí ves en un solo listado las <strong class="text-stone-800">ofrendas</strong> que registran los maestros por escuela
-            y los <strong class="text-stone-800">recaudos ocasionales</strong> que anotas como coordinador financiero (extras, sobrantes, donaciones puntuales, etc.).
-            Todo es <strong class="text-stone-800">solo de {{ user_sede.nombre }}</strong>.
-            Los presupuestos de eventos siguen en
-            <a href="{% url 'hechos:coordinador_eventos_presupuesto' %}" class="font-medium text-amber-800 hover:underline">Eventos y presupuesto</a>;
-            para dar de alta un recaudo ocasional usa
-            <a href="{% url 'hechos:coordinador_recaudos_ocasionales' %}" class="font-medium text-amber-800 hover:underline">Recaudos ocasionales</a>.
+            Todo el dinero que ha entrado a <strong class="text-stone-800">{{ user_sede.nombre }}</strong>: ofrendas registradas por los maestros y recaudos ocasionales.
         </p>
-        <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="mt-4" id="tour-recursos-subnav">
+            {% include 'hechos/_coordinador_financiero_subnav.html' %}
+        </div>
+        <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4" id="tour-recursos-stats">
             <div class="rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3">
                 <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">Ofrendas</p>
                 <p class="text-xl font-bold text-stone-900 mt-1">{{ total_ofrendado|cop }}</p>
@@ -33,10 +35,13 @@
         </div>
     </div>
 
-    <div class="card overflow-hidden border border-stone-200/80">
+    <div class="card overflow-hidden border border-stone-200/80" id="tour-recursos-detalle">
         <div class="px-5 py-4 border-b border-stone-200 bg-stone-50/50">
-            <h2 class="text-lg font-semibold text-slate-900">Detalle unificado</h2>
-            <p class="text-sm text-stone-600 mt-1">Hasta 500 movimientos más recientes (ofrendas + recaudos ocasionales).</p>
+            <h2 class="text-lg font-semibold text-slate-900">Detalle</h2>
+            <p class="text-sm text-stone-600 mt-1">
+                Ofrendas y recaudos ocasionales, del más reciente al más antiguo.
+                {% if movimientos_truncados %}Se muestran los 500 más recientes.{% endif %}
+            </p>
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
@@ -82,4 +87,35 @@
         </div>
     </div>
 </div>
+
+<script src="{% static 'js/site-tour.js' %}"></script>
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                title: 'Ingresos de la sede',
+                text: 'Todo el dinero que ha entrado a tu sede, en un solo lugar: ofrendas de los maestros y recaudos ocasionales.'
+            },
+            {
+                selector: '#tour-recursos-subnav',
+                title: 'Moverte entre las 3 pantallas',
+                text: 'Desde aquí saltas a Recaudos ocasionales (para registrar uno) o a Eventos y presupuesto (para planificar gastos).'
+            },
+            {
+                selector: '#tour-recursos-stats',
+                title: 'Los totales',
+                text: 'Ofrendas, recaudos ocasionales y el total combinado de tu sede.'
+            },
+            {
+                selector: '#tour-recursos-detalle',
+                title: 'Detalle',
+                text: 'Cada movimiento individual, del más reciente al más antiguo. Las ofrendas las registran los maestros; los recaudos ocasionales los registras tú en la otra pantalla.'
+            }
+        ]);
+    });
+})();
+</script>
 {% endblock %}

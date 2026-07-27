@@ -45,7 +45,7 @@
                 <p class="text-xs font-medium uppercase tracking-wide text-stone-500">¿Es esta persona?</p>
                 <h2 class="font-semibold text-stone-900 text-lg">{{ estudiante_encontrado.user.get_full_name }}</h2>
                 <p class="text-sm text-stone-600 mt-0.5">
-                    {{ estudiante_encontrado.get_tipo_documento_display }} {{ estudiante_encontrado.numero_documento|default:"—" }}
+                    {{ estudiante_encontrado.get_tipo_documento_display }} {{ estudiante_encontrado.documento_numero|default:"—" }}
                 </p>
                 {% if estudiante_encontrado.sede %}
                 <p class="text-xs text-stone-500 mt-0.5">
@@ -57,7 +57,7 @@
         <form method="post" class="mt-5 pt-4 border-t border-stone-100"
               data-confirm-title="Restablecer contraseña"
               data-confirm-label="Restablecer"
-              data-confirm-message="La contraseña de {{ estudiante_encontrado.user.get_full_name }} quedará igual a su número de documento ({{ estudiante_encontrado.numero_documento }}). Avísale para que la cambie luego.">
+              data-confirm-message="La contraseña de {{ estudiante_encontrado.user.get_full_name }} quedará igual a su número de documento ({{ estudiante_encontrado.documento_numero }}). Avísale para que la cambie luego.">
             {% csrf_token %}
             <input type="hidden" name="accion" value="restablecer">
             <input type="hidden" name="estudiante_id" value="{{ estudiante_encontrado.id }}">

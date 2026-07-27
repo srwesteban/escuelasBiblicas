@@ -4,26 +4,25 @@
 {% block content %}
 <div class="max-w-5xl mx-auto space-y-6">
     <div class="card p-6 sm:p-8">
-        <h1 class="text-2xl font-bold text-gray-900">Recaudos ocasionales</h1>
+        <div class="flex items-start justify-between gap-3">
+            <h1 class="text-2xl font-bold text-gray-900">Recaudos ocasionales</h1>
+            <button type="button" id="open-tour" title="Ver tutorial" class="inline-flex items-center justify-center h-10 w-10 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-100 shrink-0">
+                <i class="fas fa-question"></i>
+            </button>
+        </div>
         <p class="text-stone-600 mt-3 max-w-3xl leading-relaxed">
-            Registra aquí <strong class="text-stone-800">dinero que entra fuera del flujo habitual de ofrendas en clase</strong>:
-            por ejemplo un <strong class="text-stone-800">extra</strong> que salió en una actividad, el <strong class="text-stone-800">sobrante</strong> después de un evento,
-            una <strong class="text-stone-800">donación puntual</strong> de alguien que no pasa por el registro del maestro, etc.
+            Dinero que entra <strong class="text-stone-800">fuera de las ofrendas de clase</strong>: un extra de una actividad, un sobrante de un evento, una donación puntual, etc.
         </p>
-        <p class="text-sm text-stone-500 mt-3">
-            Las ofrendas que anotan los maestros siguen en
-            <a href="{% url 'hechos:coordinador_recursos' %}" class="font-medium text-amber-800 hover:underline">Ingresos de la sede</a>
-            (ofrendas + recaudos ocasionales).
-            Lo que solo planeas gastar (presupuesto) va en
-            <a href="{% url 'hechos:coordinador_eventos_presupuesto' %}" class="font-medium text-amber-800 hover:underline">Eventos y presupuesto</a>.
-        </p>
+        <div class="mt-4" id="tour-recaudo-subnav">
+            {% include 'hechos/_coordinador_financiero_subnav.html' %}
+        </div>
         <div class="mt-6 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-950">
             <strong class="font-semibold">Total recaudado (ocasionales):</strong>
             <span class="text-lg font-bold ml-2">{{ total_recaudado_ocasional|cop }}</span>
         </div>
     </div>
 
-    <div class="card p-6 sm:p-8 border border-stone-200">
+    <div class="card p-6 sm:p-8 border border-stone-200" id="tour-recaudo-form">
         <h2 class="text-lg font-semibold text-slate-900">Registrar un recaudo</h2>
         <p class="text-sm text-stone-600 mt-1 mb-6">Indica fecha, monto y un concepto breve. El detalle es opcional.</p>
 
@@ -64,7 +63,7 @@
         </form>
     </div>
 
-    <div class="card overflow-hidden border border-stone-200/80">
+    <div class="card overflow-hidden border border-stone-200/80" id="tour-recaudo-historial">
         <div class="px-5 py-4 border-b border-stone-200 bg-stone-50/50">
             <h2 class="text-lg font-semibold text-slate-900">Historial</h2>
         </div>
@@ -119,4 +118,34 @@
 
 {% block extra_js %}
 <script src="{% static 'js/site-confirm.js' %}"></script>
+<script src="{% static 'js/site-tour.js' %}"></script>
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                title: 'Recaudos ocasionales',
+                text: 'Dinero que entra fuera de las ofrendas de clase: un extra, un sobrante, una donación puntual, etc.'
+            },
+            {
+                selector: '#tour-recaudo-subnav',
+                title: 'Moverte entre las 3 pantallas',
+                text: 'Las ofrendas de los maestros están en Ingresos de la sede; lo que planeas gastar va en Eventos y presupuesto.'
+            },
+            {
+                selector: '#tour-recaudo-form',
+                title: 'Registrar uno',
+                text: 'Fecha, monto y un concepto breve. El detalle es opcional.'
+            },
+            {
+                selector: '#tour-recaudo-historial',
+                title: 'Historial',
+                text: 'Todos los recaudos que has registrado. «Eliminar» borra el registro por completo, sin confirmación adicional más allá del aviso.'
+            }
+        ]);
+    });
+})();
+</script>
 {% endblock %}

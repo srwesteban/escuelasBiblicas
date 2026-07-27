@@ -22,6 +22,7 @@ from core.colombia_geo import (
 )
 from core.forms import (
     CoordinadorForm,
+    CoordinadorRolesForm,
     EscuelaProgramaForm,
     EscuelaProgramaPlantillaForm,
     EscuelaProgramaPlantillaEditForm,
@@ -40,11 +41,14 @@ from hechos.models import (
     EscuelaProgramaPlantilla,
     NivelProgramaPlantilla,
     Estudiante,
+    Matricula,
     NotificacionEstudiante,
     Profesor,
     RutaEstudio,
     Curso,
     Salon,
+    SolicitudEspecialEstudiante,
+    SolicitudMatricula,
 )
 from hechos import seguimiento_import as seg_imp
 from hechos.seguimiento_import import (
@@ -207,6 +211,61 @@ def _normaliza_texto(valor):
 
 
 @login_required
+def director_estadisticas(request):
+    """
+    Panorama general para el director: totales del sistema + desglose por sede.
+    Solo cifras accionables u operativas (nada de vanidad): cuenta lo que hay,
+    cuánto está realmente en curso, y qué necesita revisión (pendientes).
+    """
+    if not _director_required(request):
+        return redirect('core:dashboard')
+
+    sedes = list(Sede.objects.filter(is_active=True).order_by('nombre'))
+
+    totales = {
+        'sedes': len(sedes),
+        'profesores': Profesor.objects.filter(is_active=True).count(),
+        'estudiantes': Estudiante.objects.filter(is_active=True).count(),
+        'coordinadores': AdminEscuela.objects.filter(is_active=True).count(),
+        'escuelas_activas': Escuela.objects.filter(is_active=True).vigentes().count(),
+        'matriculas_activas': Matricula.objects.filter(is_active=True, estado='activa').count(),
+        'solicitudes_pendientes': SolicitudMatricula.objects.filter(estado='pendiente').count(),
+        'solicitudes_especiales_pendientes': SolicitudEspecialEstudiante.objects.filter(
+            estado=SolicitudEspecialEstudiante.Estado.PENDIENTE
+        ).count(),
+    }
+
+    def _por_sede(queryset):
+        return {
+            row['sede_id']: row['n']
+            for row in queryset.values('sede_id').annotate(n=Count('id'))
+        }
+
+    profesores_por_sede = _por_sede(Profesor.objects.filter(is_active=True))
+    estudiantes_por_sede = _por_sede(Estudiante.objects.filter(is_active=True))
+    coordinadores_por_sede = _por_sede(AdminEscuela.objects.filter(is_active=True))
+    escuelas_por_sede = _por_sede(Escuela.objects.filter(is_active=True).vigentes())
+    matriculas_por_sede = _por_sede(Matricula.objects.filter(is_active=True, estado='activa'))
+
+    for sede in sedes:
+        sede.profesores_count = profesores_por_sede.get(sede.id, 0)
+        sede.estudiantes_count = estudiantes_por_sede.get(sede.id, 0)
+        sede.coordinadores_count = coordinadores_por_sede.get(sede.id, 0)
+        sede.escuelas_count = escuelas_por_sede.get(sede.id, 0)
+        sede.matriculas_count = matriculas_por_sede.get(sede.id, 0)
+
+    context = {'totales': totales, 'sedes': sedes}
+    return render(request, 'core/director_estadisticas.html', context)
+
+
+@login_required
+def director_info(request):
+    if not _director_required(request):
+        return redirect('core:dashboard')
+    return render(request, 'core/director_info.html', {})
+
+
+@login_required
 def director_dashboard(request):
     if not _director_required(request):
         return redirect('core:dashboard')
@@ -304,48 +363,151 @@ def _querystring_without_page(request):
     return f"&{s}" if s else ""
 
 
-@login_required
-def director_profesores(request):
-    if not (request.user.is_super_admin() or _coordinador_sede_profile(request.user)):
-        messages.error(request, 'No tienes permisos para ver esta página.')
-        return redirect("core:dashboard")
-
-    qs = Profesor.objects.select_related("user", "sede").order_by(
-        "user__first_name", "user__last_name", "id"
+def _directorio_gestion_allowed(user):
+    """Directorios de gestión (profesores / coordinadores): director y coordinadores
+    de sede o académico. No profesores."""
+    return (
+        user.is_super_admin()
+        or (
+            hasattr(user, "admin_escuela_profile")
+            and (
+                ca.has_capacidad(user, "academico")
+                or user.admin_escuela_profile.tipo_coordinador == AdminEscuela.TipoCoordinador.SEDE
+            )
+        )
     )
-    q = (request.GET.get("q") or "").strip()
-    sede_id = _parse_pk(request.GET.get("sede"))
+
+
+def _directorio_personas_allowed(user):
+    """Directorio de estudiantes: director, profesor (consulta) y coordinadores
+    (de sede o académico)."""
+    return (
+        _directorio_gestion_allowed(user)
+        or hasattr(user, "profesor_profile")
+    )
+
+
+def _directorio_coordinadores_allowed(user):
+    """Directorio de coordinadores: solo director y coordinadores (no profesores)."""
+    return _directorio_gestion_allowed(user)
+
+
+@login_required
+def estudiantes_list(request):
+    """
+    Directorio de estudiantes (mismo patrón que profesores: búsqueda AJAX,
+    filtro por sede y lista paginada).
+    """
+    if not _directorio_personas_allowed(request.user):
+        messages.error(request, 'No tienes permisos para ver esta página.')
+        return redirect('core:dashboard')
+
+    estudiantes = (
+        Estudiante.objects.filter(is_active=True)
+        .select_related('user', 'sede')
+        .order_by('user__first_name', 'user__last_name', 'id')
+    )
+
+    q = (request.GET.get('q') or '').strip()
+    sede_id = _parse_pk(request.GET.get('sede'))
     if sede_id is not None:
-        qs = qs.filter(sede_id=sede_id)
+        estudiantes = estudiantes.filter(sede_id=sede_id)
     if q:
-        qs = qs.filter(
+        estudiantes = estudiantes.filter(
             Q(user__first_name__icontains=q)
             | Q(user__last_name__icontains=q)
             | Q(user__email__icontains=q)
             | Q(user__username__icontains=q)
             | Q(user__documento_identidad__icontains=q)
-            | Q(codigo_profesor__icontains=q)
-        )
+            | Q(numero_documento__icontains=q)
+        ).distinct()
 
-    paginator = Paginator(qs, 30)
-    page_obj = paginator.get_page(request.GET.get("page") or 1)
-
-    sedes_fil = Sede.objects.filter(is_active=True).order_by("nombre").only("id", "nombre")
+    paginator = Paginator(estudiantes, 30)
+    page_obj = paginator.get_page(request.GET.get('page') or 1)
+    sedes = Sede.objects.filter(is_active=True).order_by('nombre').only('id', 'nombre')
 
     context = {
-        "page_obj": page_obj,
-        "search_q": q,
-        "sede_filter": sede_id,
-        "sedes_fil": sedes_fil,
-        "filters_query": _querystring_without_page(request),
+        'page_obj': page_obj,
+        'q': q,
+        'sede_id': sede_id,
+        'sedes': sedes,
     }
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return render(request, 'hechos/_estudiantes_list_resultados.html', context)
+    return render(request, 'hechos/estudiantes_list_modern.html', context)
+
+
+@login_required
+def director_profesores(request):
+    if not _directorio_gestion_allowed(request.user):
+        messages.error(request, 'No tienes permisos para ver esta página.')
+        return redirect("core:dashboard")
+
+    profesores = Profesor.objects.filter(is_active=True).select_related("user", "sede").order_by(
+        "user__first_name", "user__last_name", "id"
+    )
+
+    q = (request.GET.get("q") or "").strip()
+    sede_id = _parse_pk(request.GET.get("sede"))
+    if sede_id is not None:
+        profesores = profesores.filter(sede_id=sede_id)
+    if q:
+        profesores = profesores.filter(
+            Q(user__first_name__icontains=q)
+            | Q(user__last_name__icontains=q)
+            | Q(user__email__icontains=q)
+            | Q(user__username__icontains=q)
+            | Q(user__documento_identidad__icontains=q)
+        )
+
+    paginator = Paginator(profesores, 30)
+    page_obj = paginator.get_page(request.GET.get("page") or 1)
+    sedes = Sede.objects.filter(is_active=True).order_by("nombre").only("id", "nombre")
+
+    context = {"page_obj": page_obj, "q": q, "sede_id": sede_id, "sedes": sedes}
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render(request, "core/_director_profesores_resultados.html", context)
     return render(request, "core/director_profesores.html", context)
+
+
+@login_required
+def director_coordinadores(request):
+    if not _directorio_coordinadores_allowed(request.user):
+        messages.error(request, 'No tienes permisos para ver esta página.')
+        return redirect("core:dashboard")
+
+    coordinadores = AdminEscuela.objects.filter(is_active=True).select_related("user", "sede").order_by(
+        "user__first_name", "user__last_name", "id"
+    )
+
+    q = (request.GET.get("q") or "").strip()
+    sede_id = _parse_pk(request.GET.get("sede"))
+    if sede_id is not None:
+        coordinadores = coordinadores.filter(sede_id=sede_id)
+    if q:
+        coordinadores = coordinadores.filter(
+            Q(user__first_name__icontains=q)
+            | Q(user__last_name__icontains=q)
+            | Q(user__email__icontains=q)
+            | Q(user__documento_identidad__icontains=q)
+            | Q(cargo__icontains=q)
+        )
+
+    paginator = Paginator(coordinadores, 30)
+    page_obj = paginator.get_page(request.GET.get("page") or 1)
+    sedes = Sede.objects.filter(is_active=True).order_by("nombre").only("id", "nombre")
+
+    context = {"page_obj": page_obj, "q": q, "sede_id": sede_id, "sedes": sedes}
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render(request, "core/_director_coordinadores_resultados.html", context)
+    return render(request, "core/director_coordinadores.html", context)
 
 
 @login_required
 def director_profesor_ficha_fragment(request, profesor_id):
     """HTML parcial: ficha personal de profesor (solo lectura) para el modal del Director."""
-    if not (request.user.is_super_admin() or _coordinador_sede_profile(request.user)):
+    if not _directorio_gestion_allowed(request.user):
         return HttpResponse("No autorizado", status=403, content_type="text/plain; charset=utf-8")
 
     profesor = get_object_or_404(
@@ -375,6 +537,23 @@ def director_coordinador_ficha_fragment(request, sede_id, coordinador_id):
     if coordinador.tipo_coordinador == AdminEscuela.TipoCoordinador.SEDE:
         return HttpResponse("No autorizado", status=403, content_type="text/plain; charset=utf-8")
 
+    return render(
+        request,
+        "core/director_coordinador_ficha_fragment.html",
+        {"coordinador": coordinador},
+    )
+
+
+@login_required
+def director_coordinador_ficha_fragment_global(request, coordinador_id):
+    """HTML parcial: ficha de coordinador (solo lectura) para el directorio global."""
+    if not _directorio_coordinadores_allowed(request.user):
+        return HttpResponse("No autorizado", status=403, content_type="text/plain; charset=utf-8")
+
+    coordinador = get_object_or_404(
+        AdminEscuela.objects.select_related("user", "sede"),
+        pk=coordinador_id,
+    )
     return render(
         request,
         "core/director_coordinador_ficha_fragment.html",
@@ -849,7 +1028,40 @@ def coordinador_sede_equipo(request, sede_id):
         {
             'sede': sede,
             'coordinadores': coordinadores,
+            'yo': p,
         },
+    )
+
+
+@login_required
+def coordinador_sede_self_roles(request, sede_id):
+    """
+    El propio coordinador de sede se autoasigna tareas (académico, pedagógico,
+    financiero, logístico) sin tocar sus datos personales (eso vive en Mi perfil).
+    """
+    sede = get_object_or_404(Sede, id=sede_id)
+    p = getattr(request.user, 'admin_escuela_profile', None)
+    if (
+        not p
+        or p.sede_id != sede.id
+        or p.tipo_coordinador != AdminEscuela.TipoCoordinador.SEDE
+    ):
+        messages.error(request, 'Solo el coordinador de sede puede usar esta opción.')
+        return redirect('core:dashboard')
+
+    if request.method == 'POST':
+        form = CoordinadorRolesForm(request.POST, admin_profile=p)
+        if form.is_valid():
+            p.sync_capacidades(form.cleaned_data['_capacidades_orden_final'])
+            messages.success(request, 'Tus tareas en Hechos se actualizaron.')
+            return redirect('core:coordinador_sede_equipo', sede_id=sede.id)
+    else:
+        form = CoordinadorRolesForm(admin_profile=p)
+
+    return render(
+        request,
+        'core/coordinador_sede_self_roles.html',
+        {'sede': sede, 'form': form, 'coordinador': p},
     )
 
 

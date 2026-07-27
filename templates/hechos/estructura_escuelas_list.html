@@ -1,13 +1,13 @@
 {% extends 'base_modern.html' %}
 
-{% block title %}Estructura de escuelas - Hechos{% endblock %}
+{% block title %}Edición de escuelas - Hechos{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <div class="card p-6 sm:p-8">
         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-bold text-slate-900">Estructura de las escuelas</h1>
+                <h1 class="text-2xl font-bold text-slate-900">Edición de escuelas</h1>
                 <p class="text-slate-600 mt-1">
                     Elige una escuela de tu sede y configura en qué días y a qué hora se dictan las clases.
                 </p>
@@ -17,6 +17,9 @@
                 </p>
                 {% endif %}
             </div>
+            <a href="{% url 'hechos:pedagogico_crear_escuela' %}" class="btn-primary px-4 py-2.5 text-sm font-medium inline-flex items-center justify-center shrink-0">
+                <i class="fas fa-plus mr-2"></i>Crear escuela
+            </a>
         </div>
     </div>
 
@@ -49,7 +52,7 @@
             </div>
             <div class="mt-6">
                 {% if item.num_ediciones %}
-                <a href="{% url 'hechos:estructura_configurar' item.escuela.id 1 %}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
+                <a href="{% url 'hechos:pedagogico_editar_escuela_paso' item.escuela.id 1 %}" class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium">
                     <i class="fas fa-sliders mr-2"></i>Configurar
                 </a>
                 {% else %}

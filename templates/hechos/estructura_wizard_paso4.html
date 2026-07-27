@@ -16,7 +16,7 @@
                     Elige quién impartirá esta edición. En el siguiente paso verás el resumen completo antes de guardar.
                 </p>
             </div>
-            <a href="{% url 'hechos:estructura_configurar' edicion.id 3 %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
+            <a href="{% url 'hechos:pedagogico_editar_escuela_paso' edicion.id 3 %}" class="btn-outline px-4 py-2 text-sm font-medium inline-flex items-center shrink-0">
                 <i class="fas fa-arrow-left mr-2"></i>Atrás
             </a>
         </div>
@@ -34,7 +34,7 @@
                     <option value="">— Sin asignar —</option>
                     {% for p in profesores %}
                     <option value="{{ p.id }}" {% if selected_profesor_id == p.id %}selected{% endif %}>
-                        {{ p.user.get_full_name|default:p.user.email }}{% if p.codigo_profesor %} ({{ p.codigo_profesor }}){% endif %}
+                        {{ p.user.get_full_name|default:p.user.email }}
                     </option>
                     {% empty %}
                     <option value="" disabled>No hay profesores en esta sede</option>
@@ -42,7 +42,7 @@
                 </select>
             </div>
             <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
-                <a href="{% url 'hechos:estructura_ediciones' %}" class="btn-outline inline-flex items-center justify-center px-5 py-3 text-sm font-medium order-2 sm:order-1">
+                <a href="{% url 'hechos:pedagogico_editar_escuela' %}" class="btn-outline inline-flex items-center justify-center px-5 py-3 text-sm font-medium order-2 sm:order-1">
                     Cancelar
                 </a>
                 <button type="submit" class="btn-primary inline-flex items-center justify-center px-6 py-3 text-sm font-medium order-1 sm:order-2">

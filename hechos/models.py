@@ -90,14 +90,6 @@ class Estudiante(models.Model):
         CE = "CE", _("Cédula de extranjería")
         PAS = "PAS", _("Pasaporte")
 
-    class PeticionArea(models.TextChoices):
-        SALUD = "salud", _("Salud")
-        FAMILIAR = "familiar", _("Familiar")
-        FINANCIERA = "financiera", _("Financiera")
-        EDUCACION = "educacion", _("Educación")
-        LABORAL = "laboral", _("Laboral")
-        OTRO = "otro", _("Otro")
-
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='estudiante_profile')
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='estudiantes', null=True, blank=True)
     genero = models.CharField(
@@ -115,14 +107,6 @@ class Estudiante(models.Model):
     fecha_nacimiento = models.DateField(blank=True, null=True)
     direccion = models.TextField(blank=True)
     telefono_emergencia = models.CharField(max_length=20, blank=True)
-    peticion_texto = models.TextField(blank=True, default="")
-    peticion_area = models.CharField(
-        max_length=20,
-        choices=PeticionArea.choices,
-        blank=True,
-        default="",
-    )
-    notas_medicas = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -135,6 +119,23 @@ class Estudiante(models.Model):
     def __str__(self):
         return f"{self.user.get_full_name()} (Estudiante)"
 
+    @property
+    def documento_numero(self) -> str:
+        """Número de documento (perfil o cuenta; misma lógica en toda la app)."""
+        from hechos.estudiante_documento import documento_numero_estudiante
+
+        return documento_numero_estudiante(self)
+
+    def aplicar_documento(self, doc: str, tipo_documento: str | None = None) -> str:
+        from hechos.estudiante_documento import guardar_documento_estudiante
+
+        return guardar_documento_estudiante(self, doc, tipo_documento)
+
+    def sincronizar_documento(self) -> str:
+        from hechos.estudiante_documento import sincronizar_documento_estudiante
+
+        return sincronizar_documento_estudiante(self)
+
 
 class Profesor(models.Model):
     """
@@ -142,10 +143,6 @@ class Profesor(models.Model):
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profesor_profile')
     sede = models.ForeignKey('core.Sede', on_delete=models.CASCADE, related_name='profesores', null=True, blank=True)
-    codigo_profesor = models.CharField(max_length=20, blank=True, null=True)
-    especialidad = models.CharField(max_length=200, blank=True)
-    experiencia_anos = models.PositiveIntegerField(default=0)
-    biografia = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -157,20 +154,6 @@ class Profesor(models.Model):
     
     def __str__(self):
         return f"{self.user.get_full_name()} (Profesor)"
-    
-    def save(self, *args, **kwargs):
-        if not self.codigo_profesor:
-            # Generar código automático si no existe (único por sede)
-            last_profesor = Profesor.objects.filter(sede=self.sede).order_by('-id').first()
-            if last_profesor and last_profesor.codigo_profesor:
-                try:
-                    last_num = int(last_profesor.codigo_profesor.split('-')[-1])
-                    self.codigo_profesor = f"PROF-{last_num + 1:04d}"
-                except:
-                    self.codigo_profesor = "PROF-0001"
-            else:
-                self.codigo_profesor = "PROF-0001"
-        super().save(*args, **kwargs)
 
 
 class AdminEscuela(models.Model):
@@ -841,6 +824,37 @@ class Salon(models.Model):
 
     def __str__(self):
         return f'{self.nombre} ({self.capacidad_plazas} plazas)'
+
+
+class ItemInventario(models.Model):
+    """
+    Control simple de inventario por sede (mobiliario, equipo, etc.): qué hay y cuánto.
+    """
+
+    sede = models.ForeignKey(
+        'core.Sede',
+        on_delete=models.CASCADE,
+        related_name='items_inventario',
+    )
+    nombre = models.CharField(max_length=200, verbose_name=_('Nombre'))
+    cantidad = models.PositiveIntegerField(verbose_name=_('Cantidad'))
+    notas = models.CharField(max_length=255, blank=True, verbose_name=_('Notas'))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('Ítem de inventario')
+        verbose_name_plural = _('Ítems de inventario')
+        ordering = ['sede', 'nombre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sede', 'nombre'],
+                name='uniq_hechos_item_inventario_nombre_por_sede',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.nombre} ({self.cantidad})'
 
 
 class RutaEstudio(models.Model):

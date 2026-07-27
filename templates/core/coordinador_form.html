@@ -1,4 +1,5 @@
 {% extends 'base_modern.html' %}
+{% load static %}
 
 {% block title %}{{ page_title }} - {{ sede.nombre }}{% endblock %}
 
@@ -107,13 +108,18 @@
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <div class="card coordinador-panel p-8">
-        <div class="mb-6">
-            <div class="inline-flex items-center rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
-                Gestión de coordinadores
+        <div class="mb-6 flex items-start justify-between gap-3">
+            <div>
+                <div class="inline-flex items-center rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
+                    Gestión de coordinadores
+                </div>
+                <h1 class="mt-3 text-2xl font-bold text-gray-900">{{ page_title }}</h1>
+                <p class="text-gray-600 mt-1">Sede: {{ sede.nombre }}</p>
+                <p class="text-sm text-stone-600 mt-3">Los campos marcados con <span class="text-red-600 font-semibold" aria-hidden="true">*</span> son obligatorios.</p>
             </div>
-            <h1 class="mt-3 text-2xl font-bold text-gray-900">{{ page_title }}</h1>
-            <p class="text-gray-600 mt-1">Sede: {{ sede.nombre }}</p>
-            <p class="text-sm text-stone-600 mt-3">Los campos marcados con <span class="text-red-600 font-semibold" aria-hidden="true">*</span> son obligatorios.</p>
+            <button type="button" id="open-tour" title="Ver tutorial" class="inline-flex items-center justify-center h-10 w-10 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-100 shrink-0">
+                <i class="fas fa-question"></i>
+            </button>
         </div>
 
         <form method="post" enctype="multipart/form-data" class="space-y-5" autocomplete="off">
@@ -124,7 +130,7 @@
                 </div>
             {% endif %}
 
-            <div class="coordinador-section">
+            <div class="coordinador-section" id="tour-coord-personal">
                 <h2 class="coordinador-section-title">Información personal</h2>
                 <div class="mb-5 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
                     El <span class="font-medium text-stone-900">tipo</span> define el título y el cargo mostrado; las <span class="font-medium text-stone-900">tareas</span> indican qué puede hacer en el módulo Hechos (pueden combinarse).
@@ -180,7 +186,7 @@
                 </div>
             </div>
 
-            <div class="coordinador-section">
+            <div class="coordinador-section" id="tour-coord-foto">
                 <h2 class="coordinador-section-title">Foto</h2>
                 <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(9rem,14rem)] gap-6 lg:items-start">
                     <div>
@@ -213,7 +219,7 @@
                 </div>
             </div>
 
-            <div class="coordinador-section">
+            <div class="coordinador-section" id="tour-coord-roles">
                 <h2 class="coordinador-section-title">Rol y acceso</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {% if form.capacidades.field.choices %}
@@ -274,7 +280,7 @@
                         {% endif %}
                     </div>
                     {% endif %}
-                    <div>
+                    <div id="tour-coord-password">
                         <label for="{{ form.password1.id_for_label }}" class="coordinador-label">Contraseña{% if not coordinador %}<span class="text-red-600 font-semibold ml-0.5" aria-hidden="true">*</span>{% endif %}</label>
                         {{ form.password1 }}
                         <p class="coordinador-hint">{% if coordinador %}Déjalo vacío si no quieres cambiarla.{% else %}Obligatoria para crear el acceso.{% endif %}</p>
@@ -472,5 +478,40 @@
 
         syncOrden();
     })();
+</script>
+
+<script src="{% static 'js/site-tour.js' %}"></script>
+<script>
+(function () {
+    var openTourBtn = document.getElementById('open-tour');
+    if (!openTourBtn) return;
+    var esEdicion = {% if coordinador %}true{% else %}false{% endif %};
+    openTourBtn.addEventListener('click', function () {
+        SiteTour.start([
+            {
+                selector: '#tour-coord-personal',
+                title: 'Información personal',
+                text: 'Nombre, documento, celular y correo de la persona. El correo y el documento son lo que usa para iniciar sesión.'
+            },
+            {
+                selector: '#tour-coord-foto',
+                title: 'Foto',
+                text: 'Opcional. Si no subes una, se muestra un ícono por defecto.'
+            },
+            {
+                selector: '#tour-coord-roles',
+                title: 'Tareas del coordinador',
+                text: 'Marca lo que esta persona puede hacer en Hechos; puedes combinar varias (por ejemplo académico y financiero a la vez). El orden en que las arrastres define el orden del cargo que se genera automáticamente.'
+            },
+            {
+                selector: '#tour-coord-password',
+                title: 'Contraseña',
+                text: esEdicion
+                    ? 'Déjala vacía si no quieres cambiarla; solo complétala si necesitas restablecerla.'
+                    : 'Obligatoria para crear el acceso de esta persona al sistema.'
+            }
+        ]);
+    });
+})();
 </script>
 {% endblock %}

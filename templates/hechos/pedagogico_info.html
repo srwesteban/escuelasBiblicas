@@ -1,0 +1,44 @@
+{% extends 'base_modern.html' %}
+{% block title %}Info — {{ user_sede.nombre }}{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <div class="card p-6 sm:p-8">
+        <h1 class="text-2xl font-bold text-gray-900">Info</h1>
+        <p class="text-stone-600 mt-3 max-w-3xl leading-relaxed">
+            Como coordinador pedagógico defines qué escuelas funcionan en <strong class="text-stone-800">{{ user_sede.nombre }}</strong>, quién las dicta y su calendario de clases. Estas son tus tareas principales.
+        </p>
+    </div>
+
+    <div class="card border border-stone-200/80 overflow-hidden">
+        <div class="divide-y divide-stone-100">
+            <a href="{% url 'hechos:pedagogico_crear_escuela' %}" class="flex items-start gap-4 p-4 md:px-8 hover:bg-stone-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
+                    <i class="fas fa-plus"></i>
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-stone-900">Crear escuela</p>
+                    <p class="text-sm text-stone-600 mt-0.5">Elige una escuela del catálogo global, arma su horario y período, y asígnala de una vez a un profesor de tu sede. La forma rápida y normal de abrir una escuela nueva.</p>
+                </div>
+            </a>
+            <a href="{% url 'hechos:pedagogico_editar_escuela' %}" class="flex items-start gap-4 p-4 md:px-8 hover:bg-stone-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-800">
+                    <i class="fas fa-sliders"></i>
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-stone-900">Edición de escuelas</p>
+                    <p class="text-sm text-stone-600 mt-0.5">El listado de escuelas ya creadas en tu sede. Desde aquí entras al asistente de cada una para reconfigurar fechas, días, horario o cambiar el profesor.</p>
+                </div>
+            </a>
+            <a href="{% url 'hechos:profesores_list' %}" class="flex items-start gap-4 p-4 md:px-8 hover:bg-stone-50/80 transition-colors">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-stone-900">Profesores</p>
+                    <p class="text-sm text-stone-600 mt-0.5">Registra, edita o da de baja a los profesores de tu sede, y contáctalos por WhatsApp o correo desde su tarjeta.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

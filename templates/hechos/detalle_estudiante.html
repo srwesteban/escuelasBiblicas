@@ -14,7 +14,7 @@
                     <p class="mt-2 text-gray-600">Información completa del estudiante</p>
                 </div>
                 <div class="flex items-center space-x-3">
-                    <a href="{% url 'hechos:estudiantes_list' %}"
+                    <a href="{% url 'core:estudiantes_list' %}"
                        class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                         <i class="fas fa-arrow-left mr-2"></i>
                         Volver al directorio
@@ -82,7 +82,11 @@
                         {% endif %}
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Documento</label>
-                            <p class="mt-1 text-sm text-gray-900 font-mono">{{ estudiante.tipo_documento }} {{ estudiante.numero_documento|default:"—" }}</p>
+                            <p class="mt-1 text-sm text-gray-900 font-mono">
+                                {% if estudiante.documento_numero %}
+                                    {{ estudiante.tipo_documento }} {{ estudiante.documento_numero }}
+                                {% else %}—{% endif %}
+                            </p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Fecha de Nacimiento</label>

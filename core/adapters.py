@@ -4,9 +4,9 @@ from allauth.account.adapter import DefaultAccountAdapter
 class StudentAccountAdapter(DefaultAccountAdapter):
     error_messages = {
         **DefaultAccountAdapter.error_messages,
-        "email_password_mismatch": "El correo y/o la contraseña no son correctos.",
-        "phone_password_mismatch": "El teléfono y/o la contraseña no son correctos.",
-        "username_password_mismatch": "El usuario y/o la contraseña no son correctos.",
+        "email_password_mismatch": "El documento y/o la contraseña no son correctos.",
+        "phone_password_mismatch": "El documento y/o la contraseña no son correctos.",
+        "username_password_mismatch": "El documento y/o la contraseña no son correctos.",
     }
 
     def add_message(

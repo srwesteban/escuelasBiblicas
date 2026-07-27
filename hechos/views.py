@@ -22,7 +22,7 @@ from .models import (
     EscuelaGrillaNotasConfig, NotasGrillaCelda, NotasGrillaEstadoFinal, Nota,
     SolicitudMatricula, NotificacionEstudiante,
     SolicitudEspecialEstudiante, QuejaReclamo, Ofrenda, PresupuestoEvento,
-    RecaudoOcasional, Salon, ActividadEscuela, EntregaActividad, ArchivoRecursoEscuela,
+    RecaudoOcasional, Salon, ItemInventario, ActividadEscuela, EntregaActividad, ArchivoRecursoEscuela,
     NivelProgramaPlantilla, EscuelaProgramaPlantilla, default_anio_escuela,
 )
 from .utils import (
@@ -33,6 +33,8 @@ from .utils import (
     sesiones_agrupadas_por_mes,
 )
 from core.models import Sede, generate_unique_username
+from core.forms import documento_ya_registrado, MSG_DOCUMENTO_YA_EXISTE, _normalize_and_validate_documento_plausible
+from django import forms as django_forms
 from hechos import coordinador_access as ca
 from .user_sede import get_user_sede
 from .escuela_operativa import edicion_prioritaria_para_matricula, ediciones_activas_en_sede
@@ -44,6 +46,7 @@ from .forms import (
     EntregaActividadTextoForm,
     entrega_evidencia_archivo_validator,
     normalizar_archivo_entrega,
+    ItemInventarioForm,
     PresupuestoEventoForm,
     ProfesorEvaluaEntregaForm,
     QuejaReclamoForm,
@@ -226,108 +229,6 @@ def seleccionar_sede_estudiante(request):
             'next_url': next_url,
         },
     )
-
-
-@login_required
-def estudiantes_list(request):
-    """
-    Directorio de estudiantes. El profesor ve solo los suyos (su sede); el coordinador
-    (de sede o académico) ve los de su sede; el director, sin sede propia, ve todas las
-    sedes. Búsqueda por nombre, correo, documento o (para el director) sede.
-    """
-    allowed = (
-        request.user.is_super_admin()
-        or hasattr(request.user, 'profesor_profile')
-        or (
-            hasattr(request.user, 'admin_escuela_profile')
-            and (
-                ca.has_capacidad(request.user, 'academico')
-                or request.user.admin_escuela_profile.tipo_coordinador
-                == AdminEscuela.TipoCoordinador.SEDE
-            )
-        )
-    )
-    if not allowed:
-        messages.error(request, 'No tienes permisos para ver esta página.')
-        return redirect('core:dashboard')
-
-    # Obtener la sede del usuario (el director, si no tiene una propia, ve todas)
-    user_sede = get_user_sede(request.user)
-    ve_todas_las_sedes = request.user.is_super_admin() and not user_sede
-    if not user_sede and not ve_todas_las_sedes:
-        messages.warning(request, 'No tienes una sede asignada. Contacta al administrador.')
-        return redirect('core:dashboard')
-
-    # Filtrar estudiantes según el perfil del usuario
-    if hasattr(request.user, 'profesor_profile'):
-        # Profesor ve solo estudiantes de sus cursos
-        estudiantes = Estudiante.objects.filter(
-            matriculas__escuela__maestro=request.user.profesor_profile,
-            matriculas__sede=user_sede,
-            matriculas__is_active=True,
-            sede=user_sede,
-            is_active=True
-        ).distinct().select_related('user', 'sede').prefetch_related('matriculas')
-    elif ve_todas_las_sedes:
-        estudiantes = Estudiante.objects.filter(is_active=True).select_related('user', 'sede').prefetch_related('matriculas')
-    else:
-        # Coordinador/director con sede propia: solo su sede
-        estudiantes = Estudiante.objects.filter(sede=user_sede, is_active=True).select_related('user', 'sede').prefetch_related('matriculas')
-
-    busqueda = (request.GET.get('busqueda') or '').strip()
-    filtro_estado = (request.GET.get('estado') or '').strip()
-    if busqueda:
-        estudiantes = estudiantes.filter(
-            Q(user__first_name__icontains=busqueda)
-            | Q(user__last_name__icontains=busqueda)
-            | Q(user__email__icontains=busqueda)
-            | Q(numero_documento__icontains=busqueda)
-            | Q(sede__nombre__icontains=busqueda)
-        ).distinct()
-    if filtro_estado == 'matriculados':
-        estudiantes = estudiantes.filter(matriculas__is_active=True).distinct()
-    elif filtro_estado == 'no_matriculados':
-        matricula_activa = Matricula.objects.filter(
-            estudiante_id=OuterRef('pk'),
-            is_active=True,
-        )
-        estudiantes = estudiantes.filter(~Exists(matricula_activa))
-
-    # Estadísticas
-    estudiantes_activos = estudiantes.filter(is_active=True)
-    estudiantes_matriculados = estudiantes.filter(
-        matriculas__is_active=True
-    ).distinct()
-
-    # Calcular promedio general
-    from django.db.models import Avg
-    promedio_general = estudiantes.aggregate(
-        promedio=Avg('notas__puntaje_obtenido')
-    )['promedio'] or 0
-
-    # Calcular estadísticas por estudiante
-    estudiantes_con_estadisticas = []
-    for estudiante in estudiantes:
-        matriculas_activas = estudiante.matriculas.filter(is_active=True).count()
-        total_matriculas = estudiante.matriculas.count()
-        estudiantes_con_estadisticas.append({
-            'estudiante': estudiante,
-            'matriculas_activas': matriculas_activas,
-            'total_matriculas': total_matriculas
-        })
-
-    context = {
-        'estudiantes_con_estadisticas': estudiantes_con_estadisticas,
-        'estudiantes_activos': estudiantes_activos,
-        'estudiantes_matriculados': estudiantes_matriculados,
-        'promedio_general': round(promedio_general, 1),
-        'user_sede': user_sede,
-        've_todas_las_sedes': ve_todas_las_sedes,
-        'busqueda': busqueda,
-        'filtro_estado': filtro_estado,
-    }
-
-    return render(request, 'hechos/estudiantes_list_modern.html', context)
 
 
 def _time_from_hora_12_am_pm(hour_1_12, am_pm: str) -> dt_time | None:
@@ -586,22 +487,207 @@ def _escuela_nombre_disponible(sede, nombre: str, anio: int, ciclo: str) -> bool
     ).exists()
 
 
-@login_required
-def profesor_crear_instancia_escuela(request):
+def _procesar_creacion_escuela(request, *, user_sede, maestro):
     """
-    El docente crea una Escuela operativa en su sede a partir del catálogo global
-    (nivel → escuela plantilla), con horario obligatorio (uno o más días) y salón opcional.
+    Valida el POST y crea una Escuela operativa (RutaEstudio, Curso, horario,
+    salón opcional y clases generadas) para `maestro` en `user_sede`.
+    Devuelve (escuela, clases_creadas), o (None, 0) si hubo un error
+    (ya reportado con messages.error).
     """
-    if not hasattr(request.user, 'profesor_profile'):
-        messages.error(request, 'Solo los profesores pueden crear una instancia de escuela desde aquí.')
-        return redirect('core:dashboard')
+    try:
+        pid = int(request.POST.get('plantilla_id') or '0')
+    except ValueError:
+        pid = 0
+    plantilla = EscuelaProgramaPlantilla.objects.filter(id=pid).select_related('nivel_plantilla').first()
+    if not plantilla:
+        messages.error(request, 'Elige una escuela del catálogo global.')
+        return None, 0
 
-    user_sede = get_user_sede(request.user)
-    if not user_sede:
-        messages.warning(request, 'No tienes una sede asignada.')
-        return redirect('core:dashboard')
+    nombre_esc = (plantilla.nombre or '').strip()
+    if not nombre_esc:
+        messages.error(request, 'La plantilla no tiene nombre válido.')
+        return None, 0
 
-    prof = request.user.profesor_profile
+    try:
+        anio = int(request.POST.get('anio_escuela') or '0')
+    except ValueError:
+        anio = 0
+    if anio < timezone.now().year:
+        messages.error(request, 'Elige un año académico válido.')
+        return None, 0
+    ciclo_post = (request.POST.get('ciclo') or Escuela.Ciclo.A).strip().upper()
+    if ciclo_post not in (Escuela.Ciclo.A, Escuela.Ciclo.B):
+        ciclo_post = Escuela.Ciclo.A
+    ciclo = ciclo_post
+    if not _escuela_nombre_disponible(user_sede, nombre_esc, anio, ciclo):
+        messages.error(
+            request,
+            'Ya existe una escuela activa con ese nombre para el mismo año y ciclo en la sede.',
+        )
+        return None, 0
+
+    try:
+        horario_rows = _parse_horario_filas_crear_instancia(request)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return None, 0
+
+    # Regla operativa: un profesor no puede estar asignado al mismo día y hora en dos escuelas activas.
+    # (La diferencia real entre instancias es el horario.)
+    q_conf = Q()
+    for d_int, hora_t in horario_rows:
+        q_conf |= Q(dia_semana=d_int, hora=hora_t)
+    if q_conf:
+        choque = (
+            EscuelaHorario.objects.filter(q_conf)
+            .filter(
+                escuela__maestro=maestro,
+                escuela__is_active=True,
+                escuela__sede=user_sede,
+            )
+            .select_related('escuela')
+            .order_by('dia_semana', 'hora')
+            .first()
+        )
+        if choque:
+            day_labels = {int(k): v for k, v in EscuelaHorario.DiaSemana.choices}
+            dia_txt = day_labels.get(int(choque.dia_semana), str(choque.dia_semana))
+            hora_txt = choque.hora.strftime('%I:%M %p').lstrip('0').lower()
+            esc_choque = choque.escuela
+            messages.error(
+                request,
+                f'Conflicto de horario: {maestro.user.get_full_name()} ya tiene una escuela asignada '
+                f'el {dia_txt} a las {hora_txt} ({esc_choque.titulo_tarjeta()}). Elige otra hora.',
+            )
+            return None, 0
+
+    fecha_inicio = _parse_iso_date(request.POST.get('fecha_inicio'))
+    fecha_fin = _parse_iso_date(request.POST.get('fecha_fin'))
+    if not fecha_inicio:
+        messages.error(request, 'Indica la fecha de inicio del ciclo de clases.')
+        return None, 0
+    if not fecha_fin:
+        messages.error(request, 'Indica la fecha de fin del ciclo de clases.')
+        return None, 0
+    if fecha_fin < fecha_inicio:
+        messages.error(request, 'La fecha de fin debe ser igual o posterior a la de inicio.')
+        return None, 0
+
+    delta_days = (fecha_fin - fecha_inicio).days
+    curso_duracion_semanas = max(1, (delta_days + 6) // 7)
+
+    horario_txt = ' · '.join(
+        _horario_texto_dia_hora_12(d_int, hora_t) for d_int, hora_t in horario_rows
+    )
+
+    salon_id = (request.POST.get('salon_id') or '').strip()
+    modalidad = (request.POST.get('modalidad') or Escuela.Modalidad.PRESENCIAL).strip().lower()
+    modalidades_validas = {
+        Escuela.Modalidad.PRESENCIAL,
+        Escuela.Modalidad.VIRTUAL,
+        Escuela.Modalidad.HIBRIDA,
+    }
+    if modalidad not in modalidades_validas:
+        modalidad = Escuela.Modalidad.PRESENCIAL
+
+    try:
+        cupo_maximo_post = int(request.POST.get('cupo_maximo') or '0')
+    except ValueError:
+        cupo_maximo_post = 0
+    if cupo_maximo_post < 1:
+        messages.error(request, 'Indica un cupo máximo válido (al menos 1 estudiante).')
+        return None, 0
+
+    creadas = 0
+    try:
+        with transaction.atomic():
+            escuela = Escuela.objects.create(
+                sede=user_sede,
+                nombre=nombre_esc,
+                descripcion=(plantilla.descripcion or '').strip(),
+                anio=anio,
+                ciclo=ciclo,
+                maestro=maestro,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                modalidad=modalidad,
+                horario=horario_txt,
+                aula='',
+                cupo_maximo=cupo_maximo_post,
+                is_active=True,
+            )
+
+            ruta = RutaEstudio.objects.create(
+                sede=user_sede,
+                escuela=escuela,
+                nombre=(nombre_esc or '').strip() or escuela.nombre,
+                descripcion='',
+                duracion_semanas=12,
+                nivel='basico',
+                is_active=True,
+            )
+            Curso.objects.create(
+                sede=user_sede,
+                ruta_estudio=ruta,
+                nombre=(nombre_esc or '').strip() or escuela.nombre,
+                descripcion='',
+                orden=1,
+                duracion_semanas=curso_duracion_semanas,
+                is_active=True,
+            )
+            salon_pk = None
+            if salon_id:
+                try:
+                    salon_pk = int(salon_id)
+                except ValueError:
+                    salon_pk = None
+            if salon_pk:
+                sal = Salon.objects.select_for_update().filter(
+                    id=salon_pk, sede=user_sede, is_active=True
+                ).first()
+                if sal and sal.escuela_id is None:
+                    sal.escuela = escuela
+                    sal.save(update_fields=['escuela', 'updated_at'])
+                    escuela.aula = sal.nombre
+                    escuela.cupo_maximo = max(1, int(sal.capacidad_plazas or 30))
+                    escuela.save(update_fields=['aula', 'cupo_maximo', 'updated_at'])
+                elif sal and sal.escuela_id != escuela.id:
+                    raise ValueError('El salón elegido ya está asignado a otra escuela.')
+
+            for d_int, hora_t in horario_rows:
+                EscuelaHorario.objects.get_or_create(
+                    escuela=escuela,
+                    dia_semana=d_int,
+                    defaults={'hora': hora_t},
+                )
+
+            creadas = _crear_clases_si_vacias_desde_estructura(escuela, user_sede, maestro)
+            if creadas > 0:
+                cfg_grilla, _ = EscuelaGrillaAsistenciaConfig.objects.get_or_create(
+                    escuela=escuela,
+                    sede=user_sede,
+                    defaults={'num_columnas': GRILLA_ASISTENCIA_COLS_DEFECTO},
+                )
+                want_cols = min(
+                    max(creadas, cfg_grilla.num_columnas),
+                    GRILLA_ASISTENCIA_COLS_MAX,
+                )
+                if want_cols > cfg_grilla.num_columnas:
+                    cfg_grilla.num_columnas = want_cols
+                    cfg_grilla.save(update_fields=['num_columnas', 'updated_at'])
+        return escuela, creadas
+    except IntegrityError:
+        messages.error(request, 'No se pudo crear: puede haber un duplicado. Revisa o intenta de nuevo.')
+        return None, 0
+    except ValueError as e:
+        messages.error(request, str(e))
+        return None, 0
+    except Exception as e:
+        messages.error(request, f'Error al crear la instancia: {e}')
+        return None, 0
+
+
+def _crear_instancia_escuela_form_context(user_sede):
     niveles = list(NivelProgramaPlantilla.objects.order_by('jerarquia', 'nombre'))
     plantillas_qs = EscuelaProgramaPlantilla.objects.select_related('nivel_plantilla').order_by(
         'nivel_plantilla__jerarquia', 'nombre'
@@ -618,190 +704,42 @@ def profesor_crear_instancia_escuela(request):
     salones_libres = list(
         Salon.objects.filter(sede=user_sede, is_active=True, escuela__isnull=True).order_by('nombre')
     )
+    anio_actual = timezone.now().year
+    hoy = timezone.localdate()
+    return {
+        'user_sede': user_sede,
+        'niveles': niveles,
+        'plantillas_data': plantillas_data,
+        'salones_libres': salones_libres,
+        'anios_academicos': list(range(anio_actual, anio_actual + 5)),
+        'anio_escuela_default': anio_actual,
+        'fecha_inicio_default': hoy.strftime('%Y-%m-%d'),
+        'fecha_fin_default': (hoy + timedelta(weeks=12)).strftime('%Y-%m-%d'),
+        'modalidad_default': Escuela.Modalidad.PRESENCIAL,
+        'cupo_maximo_default': 30,
+    }
+
+
+@login_required
+def profesor_crear_instancia_escuela(request):
+    """
+    El docente crea una Escuela operativa en su sede a partir del catálogo global
+    (nivel → escuela plantilla), con horario obligatorio (uno o más días) y salón opcional.
+    """
+    if not hasattr(request.user, 'profesor_profile'):
+        messages.error(request, 'Solo los profesores pueden crear una instancia de escuela desde aquí.')
+        return redirect('core:dashboard')
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, 'No tienes una sede asignada.')
+        return redirect('core:dashboard')
+
+    prof = request.user.profesor_profile
 
     if request.method == 'POST':
-        try:
-            pid = int(request.POST.get('plantilla_id') or '0')
-        except ValueError:
-            pid = 0
-        plantilla = EscuelaProgramaPlantilla.objects.filter(id=pid).select_related('nivel_plantilla').first()
-        if not plantilla:
-            messages.error(request, 'Elige una escuela del catálogo global.')
-            return redirect('hechos:profesor_crear_instancia_escuela')
-
-        nombre_esc = (plantilla.nombre or '').strip()
-        if not nombre_esc:
-            messages.error(request, 'La plantilla no tiene nombre válido.')
-            return redirect('hechos:profesor_crear_instancia_escuela')
-
-        try:
-            anio = int(request.POST.get('anio_escuela') or '0')
-        except ValueError:
-            anio = 0
-        if anio < timezone.now().year:
-            messages.error(request, 'Elige un año académico válido.')
-            return redirect('hechos:profesor_crear_instancia_escuela')
-        ciclo_post = (request.POST.get('ciclo') or Escuela.Ciclo.A).strip().upper()
-        if ciclo_post not in (Escuela.Ciclo.A, Escuela.Ciclo.B):
-            ciclo_post = Escuela.Ciclo.A
-        ciclo = ciclo_post
-        if not _escuela_nombre_disponible(user_sede, nombre_esc, anio, ciclo):
-            messages.error(
-                request,
-                'Ya existe una escuela activa con ese nombre para el mismo año y ciclo en la sede.',
-            )
-            return redirect('hechos:profesor_crear_instancia_escuela')
-
-        try:
-            horario_rows = _parse_horario_filas_crear_instancia(request)
-        except ValueError as e:
-            messages.error(request, str(e))
-            return redirect('hechos:profesor_crear_instancia_escuela')
-
-        # Regla operativa: un profesor no puede estar asignado al mismo día y hora en dos escuelas activas.
-        # (La diferencia real entre instancias es el horario.)
-        q_conf = Q()
-        for d_int, hora_t in horario_rows:
-            q_conf |= Q(dia_semana=d_int, hora=hora_t)
-        if q_conf:
-            choque = (
-                EscuelaHorario.objects.filter(q_conf)
-                .filter(
-                    escuela__maestro=prof,
-                    escuela__is_active=True,
-                    escuela__sede=user_sede,
-                )
-                .select_related('escuela')
-                .order_by('dia_semana', 'hora')
-                .first()
-            )
-            if choque:
-                day_labels = {int(k): v for k, v in EscuelaHorario.DiaSemana.choices}
-                dia_txt = day_labels.get(int(choque.dia_semana), str(choque.dia_semana))
-                hora_txt = choque.hora.strftime('%I:%M %p').lstrip('0').lower()
-                esc_choque = choque.escuela
-                messages.error(
-                    request,
-                    f'Conflicto de horario: ya tienes una escuela asignada el {dia_txt} a las {hora_txt} '
-                    f'({esc_choque.titulo_tarjeta()}). Elige otra hora.',
-                )
-                return redirect('hechos:profesor_crear_instancia_escuela')
-
-        fecha_inicio = _parse_iso_date(request.POST.get('fecha_inicio'))
-        fecha_fin = _parse_iso_date(request.POST.get('fecha_fin'))
-        if not fecha_inicio:
-            messages.error(request, 'Indica la fecha de inicio del ciclo de clases.')
-            return redirect('hechos:profesor_crear_instancia_escuela')
-        if not fecha_fin:
-            messages.error(request, 'Indica la fecha de fin del ciclo de clases.')
-            return redirect('hechos:profesor_crear_instancia_escuela')
-        if fecha_fin < fecha_inicio:
-            messages.error(request, 'La fecha de fin debe ser igual o posterior a la de inicio.')
-            return redirect('hechos:profesor_crear_instancia_escuela')
-
-        delta_days = (fecha_fin - fecha_inicio).days
-        curso_duracion_semanas = max(1, (delta_days + 6) // 7)
-
-        horario_txt = ' · '.join(
-            _horario_texto_dia_hora_12(d_int, hora_t) for d_int, hora_t in horario_rows
-        )
-
-        salon_id = (request.POST.get('salon_id') or '').strip()
-        modalidad = (request.POST.get('modalidad') or Escuela.Modalidad.PRESENCIAL).strip().lower()
-        modalidades_validas = {
-            Escuela.Modalidad.PRESENCIAL,
-            Escuela.Modalidad.VIRTUAL,
-            Escuela.Modalidad.HIBRIDA,
-        }
-        if modalidad not in modalidades_validas:
-            modalidad = Escuela.Modalidad.PRESENCIAL
-
-        try:
-            cupo_maximo_post = int(request.POST.get('cupo_maximo') or '0')
-        except ValueError:
-            cupo_maximo_post = 0
-        if cupo_maximo_post < 1:
-            messages.error(request, 'Indica un cupo máximo válido (al menos 1 estudiante).')
-            return redirect('hechos:profesor_crear_instancia_escuela')
-
-        creadas = 0
-        try:
-            with transaction.atomic():
-                escuela = Escuela.objects.create(
-                    sede=user_sede,
-                    nombre=nombre_esc,
-                    descripcion=(plantilla.descripcion or '').strip(),
-                    anio=anio,
-                    ciclo=ciclo,
-                    maestro=prof,
-                    fecha_inicio=fecha_inicio,
-                    fecha_fin=fecha_fin,
-                    modalidad=modalidad,
-                    horario=horario_txt,
-                    aula='',
-                    cupo_maximo=cupo_maximo_post,
-                    is_active=True,
-                )
-
-                ruta = RutaEstudio.objects.create(
-                    sede=user_sede,
-                    escuela=escuela,
-                    nombre=(nombre_esc or '').strip() or escuela.nombre,
-                    descripcion='',
-                    duracion_semanas=12,
-                    nivel='basico',
-                    is_active=True,
-                )
-                Curso.objects.create(
-                    sede=user_sede,
-                    ruta_estudio=ruta,
-                    nombre=(nombre_esc or '').strip() or escuela.nombre,
-                    descripcion='',
-                    orden=1,
-                    duracion_semanas=curso_duracion_semanas,
-                    is_active=True,
-                )
-                salon_pk = None
-                if salon_id:
-                    try:
-                        salon_pk = int(salon_id)
-                    except ValueError:
-                        salon_pk = None
-                if salon_pk:
-                    sal = Salon.objects.select_for_update().filter(
-                        id=salon_pk, sede=user_sede, is_active=True
-                    ).first()
-                    if sal and sal.escuela_id is None:
-                        sal.escuela = escuela
-                        sal.save(update_fields=['escuela', 'updated_at'])
-                        escuela.aula = sal.nombre
-                        escuela.cupo_maximo = max(1, int(sal.capacidad_plazas or 30))
-                        escuela.save(update_fields=['aula', 'cupo_maximo', 'updated_at'])
-                    elif sal and sal.escuela_id != escuela.id:
-                        raise ValueError('El salón elegido ya está asignado a otra escuela.')
-
-                for d_int, hora_t in horario_rows:
-                    EscuelaHorario.objects.get_or_create(
-                        escuela=escuela,
-                        dia_semana=d_int,
-                        defaults={'hora': hora_t},
-                    )
-
-                creadas = _crear_clases_si_vacias_desde_estructura(escuela, user_sede, prof)
-                if creadas > 0:
-                    cfg_grilla, _ = EscuelaGrillaAsistenciaConfig.objects.get_or_create(
-                        escuela=escuela,
-                        sede=user_sede,
-                        defaults={'num_columnas': GRILLA_ASISTENCIA_COLS_DEFECTO},
-                    )
-                    want_cols = min(
-                        max(creadas, cfg_grilla.num_columnas),
-                        GRILLA_ASISTENCIA_COLS_MAX,
-                    )
-                    if want_cols > cfg_grilla.num_columnas:
-                        cfg_grilla.num_columnas = want_cols
-                        cfg_grilla.save(update_fields=['num_columnas', 'updated_at'])
-
+        escuela, creadas = _procesar_creacion_escuela(request, user_sede=user_sede, maestro=prof)
+        if escuela is not None:
             msg_ok = (
                 f'Se creó la escuela «{escuela.titulo_tarjeta()}» con la primera edición del curso. '
                 f'Ya puedes gestionarla en Mis escuelas.'
@@ -813,31 +751,78 @@ def profesor_crear_instancia_escuela(request):
                 )
             messages.success(request, msg_ok)
             return redirect(f"{reverse('hechos:mis_escuelas_profesor')}?escuela={escuela.id}")
-        except IntegrityError:
-            messages.error(request, 'No se pudo crear: puede haber un duplicado. Revisa o intenta de nuevo.')
-        except ValueError as e:
-            messages.error(request, str(e))
-        except Exception as e:
-            messages.error(request, f'Error al crear la instancia: {e}')
+        return redirect('hechos:profesor_crear_instancia_escuela')
 
-    anio_actual = timezone.now().year
-    hoy = timezone.localdate()
     return render(
         request,
         'hechos/profesor_crear_instancia_escuela.html',
-        {
-            'user_sede': user_sede,
-            'niveles': niveles,
-            'plantillas_data': plantillas_data,
-            'salones_libres': salones_libres,
-            'anios_academicos': list(range(anio_actual, anio_actual + 5)),
-            'anio_escuela_default': anio_actual,
-            'fecha_inicio_default': hoy.strftime('%Y-%m-%d'),
-            'fecha_fin_default': (hoy + timedelta(weeks=12)).strftime('%Y-%m-%d'),
-            'modalidad_default': Escuela.Modalidad.PRESENCIAL,
-            'cupo_maximo_default': 30,
-        },
+        _crear_instancia_escuela_form_context(user_sede),
     )
+
+
+@login_required
+def pedagogico_crear_escuela(request):
+    """
+    Coordinador pedagógico: crea una Escuela operativa en la sede y la asigna de una vez
+    a un profesor existente (no es el profesor quien la crea para sí mismo).
+    """
+    if not request.user.is_super_admin():
+        r = ca.require_pedagogico(request)
+        if r:
+            return r
+
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, 'No tienes una sede asignada.')
+        return redirect('core:dashboard')
+
+    profesores = list(
+        Profesor.objects.filter(sede=user_sede, is_active=True)
+        .select_related('user')
+        .order_by('user__first_name', 'user__last_name')
+    )
+
+    if request.method == 'POST':
+        try:
+            profesor_id = int(request.POST.get('profesor_id') or '0')
+        except ValueError:
+            profesor_id = 0
+        maestro = next((p for p in profesores if p.id == profesor_id), None)
+        if not maestro:
+            messages.error(request, 'Elige el profesor al que se le va a asignar esta escuela.')
+            return redirect('hechos:pedagogico_crear_escuela')
+
+        escuela, creadas = _procesar_creacion_escuela(request, user_sede=user_sede, maestro=maestro)
+        if escuela is not None:
+            msg_ok = (
+                f'Se creó la escuela «{escuela.titulo_tarjeta()}» y quedó asignada a '
+                f'{maestro.user.get_full_name()}.'
+            )
+            if creadas:
+                msg_ok += (
+                    f' Se generaron {creadas} clases en el calendario '
+                    f'(una por cada día de clase en el período).'
+                )
+            messages.success(request, msg_ok)
+            return redirect('hechos:pedagogico_editar_escuela')
+        return redirect('hechos:pedagogico_crear_escuela')
+
+    context = _crear_instancia_escuela_form_context(user_sede)
+    context['profesores'] = profesores
+    return render(request, 'hechos/pedagogico_crear_escuela.html', context)
+
+
+@login_required
+def pedagogico_info(request):
+    if not request.user.is_super_admin():
+        r = ca.require_pedagogico(request)
+        if r:
+            return r
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, 'No tienes una sede asignada.')
+        return redirect('core:dashboard')
+    return render(request, 'hechos/pedagogico_info.html', {'user_sede': user_sede})
 
 
 @login_required
@@ -925,7 +910,6 @@ def profesores_list(request):
         return redirect('core:dashboard')
     
     base_qs = Profesor.objects.filter(sede=user_sede, is_active=True)
-    experiencia_promedio = base_qs.aggregate(avg=Avg('experiencia_anos'))['avg'] or 0
     escuela_asignada = Escuela.objects.filter(
         maestro_id=OuterRef('pk'),
         is_active=True,
@@ -963,7 +947,6 @@ def profesores_list(request):
         'profesores_con_asignacion': profesores_con_asignacion,
         'profesores_sin_asignacion': max(0, base_qs.count() - profesores_con_asignacion),
         'total_ediciones_en_sede': total_ediciones_en_sede,
-        'experiencia_promedio': round(float(experiencia_promedio), 1),
         'es_coordinador_pedagogico': bool(es_pedagogico and not request.user.is_super_admin()),
     }
     
@@ -1241,7 +1224,7 @@ def estructura_escuela_portal(request, escuela_id):
         return redirect("core:dashboard")
 
     escuela = get_object_or_404(Escuela, id=escuela_id, sede=user_sede, is_active=True)
-    return redirect("hechos:estructura_configurar", escuela_id=escuela.id, step=1)
+    return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela.id, step=1)
 
 
 @login_required
@@ -1334,7 +1317,7 @@ def estructura_configurar_paso(request, escuela_id, step):
                 update_fields=["anio", "ciclo", "fecha_inicio", "fecha_fin", "updated_at"],
             )
             messages.success(request, "Período y ciclo guardados. Sigue con los días de clase.")
-            return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=2)
+            return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=2)
 
         return render(
             request,
@@ -1375,7 +1358,7 @@ def estructura_configurar_paso(request, escuela_id, step):
             else:
                 request.session[sk] = {"dias": dias_sel}
                 request.session.modified = True
-                return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=3)
+                return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=3)
         elif "dias" in data:
             checked_vals = data["dias"]
         day_checks = []
@@ -1397,7 +1380,7 @@ def estructura_configurar_paso(request, escuela_id, step):
         dias = data.get("dias")
         if not dias:
             messages.warning(request, "Primero elige los días en que se darán clases.")
-            return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=2)
+            return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=2)
 
         dias_sorted = sorted(dias)
         horas_por_dia = data.get("horas_por_dia") or {}
@@ -1465,7 +1448,7 @@ def estructura_configurar_paso(request, escuela_id, step):
             data.pop("hora", None)
             request.session[sk] = data
             request.session.modified = True
-            return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=4)
+            return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=4)
 
         dias_rows = _build_dias_horario_rows_paso2(
             dias, day_labels, horas_por_dia, legacy_hora, existing_by_day
@@ -1487,7 +1470,7 @@ def estructura_configurar_paso(request, escuela_id, step):
         legacy_hora = data.get("hora")
         if not dias:
             messages.warning(request, "Completa los pasos anteriores (días de clase).")
-            return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=2)
+            return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=2)
 
         dias_sorted = sorted(dias)
         if legacy_hora and not horas_por_dia:
@@ -1496,7 +1479,7 @@ def estructura_configurar_paso(request, escuela_id, step):
 
         if any(str(d) not in horas_por_dia for d in dias_sorted):
             messages.warning(request, "Define el horario de cada día en el paso anterior.")
-            return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=3)
+            return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=3)
 
         horas_parseadas = []
         resumen_filas = []
@@ -1509,12 +1492,12 @@ def estructura_configurar_paso(request, escuela_id, step):
                 )
         except (ValueError, TypeError, IndexError):
             messages.error(request, "Sesión de configuración inválida. Vuelve al paso 3.")
-            return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=3)
+            return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=3)
 
         fi, ff = escuela.fecha_inicio, escuela.fecha_fin
         if not fi or not ff:
             messages.error(request, "Indica primero las fechas de inicio y fin en el paso 1.")
-            return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=1)
+            return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=1)
         fechas = _calcular_fechas_clase(fi, ff, set(dias_sorted))
         dias_seleccionados = [day_labels[d] for d in dias_sorted]
 
@@ -1568,7 +1551,7 @@ def estructura_configurar_paso(request, escuela_id, step):
                     data["profesor_wizard_id"] = pid
                 request.session[sk] = data
                 request.session.modified = True
-                return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=5)
+                return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=5)
 
             return render(
                 request,
@@ -1583,7 +1566,7 @@ def estructura_configurar_paso(request, escuela_id, step):
 
         if "profesor_wizard_id" not in data:
             messages.warning(request, "Antes elige al profesor en el paso anterior.")
-            return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=4)
+            return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=4)
 
         pid_final = data["profesor_wizard_id"]
         prof = None
@@ -1593,15 +1576,12 @@ def estructura_configurar_paso(request, escuela_id, step):
             ).select_related("user").first()
             if not prof:
                 messages.error(request, "El profesor guardado en la clase ya no es válido. Vuelve a elegirlo.")
-                return redirect("hechos:estructura_configurar", escuela_id=escuela_id, step=4)
+                return redirect("hechos:pedagogico_editar_escuela_paso", escuela_id=escuela_id, step=4)
 
         if prof:
-            profesor_resumen = {
-                "nombre": prof.user.get_full_name() or prof.user.username,
-                "codigo": prof.codigo_profesor or "",
-            }
+            profesor_resumen = {"nombre": prof.user.get_full_name() or prof.user.username}
         else:
-            profesor_resumen = {"nombre": "Sin asignar", "codigo": ""}
+            profesor_resumen = {"nombre": "Sin asignar"}
 
         if request.method == "POST":
             EscuelaHorario.objects.filter(escuela=escuela).delete()
@@ -1622,7 +1602,7 @@ def estructura_configurar_paso(request, escuela_id, step):
             if creadas:
                 msg += f" Se generaron {creadas} clases en el calendario."
             messages.success(request, msg)
-            return redirect("hechos:estructura_ediciones")
+            return redirect("hechos:pedagogico_editar_escuela")
 
         ciclo_label = dict(Escuela.Ciclo.choices).get(escuela.ciclo, escuela.ciclo)
         return render(
@@ -2680,7 +2660,10 @@ def profesor_restablecer_contrasena(request):
         if not estudiante:
             messages.error(request, 'No se encontró ese estudiante.')
             return redirect('hechos:profesor_restablecer_contrasena')
-        nueva_password = (estudiante.numero_documento or '').strip()
+        nueva_password = estudiante.documento_numero
+        if not nueva_password:
+            estudiante.sincronizar_documento()
+            nueva_password = estudiante.documento_numero
         if not nueva_password:
             messages.error(
                 request,
@@ -4035,7 +4018,7 @@ def profesor_escuela_asistencia_import_excel(request, escuela_id):
     )
     doc_a_est = {}
     for est in estudiantes:
-        k = _grilla_doc_normalizado(est.numero_documento)
+        k = _grilla_doc_normalizado(est.documento_numero)
         if k:
             doc_a_est[k] = est
     edicion = _edicion_principal_escuela(user_sede, escuela)
@@ -4629,7 +4612,7 @@ def _profesor_escuela_asistencia_excel_response(request, escuela_id, *, plantill
 
     for idx, est in enumerate(estudiantes, start=1):
         ws.cell(row=row, column=1, value=idx)
-        doc = (est.numero_documento or "").strip()
+        doc = (est.documento_numero or "").strip()
         if doc.isdigit():
             try:
                 ws.cell(row=row, column=2, value=int(doc))
@@ -5008,7 +4991,7 @@ def profesor_escuela_notas_import_excel(request, escuela_id):
     estudiantes = list(_grilla_notas_estudiantes_qs(user_sede, escuela))
     doc_a_est = {}
     for est in estudiantes:
-        k = _grilla_doc_normalizado(est.numero_documento)
+        k = _grilla_doc_normalizado(est.documento_numero)
         if k:
             doc_a_est[k] = est
 
@@ -5211,7 +5194,7 @@ def _profesor_escuela_notas_excel_response(request, escuela_id, *, plantilla_vac
     row = header_row + 1
     for idx, est in enumerate(estudiantes, start=1):
         ws.cell(row=row, column=1, value=idx)
-        doc = (est.numero_documento or '').strip()
+        doc = (est.documento_numero or '').strip()
         if doc.isdigit():
             try:
                 ws.cell(row=row, column=2, value=int(doc))
@@ -6455,31 +6438,45 @@ def crear_estudiante(request):
         return redirect('core:dashboard')
     
     if request.method == 'POST':
+        doc_raw = (request.POST.get('username') or '').strip()
+        tipo_doc = Estudiante.TipoDocumento.CC
+        try:
+            doc = _normalize_and_validate_documento_plausible(doc_raw, tipo_doc)
+        except django_forms.ValidationError as exc:
+            messages.error(request, exc.messages[0] if exc.messages else str(exc))
+            return render(request, 'hechos/crear_estudiante.html', {'user_sede': user_sede})
+
+        if documento_ya_registrado(doc):
+            messages.error(request, MSG_DOCUMENTO_YA_EXISTE)
+            return render(request, 'hechos/crear_estudiante.html', {'user_sede': user_sede})
+
+        password = (request.POST.get('password') or '').strip() or doc
         try:
             avatar_file = request.FILES.get('avatar')
-            # Crear usuario
             user = User.objects.create_user(
-                username=request.POST.get('username'),
+                username=doc,
                 email=request.POST.get('email'),
-                password=request.POST.get('password'),
+                password=password,
                 first_name=request.POST.get('first_name'),
                 last_name=request.POST.get('last_name'),
                 sede=user_sede,
                 avatar=avatar_file,
+                documento_identidad=doc,
+                tipo_documento=tipo_doc,
             )
-            
-            # Crear perfil de estudiante
-            Estudiante.objects.create(
+
+            estudiante = Estudiante.objects.create(
                 user=user,
                 sede=user_sede,
+                tipo_documento=tipo_doc,
+                numero_documento=doc,
                 telefono_emergencia=request.POST.get('telefono_emergencia', ''),
                 direccion=request.POST.get('direccion', ''),
                 fecha_nacimiento=request.POST.get('fecha_nacimiento') or None,
-                notas_medicas=request.POST.get('notas_medicas', '')
             )
             
             messages.success(request, f'Estudiante {user.get_full_name()} creado exitosamente.')
-            return redirect('hechos:estudiantes_list')
+            return redirect('core:estudiantes_list')
             
         except Exception as e:
             messages.error(request, f'Error al crear estudiante: {str(e)}')
@@ -6737,7 +6734,7 @@ def _find_estudiante_por_documento_global(doc_raw: str):
     if len(digits) < 5:
         return None
     for e in qs.iterator(chunk_size=800):
-        ed = ''.join(c for c in (e.numero_documento or '') if c.isdigit())
+        ed = ''.join(c for c in e.documento_numero if c.isdigit())
         if ed == digits:
             return e
     return None
@@ -6905,12 +6902,7 @@ def _matricular_escuela_simple_post(request, user_sede):
                     user.first_name = fn
                     user.last_name = ln
                     user.save(update_fields=['first_name', 'last_name'])
-                if not est.numero_documento or est.numero_documento != doc_norm:
-                    est.numero_documento = doc_norm
-                    est.save(update_fields=['numero_documento'])
-                if not user.documento_identidad:
-                    user.documento_identidad = doc_norm
-                    user.save(update_fields=['documento_identidad'])
+                est.aplicar_documento(doc_norm)
                 _grant_hechos_permission(user)
             else:
                 first_name, last_name = _split_nombre_import(nombre_completo)
@@ -6927,18 +6919,16 @@ def _matricular_escuela_simple_post(request, user_sede):
                     if hasattr(existing_user, 'estudiante_profile'):
                         est = existing_user.estudiante_profile
                         est.sede_id = user_sede.pk
-                        est.numero_documento = doc_norm
                         est.is_active = True
-                        est.save(update_fields=['sede', 'numero_documento', 'is_active'])
+                        est.save(update_fields=['sede', 'is_active'])
                         user = existing_user
                         user.sede = user_sede
-                        if not user.documento_identidad:
-                            user.documento_identidad = doc_norm
                         user.first_name = first_name
                         user.last_name = last_name
                         user.save(
-                            update_fields=['sede', 'documento_identidad', 'first_name', 'last_name']
+                            update_fields=['sede', 'first_name', 'last_name']
                         )
+                        est.aplicar_documento(doc_norm)
                     else:
                         user = existing_user
                         user.sede = user_sede
@@ -7105,7 +7095,7 @@ def sugerencias_estudiante_doc_matricula(request):
     rows = rows[:20]
     out = []
     for est in rows:
-        doc = (est.numero_documento or '').strip() or (est.user.documento_identidad or '').strip()
+        doc = est.documento_numero
         sede_nom = est.sede.nombre if getattr(est, 'sede_id', None) else None
         out.append(
             {
@@ -7406,7 +7396,7 @@ def editar_estudiante(request, estudiante_id):
             estudiante.save()
             
             messages.success(request, f'Estudiante {estudiante.user.get_full_name()} actualizado exitosamente.')
-            return redirect('hechos:estudiantes_list')
+            return redirect('core:estudiantes_list')
             
         except Exception as e:
             messages.error(request, f'Error al actualizar estudiante: {str(e)}')
@@ -7584,7 +7574,7 @@ def eliminar_estudiante(request, estudiante_id):
         estudiante.is_active = False
         estudiante.save()
         messages.success(request, f'Estudiante {estudiante.user.get_full_name()} eliminado exitosamente.')
-        return redirect('hechos:estudiantes_list')
+        return redirect('core:estudiantes_list')
     
     context = {
         'estudiante': estudiante,
@@ -8334,6 +8324,18 @@ def _coordinador_financiero_gate(request):
 
 
 @login_required
+def coordinador_financiero_info(request):
+    gate = _coordinador_financiero_gate(request)
+    if gate:
+        return gate
+    user_sede = get_user_sede(request.user)
+    if not user_sede:
+        messages.warning(request, 'No tienes una sede asignada.')
+        return redirect('core:dashboard')
+    return render(request, 'hechos/coordinador_financiero_info.html', {'user_sede': user_sede})
+
+
+@login_required
 def coordinador_recursos(request):
     gate = _coordinador_financiero_gate(request)
     if gate:
@@ -8392,6 +8394,7 @@ def coordinador_recursos(request):
             }
         )
     movimientos.sort(key=lambda m: (m['fecha'], m['pk']), reverse=True)
+    movimientos_truncados = len(movimientos) > 500
     movimientos = movimientos[:500]
 
     return render(
@@ -8400,6 +8403,7 @@ def coordinador_recursos(request):
         {
             'user_sede': user_sede,
             'movimientos': movimientos,
+            'movimientos_truncados': movimientos_truncados,
             'total_ofrendado': total_of,
             'total_recaudos_ocasionales': total_rec,
             'total_ingresos_sede': total_of + total_rec,
@@ -8538,7 +8542,7 @@ def coordinador_logistica(request):
         return redirect('core:dashboard')
 
     raw_tab = (request.GET.get('tab') or '').strip().lower()
-    if raw_tab in ('salones', 'escuelas'):
+    if raw_tab in ('salones', 'escuelas', 'inventario', 'info'):
         logistica_tab = raw_tab
     elif request.GET.get('escuela'):
         logistica_tab = 'escuelas'
@@ -8548,6 +8552,9 @@ def coordinador_logistica(request):
     salon_form = SalonForm(prefix='nuevo')
     salon_editando = None
     salon_edit_form = None
+    item_form = ItemInventarioForm(prefix='nuevo_item')
+    item_editando = None
+    item_edit_form = None
 
     if request.method == 'POST':
         action = (request.POST.get('action') or '').strip()
@@ -8679,6 +8686,48 @@ def coordinador_logistica(request):
             messages.success(request, f'«{salon.nombre}» ya no está asignado a «{escuela.nombre}».')
             return _redirect_coordinador_logistica(tab='escuelas', escuela_id=escuela.id)
 
+        elif action == 'crear_item_inventario':
+            item_form = ItemInventarioForm(request.POST, prefix='nuevo_item')
+            if item_form.is_valid():
+                item = item_form.save(commit=False)
+                item.sede = user_sede
+                try:
+                    item.save()
+                    messages.success(request, f'«{item.nombre}» agregado al inventario ({item.cantidad}).')
+                except IntegrityError:
+                    messages.error(request, 'Ya existe un ítem con ese nombre en esta sede.')
+                return _redirect_coordinador_logistica(tab='inventario')
+            messages.error(request, 'Revisa los datos del ítem.')
+
+        elif action == 'actualizar_item_inventario':
+            item = get_object_or_404(
+                ItemInventario,
+                id=request.POST.get('item_id'),
+                sede=user_sede,
+            )
+            item_edit_form = ItemInventarioForm(request.POST, instance=item, prefix='edit_item')
+            if item_edit_form.is_valid():
+                try:
+                    item_edit_form.save()
+                    messages.success(request, f'«{item.nombre}» actualizado.')
+                    return _redirect_coordinador_logistica(tab='inventario')
+                except IntegrityError:
+                    messages.error(request, 'Ya existe un ítem con ese nombre en esta sede.')
+            else:
+                messages.error(request, 'Revisa los datos del ítem.')
+            item_editando = item
+
+        elif action == 'eliminar_item_inventario':
+            item = get_object_or_404(
+                ItemInventario,
+                id=request.POST.get('item_id'),
+                sede=user_sede,
+            )
+            nombre = item.nombre
+            item.delete()
+            messages.success(request, f'«{nombre}» se eliminó del inventario.')
+            return _redirect_coordinador_logistica(tab='inventario')
+
     salones = (
         Salon.objects.filter(sede=user_sede)
         .select_related('escuela')
@@ -8706,6 +8755,17 @@ def coordinador_logistica(request):
                 salon_edit_form = SalonForm(instance=salon_editando, prefix='edit')
             except (ValueError, Salon.DoesNotExist):
                 messages.warning(request, 'No se encontró ese salón en tu sede.')
+
+    items_inventario = ItemInventario.objects.filter(sede=user_sede).order_by('nombre')
+
+    if logistica_tab == 'inventario' and item_editando is None:
+        edit_get = request.GET.get('editar')
+        if edit_get:
+            try:
+                item_editando = ItemInventario.objects.get(id=int(edit_get), sede=user_sede)
+                item_edit_form = ItemInventarioForm(instance=item_editando, prefix='edit_item')
+            except (ValueError, ItemInventario.DoesNotExist):
+                messages.warning(request, 'No se encontró ese ítem en tu sede.')
 
     salon_asignado_escuela = None
     salones_elegibles_asignar = []
@@ -8737,5 +8797,9 @@ def coordinador_logistica(request):
             'logistica_tab': logistica_tab,
             'salon_asignado_escuela': salon_asignado_escuela,
             'salones_elegibles_asignar': salones_elegibles_asignar,
+            'item_form': item_form,
+            'item_editando': item_editando,
+            'item_edit_form': item_edit_form,
+            'items_inventario': items_inventario,
         },
     )
